@@ -37,7 +37,16 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     var strokeColor: NSColor = RGBAColor.red.nsColor
     var lineWidth: CGFloat = 4
 
-    private var selectedID: UUID?
+    /// Fired whenever the selection changes, so the toolbar can reflect the
+    /// selected object's color and width.
+    var onSelectionChanged: ((MarkupObject?) -> Void)?
+
+    private var selectedID: UUID? { didSet { onSelectionChanged?(selectedObject) } }
+
+    /// Translucent fill for a highlighter of the given color.
+    static func highlighterFill(_ c: NSColor) -> RGBAColor {
+        var x = RGBAColor(c); x.a = 0.38; return x
+    }
 
     // Drag state
     private enum DragKind { case create, move, resize(Handle), endpoint(Int) }
@@ -192,7 +201,9 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         var obj = MarkupObject(kind: kind,
                                stroke: RGBAColor(strokeColor),
                                lineWidth: lineWidth)
-        if kind == .highlighter { obj.fill = .highlighter; obj.stroke = .highlighter }
+        if kind == .highlighter {
+            let f = Self.highlighterFill(strokeColor); obj.fill = f; obj.stroke = f
+        }
         if kind == .pixelate { obj.fill = nil }
         if obj.isPathBased {
             obj.points = [p, p]
@@ -257,10 +268,19 @@ final class CanvasView: NSView, NSTextFieldDelegate {
                 document.objects[idx].frame = rect(from: dragStart, to: p)
             }
             let o = document.objects[idx]
-            let tooSmall = !o.isPathBased && o.frame.width < 3 && o.frame.height < 3
-            let noPath = o.isPathBased && (o.points.count < 2 ||
-                hypot(o.points[0].x - o.points[1].x, o.points[0].y - o.points[1].y) < 3)
-            if tooSmall || noPath {
+            // Discard only genuine accidental clicks. Freehand is judged by point
+            // count (its samples are always adjacent, so endpoint distance is a
+            // false negative); other path kinds by endpoint distance.
+            let degenerate: Bool
+            switch o.kind {
+            case .freehand: degenerate = o.points.count < 3
+            case .line, .arrow:
+                degenerate = o.points.count < 2 ||
+                    hypot(o.points[0].x - o.points[1].x, o.points[0].y - o.points[1].y) < 3
+            default:
+                degenerate = o.frame.width < 3 && o.frame.height < 3
+            }
+            if degenerate {
                 document.objects.remove(at: idx)
                 selectedID = nil
                 undoSnapshot = nil
@@ -354,6 +374,45 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     }
 
     @objc func delete(_ sender: Any?) { deleteSelection() }
+
+    // MARK: Active color / width (apply to selection + future objects)
+
+    func setActiveColor(_ c: NSColor) {
+        strokeColor = c
+        guard let id = selectedID, let idx = indexOf(id) else { return }
+        undoSnapshot = document.objects
+        if document.objects[idx].kind == .highlighter {
+            document.objects[idx].fill = Self.highlighterFill(c)
+            document.objects[idx].stroke = Self.highlighterFill(c)
+        } else {
+            document.objects[idx].stroke = RGBAColor(c)
+        }
+        commitUndo()
+        needsDisplay = true
+    }
+
+    func setActiveWidth(_ w: CGFloat) {
+        lineWidth = w
+        guard let id = selectedID, let idx = indexOf(id) else { return }
+        undoSnapshot = document.objects
+        if document.objects[idx].kind == .text {
+            document.objects[idx].fontSize = max(w * 5, 12)
+            resizeTextFrame(idx)
+        } else {
+            document.objects[idx].lineWidth = w
+        }
+        commitUndo()
+        needsDisplay = true
+    }
+
+    private func resizeTextFrame(_ idx: Int) {
+        let o = document.objects[idx]
+        guard o.kind == .text, !o.text.isEmpty else { return }
+        let size = (o.text as NSString).size(withAttributes: [
+            .font: NSFont.systemFont(ofSize: o.fontSize, weight: .semibold)])
+        document.objects[idx].frame.size = CGSize(width: ceil(size.width) + 8,
+                                                  height: ceil(size.height) + 4)
+    }
 
     // MARK: Flatten
 

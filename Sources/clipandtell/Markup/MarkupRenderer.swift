@@ -8,16 +8,38 @@ enum MarkupRenderer {
 
     static func draw(_ obj: MarkupObject, baseImage: NSImage?) {
         switch obj.kind {
-        case .rectangle:   drawRect(obj)
-        case .ellipse:     drawEllipse(obj)
-        case .line:        drawLine(obj)
-        case .arrow:       drawArrow(obj)
-        case .freehand:    drawFreehand(obj)
-        case .highlighter: drawHighlighter(obj)
-        case .text:        drawText(obj)
+        case .rectangle:   withHalo(obj.stroke.nsColor) { drawRect(obj) }
+        case .ellipse:     withHalo(obj.stroke.nsColor) { drawEllipse(obj) }
+        case .line:        withHalo(obj.stroke.nsColor) { drawLine(obj) }
+        case .arrow:       withHalo(obj.stroke.nsColor) { drawArrow(obj) }
+        case .freehand:    withHalo(obj.stroke.nsColor) { drawFreehand(obj) }
+        case .text:        withHalo(obj.stroke.nsColor) { drawText(obj) }
+        case .highlighter: drawHighlighter(obj)   // translucent — no halo
         case .image:       drawImage(obj)
         case .pixelate:    drawPixelate(obj, baseImage: baseImage)
         }
+    }
+
+    // MARK: Legibility halo
+
+    /// A soft, contrast-aware glow behind a mark so it stays legible on any
+    /// background. The halo color is chosen by (partial-WCAG) relative luminance:
+    /// dark marks get a light halo, light marks get a dark one.
+    static func haloColor(for color: NSColor) -> NSColor {
+        let c = color.usingColorSpace(.sRGB) ?? color
+        let lum = 0.2126 * c.redComponent + 0.7152 * c.greenComponent + 0.0722 * c.blueComponent
+        return lum > 0.6 ? .black : .white
+    }
+
+    private static func withHalo(_ color: NSColor, _ body: () -> Void) {
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = haloColor(for: color).withAlphaComponent(0.85)
+        shadow.shadowBlurRadius = 4
+        shadow.shadowOffset = .zero
+        shadow.set()
+        body()
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     // MARK: Shapes
@@ -44,25 +66,37 @@ enum MarkupRenderer {
         o.stroke.nsColor.setStroke(); p.stroke()
     }
 
+    /// One cohesive filled arrow polygon — shaft and head share the same path, so
+    /// the head can never drift out of alignment with the line, and it scales
+    /// cleanly with line width.
     private static func drawArrow(_ o: MarkupObject) {
         guard o.points.count >= 2 else { return }
-        let start = o.points[0], end = o.points[1]
-        let shaft = NSBezierPath()
-        shaft.move(to: start); shaft.line(to: end)
-        shaft.lineWidth = o.lineWidth; shaft.lineCapStyle = .round
-        o.stroke.nsColor.setStroke(); shaft.stroke()
+        let s = o.points[0], e = o.points[1]
+        let dx = e.x - s.x, dy = e.y - s.y
+        let len = hypot(dx, dy)
+        guard len > 0.5 else { return }
 
-        // Arrowhead — scales with line width.
-        let angle = atan2(end.y - start.y, end.x - start.x)
-        let headLen = max(o.lineWidth * 3.2, 12)
-        let spread = CGFloat.pi / 7
-        let h1 = CGPoint(x: end.x - headLen * cos(angle - spread),
-                         y: end.y - headLen * sin(angle - spread))
-        let h2 = CGPoint(x: end.x - headLen * cos(angle + spread),
-                         y: end.y - headLen * sin(angle + spread))
-        let head = NSBezierPath()
-        head.move(to: end); head.line(to: h1); head.line(to: h2); head.close()
-        o.stroke.nsColor.setFill(); head.fill()
+        let ux = dx / len, uy = dy / len          // unit direction
+        let px = -uy, py = ux                      // unit perpendicular
+        let half = max(o.lineWidth, 2) / 2         // shaft half-thickness
+        let headLen = min(max(o.lineWidth * 3.4, 16), len * 0.6)
+        let headHalf = max(o.lineWidth * 1.7, headLen * 0.45)
+        let bx = e.x - ux * headLen, by = e.y - uy * headLen   // head base center
+
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+        let path = NSBezierPath()
+        path.move(to: p(s.x + px * half, s.y + py * half))
+        path.line(to: p(bx + px * half, by + py * half))
+        path.line(to: p(bx + px * headHalf, by + py * headHalf))   // head shoulder
+        path.line(to: p(e.x, e.y))                                 // tip
+        path.line(to: p(bx - px * headHalf, by - py * headHalf))
+        path.line(to: p(bx - px * half, by - py * half))
+        path.line(to: p(s.x - px * half, s.y - py * half))
+        path.close()
+        path.lineJoinStyle = .round
+
+        o.stroke.nsColor.setFill()
+        path.fill()
     }
 
     private static func drawFreehand(_ o: MarkupObject) {
