@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeys.onCapture = { [weak self] kind in self?.runCapture(kind) }
         hotkeys.reload()
 
-        switch ProcessInfo.processInfo.environment["CLIPANDTELL_DEMO"] {
+        switch ProcessInfo.processInfo.environment["CLIPANDNOTE_DEMO"] {
         case "render": renderDemoAndExit()                       // headless: write PNG, quit
         case "1":      openDemo(DemoContent.makeDocument())      // seeded editor window
         case "small":  openDemo(DemoContent.makeSmallDocument()) // small snapshot (centering)
@@ -34,8 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func renderDemoAndExit() {
         let canvas = CanvasView(document: DemoContent.makeDocument())
         if let png = canvas.flatten()?.pngData() {
-            try? png.write(to: URL(fileURLWithPath: "/tmp/clipandtell-demo.png"))
-            NSLog("clipandtell demo: wrote /tmp/clipandtell-demo.png")
+            try? png.write(to: URL(fileURLWithPath: "/tmp/clipandnote-demo.png"))
+            NSLog("clipandnote demo: wrote /tmp/clipandnote-demo.png")
         }
         exit(0)
     }
@@ -54,14 +54,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About clipandtell", action: nil, keyEquivalent: "")
+        appMenu.addItem(withTitle: "About clipandnote", action: nil, keyEquivalent: "")
         appMenu.addItem(.separator())
         let prefsItem = NSMenuItem(title: "Preferences…",
                                    action: #selector(showPreferences(_:)), keyEquivalent: ",")
         prefsItem.target = self
         appMenu.addItem(prefsItem)
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit clipandtell",
+        appMenu.addItem(withTitle: "Quit clipandnote",
                         action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)

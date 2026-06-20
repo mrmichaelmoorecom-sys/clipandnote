@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "clipandtell",
+    name: "clipandnote",
     platforms: [
         .macOS(.v14)   // Sonoma — required for Vision subject-lift / instance masks (smart-select)
     ],
     targets: [
         .executableTarget(
-            name: "clipandtell",
-            path: "Sources/clipandtell"
+            name: "clipandnote",
+            path: "Sources/clipandnote"
         )
     ]
 )

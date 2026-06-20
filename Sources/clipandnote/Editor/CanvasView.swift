@@ -21,9 +21,9 @@ enum Tool: Equatable {
 }
 
 /// Custom pasteboard type stamped on flattened copies so clipandcue can recognise
-/// a clipandtell markup and keep it out of its history queue (interop, Phase 5).
+/// a clipandnote markup and keep it out of its history queue (interop, Phase 5).
 extension NSPasteboard.PasteboardType {
-    static let clipandtellMarkup = NSPasteboard.PasteboardType("com.clipandtell.markup")
+    static let clipandnoteMarkup = NSPasteboard.PasteboardType("com.clipandnote.markup")
 }
 
 /// The interactive markup canvas. Flipped (top-left origin) so coordinates match
@@ -504,7 +504,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setData(png, forType: .png)
-        pb.setData(Data(), forType: .clipandtellMarkup)   // interop marker
+        pb.setData(Data(), forType: .clipandnoteMarkup)   // interop marker
     }
 
     @objc func delete(_ sender: Any?) { deleteSelection() }

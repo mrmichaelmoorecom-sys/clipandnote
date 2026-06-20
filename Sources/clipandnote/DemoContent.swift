@@ -2,11 +2,11 @@ import AppKit
 
 /// Developer-only sample content used to exercise the editor without going
 /// through screen capture (which needs a Screen Recording grant). Enabled by
-/// running with the env var `CLIPANDTELL_DEMO=1`. Not used in normal operation.
+/// running with the env var `CLIPANDNOTE_DEMO=1`. Not used in normal operation.
 enum DemoContent {
 
     static var isEnabled: Bool {
-        ProcessInfo.processInfo.environment["CLIPANDTELL_DEMO"] == "1"
+        ProcessInfo.processInfo.environment["CLIPANDNOTE_DEMO"] == "1"
     }
 
     static let canvasSize = CGSize(width: 1000, height: 640)

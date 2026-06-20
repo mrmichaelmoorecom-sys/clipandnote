@@ -1,13 +1,13 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-blue.svg)](LICENSE)
 
-# clipandtell
+# clipandnote
 
 A fast, native macOS **screenshot markup** app — a modern, open (non-commercial)
 take on Skitch. Capture from the menu bar, annotate with selectable objects,
 keep a searchable history of every markup, and export real layered files.
 
 Part of the **clip…** family alongside [clipandcue](https://clipandcue.com)
-(clipboard history). The two are fully independent but interoperate: clipandtell
+(clipboard history). The two are fully independent but interoperate: clipandnote
 copies land as the *latest* clipboard item without flooding clipandcue's queue.
 
 ## Status
@@ -25,8 +25,8 @@ copies land as the *latest* clipboard item without flooding clipandcue's queue.
 | Platform | macOS 14 Sonoma+, Mac-only (iOS companion later) |
 | Stack | Swift + AppKit, SPM executable bundled into a `.app` (mirrors clipandcue) |
 | AI | **100% on-device** — Vision for smart-select / subject-lift / OCR; on-device inpainting for erase |
-| Sync | Own CloudKit container `iCloud.com.clipandtell.shared` (private DB) |
-| clipandcue interop | Local pasteboard marker `com.clipandtell.markup` + `source` tag so markups don't fill clipandcue's history |
+| Sync | Own CloudKit container `iCloud.com.clipandnote.shared` (private DB) |
+| clipandcue interop | Local pasteboard marker `com.clipandnote.markup` + `source` tag so markups don't fill clipandcue's history |
 | License | CC BY-NC 4.0 — non-commercial use only |
 
 ## Roadmap
@@ -50,6 +50,6 @@ A `.app` bundling + signing script (matching clipandcue's) lands with Phase 4.
 
 ## License
 
-© 2026 Michael Moore. clipandtell is licensed under
+© 2026 Michael Moore. clipandnote is licensed under
 [CC BY-NC 4.0](LICENSE). Free to use, modify, and share for **non-commercial**
 purposes, with attribution. Commercial use is not permitted.

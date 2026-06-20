@@ -69,7 +69,7 @@ final class CaptureEngine {
 
     private func shoot(_ args: [String], completion: @escaping (NSImage?) -> Void) {
         let out = FileManager.default.temporaryDirectory
-            .appendingPathComponent("clipandtell-\(UUID().uuidString).png")
+            .appendingPathComponent("clipandnote-\(UUID().uuidString).png")
         var argv = args
         argv.append(out.path)
 

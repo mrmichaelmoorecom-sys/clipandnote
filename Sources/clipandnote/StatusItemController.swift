@@ -18,7 +18,7 @@ final class StatusItemController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "pencil.tip.crop.circle",
-                                   accessibilityDescription: "clipandtell")
+                                   accessibilityDescription: "clipandnote")
             button.image?.isTemplate = true
         }
         rebuildMenu()
@@ -74,7 +74,7 @@ final class StatusItemController {
         prefs.target = self
         menu.addItem(prefs)
 
-        menu.addItem(NSMenuItem(title: "Quit clipandtell",
+        menu.addItem(NSMenuItem(title: "Quit clipandnote",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
 
