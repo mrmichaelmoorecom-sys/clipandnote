@@ -1,0 +1,8 @@
+.build/
+clipandtell.app/
+*.dmg
+.DS_Store
+*.swiftpm
+.claude/
+DerivedData/
+*.xcuserstate

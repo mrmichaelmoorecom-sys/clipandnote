@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- clipandtell's OWN CloudKit container — independent of clipandcue.
+         Cross-app handoff happens via the local pasteboard marker, not a shared
+         database, so the two apps stay fully decoupled. -->
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+        <string>iCloud.com.clipandtell.shared</string>
+    </array>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudKit</string>
+    </array>
+    <!-- Silent CloudKit pushes for live cross-device sync (macOS-prefixed key;
+         the bare aps-environment key is iOS-only and fails to launch on macOS). -->
+    <key>com.apple.developer.aps-environment</key>
+    <string>production</string>
+</dict>
+</plist>
