@@ -30,7 +30,7 @@ extension NSPasteboard.PasteboardType {
 /// the captured image and on-screen text. Draws the base image, every object,
 /// and selection handles; routes mouse/keyboard into create / move / resize /
 /// edit gestures; and supports undo, delete, paste-as-object, and copy-flattened.
-final class CanvasView: NSView, NSTextFieldDelegate {
+final class CanvasView: NSView, NSTextViewDelegate {
 
     var document: MarkupDocument { didSet { needsDisplay = true } }
     var tool: Tool = .select { didSet { if tool != .select { selectedID = nil; needsDisplay = true } } }
@@ -68,11 +68,35 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     private var drag: DragKind?
     private var dragStart: CGPoint = .zero
     private var preDrag: MarkupObject?          // snapshot of the object being edited
-    private var undoSnapshot: [MarkupObject]?   // objects array before the gesture
+    /// Full undoable state — objects plus canvas geometry, so canvas expansion
+    /// undoes cleanly along with the edit that caused it.
+    private struct DocSnapshot {
+        var objects: [MarkupObject]
+        var canvasSize: CGSize
+        var baseImageFrame: CGRect
+    }
+    private var undoSnapshot: DocSnapshot?
+
+    /// Fired when the canvas grows, so the editor can keep it centered.
+    var onCanvasResized: (() -> Void)?
+
+    private func snapshot() -> DocSnapshot {
+        DocSnapshot(objects: document.objects, canvasSize: document.canvasSize,
+                    baseImageFrame: document.baseImageFrame)
+    }
 
     // Inline text editing
     private var editingID: UUID?
-    private var textField: NSTextField?
+    private var textView: NSTextView?
+
+    /// Multi-line text measurement (honors embedded newlines).
+    static func textSize(_ s: String, font: NSFont) -> NSSize {
+        let bounds = (s as NSString).boundingRect(
+            with: NSSize(width: 100_000, height: 100_000),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font])
+        return NSSize(width: ceil(bounds.width), height: ceil(bounds.height))
+    }
 
     private enum Handle: CaseIterable {
         case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
@@ -88,15 +112,38 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     override var acceptsFirstResponder: Bool { true }
     override func becomeFirstResponder() -> Bool { true }
 
+    // MARK: Cursor feedback
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+            owner: self, userInfo: nil))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let hit = hitTestObject(at: p)
+        if tool == .select {
+            (hit != nil ? NSCursor.openHand : NSCursor.arrow).set()
+        } else if let k = tool.markupKind, hit?.kind == k {
+            NSCursor.arrow.set()        // hovering same-kind object → will grab it
+        } else {
+            NSCursor.crosshair.set()    // will draw a new object
+        }
+    }
+
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.white.setFill()
         bounds.fill()
-        document.baseImage?.draw(in: bounds)
+        document.baseImage?.draw(in: document.baseImageFrame)
 
         for obj in document.objects where obj.id != editingID {
-            MarkupRenderer.draw(obj, baseImage: document.baseImage)
+            MarkupRenderer.draw(obj, baseImage: document.baseImage, baseFrame: document.baseImageFrame)
         }
         if let sel = selectedObject { drawSelection(sel) }
 
@@ -172,7 +219,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         window?.makeFirstResponder(self)
         commitTextEditing()
         let p = convert(event.locationInWindow, from: nil)
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
 
         // Double-click a text object to edit it, regardless of the active tool.
         if event.clickCount == 2,
@@ -210,6 +257,17 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
         // Creating a new object.
         guard let kind = tool.markupKind else { return }
+
+        // If hovering over an existing object of the same kind, behave like the
+        // select tool and grab it — don't stack a new one on top.
+        if let hit = hitTestObject(at: p), hit.kind == kind {
+            selectedID = hit.id
+            preDrag = hit
+            drag = .move
+            dragStart = p
+            needsDisplay = true
+            return
+        }
 
         if kind == .text {
             var obj = MarkupObject(kind: .text,
@@ -321,6 +379,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         if case .resize = drag {
             document.objects[idx].frame = document.objects[idx].frame.standardized
         }
+        expandCanvasIfNeeded()   // grow if this edit pushed past the snapshot edges
         commitUndo()
         needsDisplay = true
     }
@@ -374,14 +433,14 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         guard let id = selectedID, let idx = indexOf(id) else { return }
         let target = idx + delta
         guard target >= 0, target < document.objects.count else { return }
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         document.objects.swapAt(idx, target)
         commitUndo(); needsDisplay = true
     }
 
     private func moveSelectedToEdge(front: Bool) {
         guard let id = selectedID, let idx = indexOf(id) else { return }
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         let obj = document.objects.remove(at: idx)
         if front { document.objects.append(obj) } else { document.objects.insert(obj, at: 0) }
         commitUndo(); needsDisplay = true
@@ -392,7 +451,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         fontName = family
         guard let id = selectedID, let idx = indexOf(id),
               document.objects[idx].kind == .text else { return }
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         document.objects[idx].fontName = family
         resizeTextFrame(idx)
         commitUndo(); needsDisplay = true
@@ -400,7 +459,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
     private func deleteSelection() {
         guard let id = selectedID, let idx = indexOf(id) else { return }
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         document.objects.remove(at: idx)
         selectedID = nil
         commitUndo()
@@ -411,7 +470,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
     @objc func paste(_ sender: Any?) {
         let pb = NSPasteboard.general
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         if let img = NSImage(pasteboard: pb), let png = img.pngData() {
             // THE core Skitch fix: paste arrives as a new, movable object —
             // it never replaces the canvas or your existing markup.
@@ -455,7 +514,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     func setActiveColor(_ c: NSColor) {
         strokeColor = c
         guard let id = selectedID, let idx = indexOf(id) else { return }
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         if document.objects[idx].kind == .highlighter {
             document.objects[idx].fill = Self.highlighterFill(c)
             document.objects[idx].stroke = Self.highlighterFill(c)
@@ -469,7 +528,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     func setActiveWidth(_ w: CGFloat) {
         lineWidth = w
         guard let id = selectedID, let idx = indexOf(id) else { return }
-        undoSnapshot = document.objects
+        undoSnapshot = snapshot()
         if document.objects[idx].kind == .text {
             document.objects[idx].fontSize = max(w * 5, 12)
             resizeTextFrame(idx)
@@ -494,11 +553,12 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     func flatten() -> NSImage? {
         let objs = document.objects
         let base = document.baseImage
+        let baseFrame = document.baseImageFrame
         return NSImage(size: document.canvasSize, flipped: true) { _ in
             NSColor.white.setFill()
             NSRect(origin: .zero, size: self.document.canvasSize).fill()
-            base?.draw(in: NSRect(origin: .zero, size: self.document.canvasSize))
-            for o in objs { MarkupRenderer.draw(o, baseImage: base) }
+            base?.draw(in: baseFrame)
+            for o in objs { MarkupRenderer.draw(o, baseImage: base, baseFrame: baseFrame) }
             return true
         }
     }
@@ -514,38 +574,63 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     private func beginTextEditing(_ id: UUID) {
         guard let obj = document.objects.first(where: { $0.id == id }) else { return }
         editingID = id
-        let field = NSTextField(frame: obj.frame.insetBy(dx: -2, dy: -2))
-        field.stringValue = obj.text
-        field.font = obj.resolvedFont()
-        field.textColor = obj.stroke.nsColor
-        field.isBordered = true
-        field.bezelStyle = .squareBezel
-        field.drawsBackground = true
-        field.backgroundColor = NSColor.white.withAlphaComponent(0.9)
-        field.delegate = self
-        addSubview(field)
-        textField = field
-        window?.makeFirstResponder(field)
+        // NSTextView gives multi-line editing — Return inserts a newline; commit
+        // by clicking away or pressing Escape.
+        let tv = NSTextView(frame: obj.frame.insetBy(dx: -3, dy: -3))
+        tv.string = obj.text
+        tv.font = obj.resolvedFont()
+        tv.textColor = obj.stroke.nsColor
+        tv.isRichText = false
+        tv.isVerticallyResizable = true
+        tv.isHorizontallyResizable = true
+        tv.textContainer?.widthTracksTextView = false
+        tv.textContainer?.size = NSSize(width: 100_000, height: 100_000)
+        tv.textContainerInset = NSSize(width: 3, height: 3)
+        tv.drawsBackground = true
+        tv.backgroundColor = NSColor.white.withAlphaComponent(0.92)
+        tv.wantsLayer = true
+        tv.layer?.cornerRadius = 3
+        tv.delegate = self
+        addSubview(tv)
+        textView = tv
+        sizeTextView()
+        window?.makeFirstResponder(tv)
         needsDisplay = true
     }
 
-    func controlTextDidEndEditing(_ obj: Notification) { commitTextEditing() }
+    private func sizeTextView() {
+        guard let tv = textView, let obj = editingID.flatMap({ id in
+            document.objects.first { $0.id == id } }) else { return }
+        let measured = Self.textSize(tv.string.isEmpty ? " " : tv.string, font: obj.resolvedFont())
+        tv.frame.size = CGSize(width: max(measured.width, 40) + 14, height: measured.height + 10)
+    }
+
+    func textDidChange(_ notification: Notification) { sizeTextView() }
+
+    /// Escape commits the edit (Return is left to insert a newline).
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(cancelOperation(_:)) {
+            commitTextEditing()
+            return true
+        }
+        return false
+    }
 
     private func commitTextEditing() {
-        guard let id = editingID, let field = textField, let idx = indexOf(id) else { return }
-        let value = field.stringValue
-        field.removeFromSuperview()
-        textField = nil
+        guard let id = editingID, let tv = textView, let idx = indexOf(id) else { return }
+        let value = tv.string
+        tv.removeFromSuperview()
+        textView = nil
         editingID = nil
 
-        if value.isEmpty {
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             document.objects.remove(at: idx)   // empty text → discard
         } else {
             document.objects[idx].text = value
-            let measured = (value as NSString).size(withAttributes: [
-                .font: document.objects[idx].resolvedFont()])
-            document.objects[idx].frame.size = CGSize(width: ceil(measured.width) + 10,
-                                                      height: ceil(measured.height) + 6)
+            let measured = Self.textSize(value, font: document.objects[idx].resolvedFont())
+            document.objects[idx].frame.size = CGSize(width: measured.width + 10,
+                                                      height: measured.height + 6)
+            expandCanvasIfNeeded()
         }
         window?.makeFirstResponder(self)
         needsDisplay = true
@@ -555,14 +640,48 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
     private func commitUndo() {
         guard let previous = undoSnapshot, let um = undoManager else { undoSnapshot = nil; return }
-        let current = document.objects
+        let current = snapshot()
         um.registerUndo(withTarget: self) { target in
             target.undoSnapshot = current
-            target.document.objects = previous
-            target.selectedID = nil
+            target.applySnapshot(previous)
             target.commitUndo()   // registers the inverse for redo
-            target.needsDisplay = true
         }
         undoSnapshot = nil
+    }
+
+    private func applySnapshot(_ s: DocSnapshot) {
+        document.objects = s.objects
+        document.canvasSize = s.canvasSize
+        document.baseImageFrame = s.baseImageFrame
+        selectedID = nil
+        setFrameSize(s.canvasSize)
+        onCanvasResized?()
+        needsDisplay = true
+    }
+
+    // MARK: Auto-expand
+
+    /// When an object moves past the snapshot edges, grow the canvas to fit it
+    /// (with a margin) and re-center the content so nothing is clipped.
+    func expandCanvasIfNeeded() {
+        var union = document.baseImageFrame
+        for o in document.objects {
+            union = union.union(o.frame.standardized)
+            for p in o.points { union = union.union(CGRect(x: p.x, y: p.y, width: 0, height: 0)) }
+        }
+        let fits = union.minX >= 0 && union.minY >= 0
+            && union.maxX <= document.canvasSize.width
+            && union.maxY <= document.canvasSize.height
+        guard !fits else { return }
+
+        let m: CGFloat = 24
+        let newSize = CGSize(width: union.width + m * 2, height: union.height + m * 2)
+        let offset = CGSize(width: m - union.minX, height: m - union.minY)
+        document.baseImageFrame = document.baseImageFrame.offsetBy(dx: offset.width, dy: offset.height)
+        for i in document.objects.indices { document.objects[i].move(by: offset) }
+        document.canvasSize = newSize
+        setFrameSize(newSize)
+        onCanvasResized?()
+        needsDisplay = true
     }
 }

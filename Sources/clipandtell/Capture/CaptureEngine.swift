@@ -1,73 +1,86 @@
 import AppKit
 
-/// The snapshot commands exposed in the menu bar. These map onto macOS's
-/// `screencapture` tool for v0.1; a custom selection overlay (needed for pixel-
-/// accurate "Previous Snapshot Area" and in-app crosshair styling) replaces the
-/// interactive modes in a later phase.
+/// The snapshot commands exposed in the menu bar.
 enum CaptureKind {
-    case crosshair          // interactive region select
-    case previousArea       // re-shoot the last region rect, non-interactively
-    case timedCrosshair     // interactive region select after a delay
+    case crosshair          // drag-select a region (custom overlay)
+    case previousArea       // re-shoot the last region, non-interactively
+    case timedCrosshair     // region select after a delay
     case fullscreen         // all displays
     case window             // interactive window picker
-    case menu               // delayed interactive — gives you time to open a menu
+    case menu               // delayed interactive — time to open a menu
 }
 
-/// Captures the screen via the system `screencapture` binary and hands back an
-/// NSImage. Using the CLI means macOS handles the Screen Recording TCC prompt
-/// for us and the interactive UIs are pixel-perfect and familiar.
+/// Captures the screen. Region modes use `RegionSelectionOverlay` so the chosen
+/// rectangle is known and can be replayed by "Previous Snapshot Area"; the rest
+/// shell out to the system `screencapture` tool.
 final class CaptureEngine {
-    /// The last region rectangle captured (display coordinates), enabling
-    /// "Previous Snapshot Area". nil until the first region capture records one.
+    /// The last region captured, in screencapture coordinates. nil until the
+    /// first region capture records one.
     private(set) var lastRegion: CGRect?
 
-    /// Capture, then deliver the image on the main queue (nil = user cancelled).
     func capture(_ kind: CaptureKind, completion: @escaping (NSImage?) -> Void) {
-        let delay = AppSettings.shared.timedDelaySeconds
-        var args = ["-x"]   // -x: no capture sound
-
         switch kind {
         case .crosshair:
-            args += ["-i"]
+            selectThenShoot(delay: 0, completion: completion)
         case .timedCrosshair:
-            args += ["-T", String(delay), "-i"]
-        case .menu:
-            // Give the user a moment to open a menu, then drag-select over it.
-            args += ["-T", String(max(delay, 3)), "-i"]
-        case .fullscreen:
-            break               // no flag = whole screen(s)
-        case .window:
-            args += ["-i", "-W"] // interactive window mode
+            selectThenShoot(delay: AppSettings.shared.timedDelaySeconds, completion: completion)
         case .previousArea:
-            guard let r = lastRegion else {
-                // No prior region yet — fall back to interactive so the user
-                // gets a sensible result instead of nothing.
-                args += ["-i"]
-                break
+            if let r = lastRegion {
+                shootRect(r, completion: completion)
+            } else {
+                selectThenShoot(delay: 0, completion: completion)   // nothing stored yet
             }
-            let rect = "\(Int(r.origin.x)),\(Int(r.origin.y)),\(Int(r.width)),\(Int(r.height))"
-            args += ["-R", rect]
+        case .fullscreen:
+            shoot(["-x"], completion: completion)
+        case .window:
+            shoot(["-x", "-i", "-W"], completion: completion)
+        case .menu:
+            // Menus close if we steal focus with the overlay, so use the system
+            // interactive capture after a delay to set the menu up.
+            let delay = max(AppSettings.shared.timedDelaySeconds, 3)
+            shoot(["-x", "-T", String(delay), "-i"], completion: completion)
         }
+    }
 
+    // MARK: Region overlay
+
+    private func selectThenShoot(delay: Int, completion: @escaping (NSImage?) -> Void) {
+        let begin = {
+            RegionSelectionOverlay.selectRegion { [weak self] rect in
+                guard let rect else { completion(nil); return }   // cancelled
+                self?.lastRegion = rect
+                self?.shootRect(rect, completion: completion)
+            }
+        }
+        if delay > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(delay), execute: begin)
+        } else {
+            begin()
+        }
+    }
+
+    private func shootRect(_ r: CGRect, completion: @escaping (NSImage?) -> Void) {
+        let rect = "\(Int(r.minX)),\(Int(r.minY)),\(Int(r.width)),\(Int(r.height))"
+        shoot(["-x", "-R", rect], completion: completion)
+    }
+
+    // MARK: screencapture
+
+    private func shoot(_ args: [String], completion: @escaping (NSImage?) -> Void) {
         let out = FileManager.default.temporaryDirectory
             .appendingPathComponent("clipandtell-\(UUID().uuidString).png")
-        args.append(out.path)
+        var argv = args
+        argv.append(out.path)
 
         DispatchQueue.global(qos: .userInitiated).async {
             let proc = Process()
             proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            proc.arguments = args
+            proc.arguments = argv
             try? proc.run()
             proc.waitUntilExit()
 
-            let image: NSImage?
-            if let data = try? Data(contentsOf: out), let img = NSImage(data: data) {
-                image = img
-            } else {
-                image = nil   // user pressed Esc, or capture produced nothing
-            }
+            let image = (try? Data(contentsOf: out)).flatMap { NSImage(data: $0) }
             try? FileManager.default.removeItem(at: out)
-
             DispatchQueue.main.async { completion(image) }
         }
     }

@@ -115,7 +115,18 @@ struct MarkupObject: Identifiable, Codable, Equatable {
 /// `.ctell` format (Phase 3) will serialize.
 struct MarkupDocument {
     var baseImage: NSImage?
-    var objects: [MarkupObject] = []
-    /// Canvas size in points — the base image's point size, or a default.
+    var objects: [MarkupObject]
+    /// Canvas size in points. Grows as objects move past the original snapshot.
     var canvasSize: CGSize
+    /// Where the base image sits within the canvas. Starts filling the canvas;
+    /// shifts when the canvas expands so the snapshot stays put relative to marks.
+    var baseImageFrame: CGRect
+
+    init(baseImage: NSImage?, objects: [MarkupObject] = [],
+         canvasSize: CGSize, baseImageFrame: CGRect? = nil) {
+        self.baseImage = baseImage
+        self.objects = objects
+        self.canvasSize = canvasSize
+        self.baseImageFrame = baseImageFrame ?? CGRect(origin: .zero, size: canvasSize)
+    }
 }

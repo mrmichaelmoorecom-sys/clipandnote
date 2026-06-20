@@ -98,6 +98,13 @@ final class EditorWindowController: NSWindowController {
             self.widthSlider.doubleValue = Double(obj.kind == .text ? obj.fontSize / 5 : obj.lineWidth)
         }
         canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
+        canvas.onCanvasResized = { [weak canvas] in
+            guard let canvas, let clip = canvas.enclosingScrollView?.contentView else { return }
+            let doc = canvas.frame.size, vis = clip.bounds.size
+            let x = max(0, (doc.width - vis.width) / 2)
+            let y = max(0, (doc.height - vis.height) / 2)
+            canvas.scroll(NSPoint(x: x, y: y))
+        }
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true

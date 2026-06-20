@@ -6,7 +6,7 @@ import AppKit
 /// Keeping all drawing here means the editor and the exporter render identically.
 enum MarkupRenderer {
 
-    static func draw(_ obj: MarkupObject, baseImage: NSImage?) {
+    static func draw(_ obj: MarkupObject, baseImage: NSImage?, baseFrame: CGRect) {
         switch obj.kind {
         case .rectangle:   drawRect(obj)
         case .ellipse:     drawEllipse(obj)
@@ -16,7 +16,7 @@ enum MarkupRenderer {
         case .text:        drawText(obj)
         case .highlighter: drawHighlighter(obj)   // translucent — no contrast edge
         case .image:       drawImage(obj)
-        case .pixelate:    drawPixelate(obj, baseImage: baseImage)
+        case .pixelate:    drawPixelate(obj, baseImage: baseImage, baseFrame: baseFrame)
         }
     }
 
@@ -140,15 +140,18 @@ enum MarkupRenderer {
         img.draw(in: o.frame)
     }
 
-    private static func drawPixelate(_ o: MarkupObject, baseImage: NSImage?) {
+    private static func drawPixelate(_ o: MarkupObject, baseImage: NSImage?, baseFrame: CGRect) {
         guard let base = baseImage, o.frame.width > 1, o.frame.height > 1 else {
             NSColor.gray.withAlphaComponent(0.5).setFill()
             NSBezierPath(rect: o.frame).fill()
             return
         }
-        // Source rect is in the base image's bottom-left coordinate space — flip Y.
-        let src = CGRect(x: o.frame.minX,
-                         y: base.size.height - o.frame.maxY,
+        // Map the canvas-space frame into the base image's own (bottom-left
+        // origin) coordinate space, accounting for where the base sits.
+        let localX = o.frame.minX - baseFrame.minX
+        let localMaxY = o.frame.maxY - baseFrame.minY
+        let src = CGRect(x: localX,
+                         y: base.size.height - localMaxY,
                          width: o.frame.width, height: o.frame.height)
         let block: CGFloat = 9
         let small = NSSize(width: max((o.frame.width / block).rounded(), 2),
