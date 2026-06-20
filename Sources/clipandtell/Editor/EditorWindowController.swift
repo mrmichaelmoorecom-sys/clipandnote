@@ -21,9 +21,12 @@ final class EditorWindowController: NSWindowController {
     private var toolSeg: NSSegmentedControl!
 
     convenience init(image: NSImage) {
-        let canvasSize = image.size
-        let doc = MarkupDocument(baseImage: image, objects: [], canvasSize: canvasSize)
+        self.init(document: MarkupDocument(baseImage: image, objects: [],
+                                           canvasSize: image.size))
+    }
 
+    convenience init(document: MarkupDocument) {
+        let canvasSize = document.canvasSize
         let maxW: CGFloat = 1400, maxH: CGFloat = 900
         let contentW = min(max(canvasSize.width, 480), maxW)
         let contentH = min(max(canvasSize.height + 48, 360), maxH)
@@ -37,7 +40,7 @@ final class EditorWindowController: NSWindowController {
         window.center()
         self.init(window: window)
 
-        buildUI(document: doc)
+        buildUI(document: document)
     }
 
     private func buildUI(document: MarkupDocument) {
@@ -118,6 +121,11 @@ final class EditorWindowController: NSWindowController {
 
     @objc private func copyFlattened() {
         canvas.copy(nil)
+    }
+
+    /// Flattened PNG of the current markup (used by the dev demo hook).
+    func canvasFlattenedPNG() -> Data? {
+        canvas.flatten()?.pngData()
     }
 
     func show() {

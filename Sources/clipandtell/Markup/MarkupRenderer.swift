@@ -99,7 +99,9 @@ enum MarkupRenderer {
 
     private static func drawImage(_ o: MarkupObject) {
         guard let data = o.imageData, let img = NSImage(data: data) else { return }
-        img.draw(in: o.frame, from: .zero, operation: .sourceOver, fraction: 1)
+        // Plain draw(in:) renders upright in a flipped context (matching how the
+        // base image is drawn); the draw(in:from:…) variant double-flips it.
+        img.draw(in: o.frame)
     }
 
     private static func drawPixelate(_ o: MarkupObject, baseImage: NSImage?) {
@@ -109,18 +111,24 @@ enum MarkupRenderer {
             NSBezierPath(rect: o.frame).fill()
             return
         }
-        // Downscale the region then draw it back with no interpolation → blocky.
-        let block: CGFloat = 12
-        let small = NSSize(width: max(o.frame.width / block, 1),
-                           height: max(o.frame.height / block, 1))
+        // The source rect is in the base image's coordinate space, which is
+        // bottom-left origin — flip our top-left frame's Y to sample the right area.
+        let src = CGRect(x: o.frame.minX,
+                         y: base.size.height - o.frame.maxY,
+                         width: o.frame.width, height: o.frame.height)
+
+        // Downscale the region, then draw it back with no interpolation → blocky.
+        let block: CGFloat = 9
+        let small = NSSize(width: max((o.frame.width / block).rounded(), 2),
+                           height: max((o.frame.height / block).rounded(), 2))
         let tiny = NSImage(size: small)
         tiny.lockFocus()
-        base.draw(in: NSRect(origin: .zero, size: small), from: o.frame,
+        base.draw(in: NSRect(origin: .zero, size: small), from: src,
                   operation: .copy, fraction: 1)
         tiny.unlockFocus()
 
         NSGraphicsContext.current?.imageInterpolation = .none
-        tiny.draw(in: o.frame, from: .zero, operation: .sourceOver, fraction: 1)
+        tiny.draw(in: o.frame)
         NSGraphicsContext.current?.imageInterpolation = .default
     }
 }

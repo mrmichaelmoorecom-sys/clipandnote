@@ -13,6 +13,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sc.onPickRecent = { [weak self] idx in self?.pasteRecent(idx) }
         sc.onPreferences = { /* Preferences window — next phase. */ }
         statusController = sc
+
+        switch ProcessInfo.processInfo.environment["CLIPANDTELL_DEMO"] {
+        case "render": renderDemoAndExit()   // headless: write PNG, quit
+        case "1":      openDemo()            // interactive: seed an editor window
+        default:       break
+        }
+    }
+
+    /// Dev-only headless check: render the sample markup to /tmp and exit, so the
+    /// renderer can be inspected without launching the full UI.
+    private func renderDemoAndExit() {
+        let canvas = CanvasView(document: DemoContent.makeDocument())
+        if let png = canvas.flatten()?.pngData() {
+            try? png.write(to: URL(fileURLWithPath: "/tmp/clipandtell-demo.png"))
+            NSLog("clipandtell demo: wrote /tmp/clipandtell-demo.png")
+        }
+        exit(0)
+    }
+
+    /// Dev-only: open an editor seeded with one of every annotation kind.
+    private func openDemo() {
+        let editor = EditorWindowController(document: DemoContent.makeDocument())
+        editors.append(editor)
+        editor.show()
     }
 
     /// Minimal main menu so standard editing shortcuts (paste-as-object, copy,
