@@ -29,11 +29,6 @@ final class PreferencesWindowController: NSWindowController {
         header.font = .boldSystemFont(ofSize: 13)
         rows.addArrangedSubview(header)
 
-        let note = NSTextField(labelWithString: "⌘⌥ combos avoid the macOS screenshot shortcuts (⌘⇧3 / ⌘⇧4).")
-        note.font = .systemFont(ofSize: 11)
-        note.textColor = .secondaryLabelColor
-        rows.addArrangedSubview(note)
-
         for (i, command) in CaptureCommand.allCases.enumerated() {
             let label = NSTextField(labelWithString: command.title)
             label.font = .systemFont(ofSize: 12)
