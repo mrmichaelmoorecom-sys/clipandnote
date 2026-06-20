@@ -48,6 +48,35 @@ swift run        # launches the menu-bar app
 
 A `.app` bundling + signing script (matching clipandcue's) lands with Phase 4.
 
+## Snapshot naming (on-device)
+
+Each capture is titled `<timestamp> · <label>`. The label is generated fully
+on-device by combining three signals:
+
+1. **OCR** of the most prominent text (Vision), refined with **Natural Language**
+   so a heading/error/name is picked cleanly — used for text-heavy captures.
+2. **Visual content classification** for image-heavy captures OCR can't describe.
+   By default this uses Vision's built-in scene classifier; for screenshot-tuned
+   labels ("Login screen", "Error dialog", "Code", "Chart"…) it uses a bundled
+   **MobileCLIP** image encoder when present.
+
+### Adding the MobileCLIP model (optional upgrade)
+
+The CLIP path is dormant until you add the model — naming falls back to Vision +
+OCR, so the app works without it. To enable it:
+
+```sh
+python3 -m venv .venv && source .venv/bin/activate
+pip install mobileclip coremltools torch
+# download a checkpoint from https://github.com/apple/ml-mobileclip (e.g. mobileclip_s0.pt)
+python scripts/export_mobileclip.py --checkpoint mobileclip_s0.pt --model mobileclip_s0
+```
+
+This writes `MobileCLIPImage.mlmodelc` + `clip_labels.json`. Place both in the
+built app's `Contents/Resources/` (the only runtime cost is the image encoder + a
+dot product — no text encoder, tokenizer, or network). Edit the `LABELS` list in
+the script to tune the vocabulary.
+
 ## License
 
 © 2026 Michael Moore. clipandnote is licensed under

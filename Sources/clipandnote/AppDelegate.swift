@@ -25,7 +25,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "render": renderDemoAndExit()                       // headless: write PNG, quit
         case "1":      openDemo(DemoContent.makeDocument())      // seeded editor window
         case "small":  openDemo(DemoContent.makeSmallDocument()) // small snapshot (centering)
+        case "name":   nameDemoAndExit()                         // headless: OCR + visual naming
         default:       break
+        }
+    }
+
+    /// Dev-only: run the namer on the demo image, print the result, and exit.
+    private func nameDemoAndExit() {
+        SnapshotNamer.contextualName(for: DemoContent.makeBaseImage()) { name in
+            print("NAME=\(name)")
+            exit(0)
         }
     }
 
