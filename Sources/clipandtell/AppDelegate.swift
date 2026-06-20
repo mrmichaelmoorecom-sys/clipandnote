@@ -2,7 +2,9 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let capture = CaptureEngine()
+    private let hotkeys = HotkeyManager()
     private var statusController: StatusItemController!
+    private var prefsWindow: PreferencesWindowController?
     /// Strong references so editor windows aren't deallocated while open.
     private var editors: [EditorWindowController] = []
 
@@ -12,8 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let sc = StatusItemController()
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pasteRecent(idx) }
-        sc.onPreferences = { /* Preferences window — next phase. */ }
+        sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc
+
+        // Global capture hotkeys (⌘⌥… by default; customizable in Preferences).
+        hotkeys.onCapture = { [weak self] kind in self?.runCapture(kind) }
+        hotkeys.reload()
 
         switch ProcessInfo.processInfo.environment["CLIPANDTELL_DEMO"] {
         case "render": renderDemoAndExit()                       // headless: write PNG, quit
@@ -49,6 +55,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About clipandtell", action: nil, keyEquivalent: "")
+        appMenu.addItem(.separator())
+        let prefsItem = NSMenuItem(title: "Preferences…",
+                                   action: #selector(showPreferences(_:)), keyEquivalent: ",")
+        prefsItem.target = self
+        appMenu.addItem(prefsItem)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit clipandtell",
                         action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -89,6 +100,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.addItem(arrangeItem)
 
         NSApp.mainMenu = main
+    }
+
+    @objc private func showPreferences(_ sender: Any?) { openPreferences() }
+
+    private func openPreferences() {
+        if prefsWindow == nil {
+            let w = PreferencesWindowController()
+            w.onChange = { [weak self] in
+                self?.hotkeys.reload()
+                self?.statusController.rebuild()
+            }
+            prefsWindow = w
+        }
+        prefsWindow?.show()
     }
 
     private func runCapture(_ kind: CaptureKind) {

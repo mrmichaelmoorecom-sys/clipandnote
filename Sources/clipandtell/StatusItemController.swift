@@ -30,15 +30,15 @@ final class StatusItemController {
         rebuildMenu()
     }
 
+    /// Rebuild the menu (e.g. after shortcuts change in Preferences).
+    func rebuild() { rebuildMenu() }
+
     private func rebuildMenu() {
         let menu = NSMenu()
 
-        addCapture(menu, "Crosshair Snapshot", .crosshair, key: "4")
-        addCapture(menu, "Previous Snapshot Area", .previousArea, key: "")
-        addCapture(menu, "Timed Crosshair Snapshot", .timedCrosshair, key: "")
-        addCapture(menu, "Fullscreen Snapshot", .fullscreen, key: "3")
-        addCapture(menu, "Window Snapshot…", .window, key: "")
-        addCapture(menu, "Menu Snapshot…", .menu, key: "")
+        for command in CaptureCommand.allCases {
+            addCapture(menu, command)
+        }
 
         menu.addItem(.separator())
 
@@ -81,11 +81,15 @@ final class StatusItemController {
         statusItem.menu = menu
     }
 
-    private func addCapture(_ menu: NSMenu, _ title: String, _ kind: CaptureKind, key: String) {
-        let item = NSMenuItem(title: title, action: #selector(capture(_:)), keyEquivalent: key)
-        if !key.isEmpty { item.keyEquivalentModifierMask = [.command, .shift] }
+    private func addCapture(_ menu: NSMenu, _ command: CaptureCommand) {
+        let sc = AppSettings.shared.shortcut(for: command)
+        let item = NSMenuItem(title: command.title, action: #selector(capture(_:)),
+                              keyEquivalent: sc.menuKeyEquivalent)
+        // Status-item menu key equivalents are display-only (the menu isn't in
+        // the main menu bar) — the global hotkey does the actual firing.
+        if !sc.isNone { item.keyEquivalentModifierMask = sc.flags }
         item.target = self
-        item.representedObject = kind
+        item.representedObject = command.kind
         menu.addItem(item)
     }
 

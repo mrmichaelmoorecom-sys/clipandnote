@@ -44,4 +44,20 @@ final class AppSettings {
         get { defaults.bool(forKey: Key.syncEnabled) }
         set { defaults.set(newValue, forKey: Key.syncEnabled) }
     }
+
+    // MARK: Capture shortcuts
+
+    func shortcut(for command: CaptureCommand) -> Shortcut {
+        if let data = defaults.data(forKey: "shortcut.\(command.rawValue)"),
+           let sc = try? JSONDecoder().decode(Shortcut.self, from: data) {
+            return sc
+        }
+        return command.defaultShortcut
+    }
+
+    func setShortcut(_ shortcut: Shortcut, for command: CaptureCommand) {
+        if let data = try? JSONEncoder().encode(shortcut) {
+            defaults.set(data, forKey: "shortcut.\(command.rawValue)")
+        }
+    }
 }
