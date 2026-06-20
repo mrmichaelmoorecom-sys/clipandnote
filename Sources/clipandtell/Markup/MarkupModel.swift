@@ -46,6 +46,8 @@ struct MarkupObject: Identifiable, Codable, Equatable {
 
     var text: String
     var fontSize: CGFloat
+    /// Font family name for text objects; nil = the default semibold system font.
+    var fontName: String?
 
     /// PNG bytes for `.image` objects (pasted or dropped images).
     var imageData: Data?
@@ -59,6 +61,7 @@ struct MarkupObject: Identifiable, Codable, Equatable {
          lineWidth: CGFloat = 4,
          text: String = "",
          fontSize: CGFloat = 28,
+         fontName: String? = nil,
          imageData: Data? = nil) {
         self.id = id
         self.kind = kind
@@ -69,7 +72,18 @@ struct MarkupObject: Identifiable, Codable, Equatable {
         self.lineWidth = lineWidth
         self.text = text
         self.fontSize = fontSize
+        self.fontName = fontName
         self.imageData = imageData
+    }
+
+    /// The resolved AppKit font for a text object (family + size), falling back
+    /// to the default semibold system font.
+    func resolvedFont() -> NSFont {
+        if let fam = fontName,
+           let f = NSFontManager.shared.font(withFamily: fam, traits: [], weight: 6, size: fontSize) {
+            return f
+        }
+        return NSFont.systemFont(ofSize: fontSize, weight: .semibold)
     }
 
     /// Recompute `frame` from `points` for path-based kinds, so selection and

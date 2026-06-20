@@ -71,6 +71,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editItem.submenu = editMenu
         main.addItem(editItem)
 
+        // Arrange (z-order) — dispatched through the responder chain to the canvas.
+        let arrangeItem = NSMenuItem()
+        let arrangeMenu = NSMenu(title: "Arrange")
+        func arr(_ title: String, _ sel: String, _ key: String, _ mask: NSEvent.ModifierFlags) {
+            let mi = NSMenuItem(title: title, action: Selector((sel)), keyEquivalent: key)
+            mi.keyEquivalentModifierMask = mask
+            arrangeMenu.addItem(mi)
+        }
+        arr("Bring to Front", "bringToFront:", "]", [.command, .shift])
+        arr("Bring Forward", "bringForward:", "]", [.command])
+        arr("Send Backward", "sendBackward:", "[", [.command])
+        arr("Send to Back", "sendToBack:", "[", [.command, .shift])
+        arrangeItem.submenu = arrangeMenu
+        main.addItem(arrangeItem)
+
         NSApp.mainMenu = main
     }
 

@@ -6,19 +6,19 @@ final class EditorWindowController: NSWindowController {
 
     private var canvas: CanvasView!
 
-    /// Tools in palette order; index maps to the segmented control.
-    private let tools: [(Tool, String, String)] = [
-        (.select, "cursorarrow", "Select"),
-        (.arrow, "arrow.up.left", "Arrow"),
-        (.line, "line.diagonal", "Line"),
-        (.rectangle, "rectangle", "Rectangle"),
-        (.ellipse, "circle", "Ellipse"),
-        (.freehand, "scribble", "Pen"),
-        (.text, "textformat", "Text"),
-        (.highlighter, "highlighter", "Highlighter"),
-        (.pixelate, "mosaic", "Pixelate"),
+    /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
+    private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
+        (.select, "cursorarrow", "Select", "V"),
+        (.arrow, "arrow.up.left", "Arrow", "A"),
+        (.line, "line.diagonal", "Line", "L"),
+        (.rectangle, "rectangle", "Rectangle", "R"),
+        (.ellipse, "circle", "Ellipse", "O"),
+        (.freehand, "scribble", "Pen", "P"),
+        (.text, "textformat", "Text", "T"),
+        (.highlighter, "highlighter", "Highlighter", "H"),
+        (.pixelate, "mosaic", "Pixelate", "X"),
     ]
-    private var toolSeg: NSSegmentedControl!
+    private var toolButtons: [ToolButton] = []
     private var colors: ColorPaletteView!
     private var widthSlider: NSSlider!
 
@@ -50,14 +50,19 @@ final class EditorWindowController: NSWindowController {
         let container = NSView()
 
         // --- Tool palette ---
-        let seg = NSSegmentedControl(
-            images: tools.map { NSImage(systemSymbolName: $0.1, accessibilityDescription: $0.2)
-                ?? NSImage() },
-            trackingMode: .selectOne, target: self, action: #selector(toolChanged(_:)))
-        seg.segmentStyle = .texturedRounded
-        seg.selectedSegment = 0
-        for (i, t) in tools.enumerated() { seg.setToolTip(t.2, forSegment: i) }
-        toolSeg = seg
+        let toolStack = NSStackView()
+        toolStack.orientation = .horizontal
+        toolStack.spacing = 2
+        for t in tools {
+            let b = ToolButton(tool: t.tool, symbolName: t.symbol, tooltip: "\(t.label)  (\(t.key))")
+            b.isSelected = (t.tool == .select)
+            b.onClick = { [weak self] in self?.pickTool(t.tool) }
+            if t.tool == .text {
+                b.onLongPress = { [weak self, weak b] in if let b { self?.showFontMenu(from: b) } }
+            }
+            toolButtons.append(b)
+            toolStack.addArrangedSubview(b)
+        }
 
         let colors = ColorPaletteView()
         colors.translatesAutoresizingMaskIntoConstraints = false
@@ -74,7 +79,7 @@ final class EditorWindowController: NSWindowController {
         let copyButton = NSButton(title: "Copy", target: self, action: #selector(copyFlattened))
         copyButton.bezelStyle = .rounded
 
-        let palette = NSStackView(views: [seg, colors, slider, NSView(), copyButton])
+        let palette = NSStackView(views: [toolStack, colors, slider, NSView(), copyButton])
         palette.orientation = .horizontal
         palette.spacing = 10
         palette.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
@@ -92,11 +97,16 @@ final class EditorWindowController: NSWindowController {
             self.colors.reflect(c)
             self.widthSlider.doubleValue = Double(obj.kind == .text ? obj.fontSize / 5 : obj.lineWidth)
         }
+        canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.documentView = canvas
-        scroll.backgroundColor = NSColor(white: 0.18, alpha: 1)
+        scroll.backgroundColor = NSColor(white: 0.16, alpha: 1)
+        // Padding around the canvas so it reads as a distinct surface even amid a
+        // cluttered desktop.
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
         // An opaque toolbar bar that fully owns the top band and catches every
@@ -131,8 +141,44 @@ final class EditorWindowController: NSWindowController {
         window.makeFirstResponder(canvas)
     }
 
-    @objc private func toolChanged(_ sender: NSSegmentedControl) {
-        canvas.tool = tools[sender.selectedSegment].0
+    /// User picked a tool in the palette.
+    private func pickTool(_ tool: Tool) {
+        canvas.tool = tool
+        setActiveTool(tool)
+        window?.makeFirstResponder(canvas)
+    }
+
+    /// Reflect the active tool in the palette (also called when a keyboard
+    /// shortcut changes the tool inside the canvas).
+    private func setActiveTool(_ tool: Tool) {
+        for b in toolButtons { b.isSelected = (b.tool == tool) }
+    }
+
+    /// Press-and-hold the text tool: choose from every installed font family.
+    private func showFontMenu(from button: ToolButton) {
+        let menu = NSMenu()
+        let def = NSMenuItem(title: "System Font (default)",
+                             action: #selector(pickFont(_:)), keyEquivalent: "")
+        def.target = self
+        def.representedObject = ""
+        menu.addItem(def)
+        menu.addItem(.separator())
+        for family in NSFontManager.shared.availableFontFamilies {
+            let item = NSMenuItem(title: family, action: #selector(pickFont(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = family
+            if let f = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: 14) {
+                item.attributedTitle = NSAttributedString(string: family, attributes: [.font: f])
+            }
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
+    }
+
+    @objc private func pickFont(_ sender: NSMenuItem) {
+        let family = sender.representedObject as? String ?? ""
+        canvas.setActiveFont(family.isEmpty ? nil : family)
+        pickTool(.text)
     }
 
     @objc private func widthChanged(_ sender: NSSlider) {

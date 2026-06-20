@@ -41,6 +41,21 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     /// selected object's color and width.
     var onSelectionChanged: ((MarkupObject?) -> Void)?
 
+    /// Fired when the tool changes from within the canvas (keyboard shortcut),
+    /// so the toolbar can update its highlight.
+    var onToolChanged: ((Tool) -> Void)?
+
+    /// Active font family for new text objects; nil = default system font.
+    var fontName: String?
+
+    /// Single-key tool shortcuts.
+    static let toolShortcuts: [String: Tool] = [
+        "v": .select, "a": .arrow, "l": .line, "r": .rectangle, "o": .ellipse,
+        "p": .freehand, "t": .text, "h": .highlighter, "x": .pixelate,
+    ]
+
+    func selectTool(_ t: Tool) { tool = t; onToolChanged?(t) }
+
     private var selectedID: UUID? { didSet { onSelectionChanged?(selectedObject) } }
 
     /// Translucent fill for a highlighter of the given color.
@@ -84,6 +99,13 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             MarkupRenderer.draw(obj, baseImage: document.baseImage)
         }
         if let sel = selectedObject { drawSelection(sel) }
+
+        // Hairline border so the canvas reads as a distinct card against the
+        // padded dark backdrop.
+        NSColor.black.withAlphaComponent(0.18).setStroke()
+        let border = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
+        border.lineWidth = 1
+        border.stroke()
     }
 
     private func drawSelection(_ obj: MarkupObject) {
@@ -138,7 +160,10 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     }
 
     private func hitTestObject(at p: CGPoint) -> MarkupObject? {
-        document.objects.reversed().first { $0.frame.insetBy(dx: -6, dy: -6).contains(p) }
+        // Use the standardized frame: a resize can leave a negative-size rect,
+        // and CGRect.contains fails on those — which would make the object
+        // unselectable after scaling.
+        document.objects.reversed().first { $0.frame.standardized.insetBy(dx: -6, dy: -6).contains(p) }
     }
 
     // MARK: Mouse
@@ -191,6 +216,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
                                    frame: CGRect(x: p.x, y: p.y, width: 200, height: 40),
                                    stroke: RGBAColor(strokeColor), lineWidth: lineWidth)
             obj.fontSize = max(lineWidth * 6, 22)
+            obj.fontName = fontName
             document.objects.append(obj)
             selectedID = obj.id
             commitUndo()
@@ -290,6 +316,11 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             // Normalize negative-size frames from dragging up/left.
             document.objects[idx].frame = document.objects[idx].frame.standardized
         }
+        // A resize can also leave a negative-size frame (dragging a handle past
+        // the opposite edge) — standardize so the object stays selectable.
+        if case .resize = drag {
+            document.objects[idx].frame = document.objects[idx].frame.standardized
+        }
         commitUndo()
         needsDisplay = true
     }
@@ -316,12 +347,55 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     // MARK: Keyboard
 
     override func keyDown(with event: NSEvent) {
+        // Single-key tool shortcuts — only when not editing text and no modifiers.
+        if editingID == nil,
+           event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+           let ch = event.charactersIgnoringModifiers?.lowercased(),
+           let t = Self.toolShortcuts[ch] {
+            selectTool(t)
+            return
+        }
         switch event.keyCode {
         case 51, 117:   // delete / forward-delete
             deleteSelection()
         default:
             super.keyDown(with: event)
         }
+    }
+
+    // MARK: Z-order (layering)
+
+    @objc func bringForward(_ sender: Any?) { moveSelected(by: +1) }
+    @objc func sendBackward(_ sender: Any?) { moveSelected(by: -1) }
+    @objc func bringToFront(_ sender: Any?) { moveSelectedToEdge(front: true) }
+    @objc func sendToBack(_ sender: Any?) { moveSelectedToEdge(front: false) }
+
+    private func moveSelected(by delta: Int) {
+        guard let id = selectedID, let idx = indexOf(id) else { return }
+        let target = idx + delta
+        guard target >= 0, target < document.objects.count else { return }
+        undoSnapshot = document.objects
+        document.objects.swapAt(idx, target)
+        commitUndo(); needsDisplay = true
+    }
+
+    private func moveSelectedToEdge(front: Bool) {
+        guard let id = selectedID, let idx = indexOf(id) else { return }
+        undoSnapshot = document.objects
+        let obj = document.objects.remove(at: idx)
+        if front { document.objects.append(obj) } else { document.objects.insert(obj, at: 0) }
+        commitUndo(); needsDisplay = true
+    }
+
+    /// Apply a font family to the selected text object and to future text.
+    func setActiveFont(_ family: String?) {
+        fontName = family
+        guard let id = selectedID, let idx = indexOf(id),
+              document.objects[idx].kind == .text else { return }
+        undoSnapshot = document.objects
+        document.objects[idx].fontName = family
+        resizeTextFrame(idx)
+        commitUndo(); needsDisplay = true
     }
 
     private func deleteSelection() {
@@ -357,6 +431,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
                                    frame: CGRect(x: 40, y: 40, width: 300, height: 60),
                                    stroke: RGBAColor(strokeColor), text: str)
             obj.fontSize = 28
+            obj.fontName = fontName
             document.objects.append(obj)
             selectedID = obj.id
             tool = .select
@@ -408,10 +483,9 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     private func resizeTextFrame(_ idx: Int) {
         let o = document.objects[idx]
         guard o.kind == .text, !o.text.isEmpty else { return }
-        let size = (o.text as NSString).size(withAttributes: [
-            .font: NSFont.systemFont(ofSize: o.fontSize, weight: .semibold)])
-        document.objects[idx].frame.size = CGSize(width: ceil(size.width) + 8,
-                                                  height: ceil(size.height) + 4)
+        let size = (o.text as NSString).size(withAttributes: [.font: o.resolvedFont()])
+        document.objects[idx].frame.size = CGSize(width: ceil(size.width) + 10,
+                                                  height: ceil(size.height) + 6)
     }
 
     // MARK: Flatten
@@ -442,7 +516,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         editingID = id
         let field = NSTextField(frame: obj.frame.insetBy(dx: -2, dy: -2))
         field.stringValue = obj.text
-        field.font = NSFont.systemFont(ofSize: obj.fontSize, weight: .semibold)
+        field.font = obj.resolvedFont()
         field.textColor = obj.stroke.nsColor
         field.isBordered = true
         field.bezelStyle = .squareBezel
@@ -468,12 +542,10 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             document.objects.remove(at: idx)   // empty text → discard
         } else {
             document.objects[idx].text = value
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: document.objects[idx].fontSize, weight: .semibold)
-            ]
-            let measured = (value as NSString).size(withAttributes: attrs)
-            document.objects[idx].frame.size = CGSize(width: ceil(measured.width) + 8,
-                                                      height: ceil(measured.height) + 4)
+            let measured = (value as NSString).size(withAttributes: [
+                .font: document.objects[idx].resolvedFont()])
+            document.objects[idx].frame.size = CGSize(width: ceil(measured.width) + 10,
+                                                      height: ceil(measured.height) + 6)
         }
         window?.makeFirstResponder(self)
         needsDisplay = true
