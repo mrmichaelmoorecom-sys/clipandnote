@@ -57,9 +57,8 @@ LABELS = [
     ("Music",          "a screenshot of a music player"),
 ]
 
-# OpenAI CLIP normalization — verify against your model's preprocess transforms.
-MEAN = (0.48145466, 0.4578275, 0.40821073)
-STD  = (0.26862954, 0.26130258, 0.27577711)
+# MobileCLIP's preprocess is Resize + CenterCrop + ToTensor — NO mean/std
+# normalization. The model takes plain [0,1] input.
 
 
 def main():
@@ -75,19 +74,16 @@ def main():
     tokenizer = mobileclip.get_tokenizer(args.model)
 
     # --- Image encoder → Core ML ---
-    # Per-channel CLIP normalization is baked INTO the module (ImageType's scale
-    # is a single scalar, so it can't do per-channel std). ImageType then only
-    # divides the 0–255 input by 255 to reach [0,1].
+    # The model takes plain [0,1] RGB (no mean/std). ImageType's scale=1/255
+    # turns the 0–255 input into [0,1]; the module L2-normalizes the output so it
+    # stays a unit vector (the raw embedding overflows Float16).
     class ImageEncoder(torch.nn.Module):
-        def __init__(self, m, mean, std):
-            super().__init__()
-            self.m = m
-            self.register_buffer("mean", torch.tensor(mean).view(1, 3, 1, 1))
-            self.register_buffer("std", torch.tensor(std).view(1, 3, 1, 1))
+        def __init__(self, m): super().__init__(); self.m = m
         def forward(self, x):                       # x in [0,1]
-            return self.m.encode_image((x - self.mean) / self.std)
+            feat = self.m.encode_image(x)
+            return feat / feat.norm(dim=-1, keepdim=True)
 
-    enc = ImageEncoder(model, MEAN, STD).eval()
+    enc = ImageEncoder(model).eval()
     example = torch.rand(1, 3, args.size, args.size)
     traced = torch.jit.trace(enc, example)
 
@@ -106,10 +102,12 @@ def main():
         feats = feats / feats.norm(dim=-1, keepdim=True)
     embeddings = feats.tolist()
 
+    logit_scale = float(model.logit_scale.exp().item()) if hasattr(model, "logit_scale") else 100.0
     pack = {
         "inputName": "image",
         "outputName": "embedding",
         "inputSize": args.size,
+        "logitScale": logit_scale,
         "labels": [label for label, _ in LABELS],
         "embeddings": embeddings,
     }

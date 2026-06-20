@@ -54,79 +54,66 @@ final class VisionClassifier: VisualClassifier {
 /// `init?` returns nil when the model hasn't been added yet, so the app falls
 /// back to `VisionClassifier`.
 final class MobileCLIPClassifier: VisualClassifier {
-    private let model: MLModel
-    private let inputName: String
-    private let outputName: String
-    private let inputSize: Int
+    private let vnModel: VNCoreMLModel
     private let labels: [String]
     private let embeddings: [[Float]]   // each L2-normalized
+    /// CLIP temperature — sharpens cosine sims into usable probabilities.
+    private let logitScale: Float
 
     private struct Pack: Decodable {
-        let inputName: String
-        let outputName: String
-        let inputSize: Int
         let labels: [String]
         let embeddings: [[Float]]
+        let logitScale: Float?
     }
 
     init?() {
         guard let modelURL = Bundle.main.url(forResource: "MobileCLIPImage", withExtension: "mlmodelc"),
               let packURL = Bundle.main.url(forResource: "clip_labels", withExtension: "json"),
               let model = try? MLModel(contentsOf: modelURL),
+              let vn = try? VNCoreMLModel(for: model),
               let data = try? Data(contentsOf: packURL),
               let pack = try? JSONDecoder().decode(Pack.self, from: data)
         else { return nil }
-        self.model = model
-        self.inputName = pack.inputName
-        self.outputName = pack.outputName
-        self.inputSize = pack.inputSize
+        self.vnModel = vn
         self.labels = pack.labels
         self.embeddings = pack.embeddings.map { Self.normalized($0) }
+        self.logitScale = pack.logitScale ?? 100
     }
 
     func classify(_ cgImage: CGImage) -> [VisualLabel] {
-        guard let pixels = Self.pixelBuffer(from: cgImage, size: inputSize),
-              let provider = try? MLDictionaryFeatureProvider(
-                  dictionary: [inputName: MLFeatureValue(pixelBuffer: pixels)]),
-              let out = try? model.prediction(from: provider),
-              let vector = out.featureValue(for: outputName)?.multiArrayValue
-        else { return [] }
+        // Vision handles resize + the model's baked normalization correctly —
+        // no hand-rolled pixel buffer (and its channel-order pitfalls).
+        let request = VNCoreMLRequest(model: vnModel)
+        // Match the model's training preprocess (resize shortest side + center
+        // crop); stretching to a square gives out-of-distribution embeddings.
+        request.imageCropAndScaleOption = .centerCrop
+        try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+        guard let obs = request.results?.first as? VNCoreMLFeatureValueObservation,
+              let vector = obs.featureValue.multiArrayValue else { return [] }
 
         let embedding = Self.normalized((0..<vector.count).map { vector[$0].floatValue })
-        let scored = zip(labels, embeddings)
-            .map { VisualLabel(text: $0.0, score: Self.dot(embedding, $0.1)) }
+        let cosines = embeddings.map { Self.dot(embedding, $0) }
+        let probs = Self.softmax(cosines.map { $0 * logitScale })
+        return zip(labels, probs)
+            .map { VisualLabel(text: $0.0, score: $0.1) }
             .sorted { $0.score > $1.score }
-        return Array(scored.prefix(3))
+            .prefix(3)
+            .map { $0 }
     }
 
     // MARK: helpers
 
     private static func normalized(_ v: [Float]) -> [Float] {
         let norm = sqrt(v.reduce(0) { $0 + $1 * $1 })
-        return norm > 0 ? v.map { $0 / norm } : v
+        return norm.isFinite && norm > 0 ? v.map { $0 / norm } : v
     }
     private static func dot(_ a: [Float], _ b: [Float]) -> Float {
         zip(a, b).reduce(0) { $0 + $1.0 * $1.1 }
     }
-
-    /// Resize to a square `size`×`size` BGRA pixel buffer for the CoreML model.
-    /// (Normalization is baked into the exported model — see the script.)
-    private static func pixelBuffer(from cgImage: CGImage, size: Int) -> CVPixelBuffer? {
-        var pb: CVPixelBuffer?
-        let attrs: [CFString: Any] = [kCVPixelBufferCGImageCompatibilityKey: true,
-                                      kCVPixelBufferCGBitmapContextCompatibilityKey: true]
-        guard CVPixelBufferCreate(kCFAllocatorDefault, size, size,
-                                  kCVPixelFormatType_32BGRA, attrs as CFDictionary, &pb) == kCVReturnSuccess,
-              let buffer = pb else { return nil }
-        CVPixelBufferLockBaseAddress(buffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
-        guard let ctx = CGContext(
-            data: CVPixelBufferGetBaseAddress(buffer), width: size, height: size,
-            bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
-        else { return nil }
-        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
-        return buffer
+    private static func softmax(_ v: [Float]) -> [Float] {
+        let m = v.max() ?? 0
+        let exps = v.map { exp($0 - m) }
+        let sum = exps.reduce(0, +)
+        return sum > 0 ? exps.map { $0 / sum } : exps
     }
 }

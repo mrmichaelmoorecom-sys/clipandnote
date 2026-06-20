@@ -26,8 +26,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "1":      openDemo(DemoContent.makeDocument())      // seeded editor window
         case "small":  openDemo(DemoContent.makeSmallDocument()) // small snapshot (centering)
         case "name":   nameDemoAndExit()                         // headless: OCR + visual naming
+        case "classify": classifyDemoAndExit()                   // headless: visual classifier
         default:       break
         }
+    }
+
+    /// Dev-only: report whether MobileCLIP loaded and its top labels for the demo.
+    private func classifyDemoAndExit() {
+        let base = DemoContent.makeBaseImage()
+        if let png = base.pngData() { try? png.write(to: URL(fileURLWithPath: "/tmp/clipandnote-base.png")) }
+        // Classify the SAVED png so Swift and the Python reference see identical bytes.
+        guard let img = NSImage(contentsOfFile: "/tmp/clipandnote-base.png"),
+              let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(1) }
+        let mobileCLIP = MobileCLIPClassifier()
+        print("MobileCLIP loaded: \(mobileCLIP != nil)")
+        let classifier: VisualClassifier = mobileCLIP ?? VisionClassifier()
+        for label in classifier.classify(cg).prefix(5) {
+            print(String(format: "  %@  %.3f", label.text, label.score))
+        }
+        exit(0)
     }
 
     /// Dev-only: run the namer on the demo image, print the result, and exit.
