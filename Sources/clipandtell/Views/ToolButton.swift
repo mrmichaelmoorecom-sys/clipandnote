@@ -1,5 +1,43 @@
 import AppKit
 
+/// A momentary icon button (not NSButton — a borderless NSButton swallows clicks
+/// in its blank area). Used for the layer up/down controls.
+final class IconButton: NSView {
+    var onClick: (() -> Void)?
+    private let symbol: NSImage?
+    private var pressed = false { didSet { needsDisplay = true } }
+
+    init(symbolName: String, tooltip: String) {
+        self.symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: tooltip)
+        super.init(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
+        wantsLayer = true
+        toolTip = tooltip
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 28, height: 28) }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if pressed {
+            NSColor.controlAccentColor.withAlphaComponent(0.25).setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
+        }
+        guard let symbol else { return }
+        let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+            .applying(.init(paletteColors: [.labelColor]))
+        let img = symbol.withSymbolConfiguration(conf) ?? symbol
+        let s = img.size
+        img.draw(in: NSRect(x: (bounds.width - s.width) / 2,
+                            y: (bounds.height - s.height) / 2, width: s.width, height: s.height))
+    }
+
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        pressed = false
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+}
+
 /// A single tool in the palette. A custom view (not NSButton) so it can support
 /// press-and-hold (the text tool opens a font menu) and clean selected styling.
 final class ToolButton: NSView {

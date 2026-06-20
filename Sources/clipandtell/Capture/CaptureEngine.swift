@@ -35,10 +35,11 @@ final class CaptureEngine {
         case .window:
             shoot(["-x", "-i", "-W"], completion: completion)
         case .menu:
-            // Menus close if we steal focus with the overlay, so use the system
-            // interactive capture after a delay to set the menu up.
+            // Distinct from Timed (which drags a region): after a delay to open
+            // the target menu, capture in window/menu selection mode (-W) so a
+            // click grabs the whole menu or window, with its shadow.
             let delay = max(AppSettings.shared.timedDelaySeconds, 3)
-            shoot(["-x", "-T", String(delay), "-i"], completion: completion)
+            shoot(["-x", "-T", String(delay), "-W"], completion: completion)
         }
     }
 

@@ -11,6 +11,7 @@ final class AppSettings {
         static let historyLimit = "localHistoryLimit"
         static let copyAfterCapture = "copyAfterCapture"
         static let syncEnabled = "syncEnabled"
+        static let appearance = "appearance"
     }
 
     private init() {
@@ -19,7 +20,14 @@ final class AppSettings {
             Key.historyLimit: 100,     // how many markups to keep locally (gallery)
             Key.copyAfterCapture: true,
             Key.syncEnabled: false,    // CloudKit off until set up
+            Key.appearance: "system",
         ])
+    }
+
+    /// "system", "light", or "dark".
+    var appearance: String {
+        get { defaults.string(forKey: Key.appearance) ?? "system" }
+        set { defaults.set(newValue, forKey: Key.appearance) }
     }
 
     /// Delay (seconds) for the "Timed Crosshair Snapshot" command.

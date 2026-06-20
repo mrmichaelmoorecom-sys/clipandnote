@@ -64,6 +64,17 @@ final class EditorWindowController: NSWindowController {
             toolStack.addArrangedSubview(b)
         }
 
+        // Layer up/down controls.
+        let forward = IconButton(symbolName: "square.3.layers.3d.top.filled",
+                                 tooltip: "Bring Forward  (⌘])")
+        forward.onClick = { [weak self] in self?.canvas.bringForward(nil) }
+        let backward = IconButton(symbolName: "square.3.layers.3d.bottom.filled",
+                                  tooltip: "Send Backward  (⌘[)")
+        backward.onClick = { [weak self] in self?.canvas.sendBackward(nil) }
+        let layerStack = NSStackView(views: [forward, backward])
+        layerStack.orientation = .horizontal
+        layerStack.spacing = 2
+
         let colors = ColorPaletteView()
         colors.translatesAutoresizingMaskIntoConstraints = false
         colors.setContentHuggingPriority(.required, for: .horizontal)
@@ -79,7 +90,7 @@ final class EditorWindowController: NSWindowController {
         let copyButton = NSButton(title: "Copy", target: self, action: #selector(copyFlattened))
         copyButton.bezelStyle = .rounded
 
-        let palette = NSStackView(views: [toolStack, colors, slider, NSView(), copyButton])
+        let palette = NSStackView(views: [toolStack, layerStack, colors, slider, NSView(), copyButton])
         palette.orientation = .horizontal
         palette.spacing = 10
         palette.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
@@ -199,6 +210,14 @@ final class EditorWindowController: NSWindowController {
     /// Flattened PNG of the current markup (used by the dev demo hook).
     func canvasFlattenedPNG() -> Data? {
         canvas.flatten()?.pngData()
+    }
+
+    /// The snapshot's name (timestamp + AI label), shown as the window title and
+    /// used as the default filename when saving (Phase 3).
+    private(set) var snapshotTitle: String = "Untitled Markup"
+    func setSnapshotTitle(_ title: String) {
+        snapshotTitle = title
+        window?.title = title
     }
 
     func show() {

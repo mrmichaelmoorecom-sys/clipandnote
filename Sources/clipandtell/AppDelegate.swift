@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var editors: [EditorWindowController] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        applyAppearance()
         buildMainMenu()
         let sc = StatusItemController()
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
@@ -71,6 +72,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editItem.submenu = editMenu
         main.addItem(editItem)
 
+        // View → Appearance (light / dark / system).
+        let viewItem = NSMenuItem()
+        let viewMenu = NSMenu(title: "View")
+        let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        for (title, value) in [("System", "system"), ("Light", "light"), ("Dark", "dark")] {
+            let mi = NSMenuItem(title: title, action: #selector(setAppearance(_:)), keyEquivalent: "")
+            mi.target = self
+            mi.representedObject = value
+            mi.state = AppSettings.shared.appearance == value ? .on : .off
+            appearanceMenu.addItem(mi)
+        }
+        appearanceItem.submenu = appearanceMenu
+        viewMenu.addItem(appearanceItem)
+        viewItem.submenu = viewMenu
+        main.addItem(viewItem)
+
         // Arrange (z-order) — dispatched through the responder chain to the canvas.
         let arrangeItem = NSMenuItem()
         let arrangeMenu = NSMenu(title: "Arrange")
@@ -89,13 +107,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = main
     }
 
+    @objc private func setAppearance(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        AppSettings.shared.appearance = value
+        applyAppearance()
+        sender.menu?.items.forEach { $0.state = ($0.representedObject as? String == value) ? .on : .off }
+    }
+
+    private func applyAppearance() {
+        switch AppSettings.shared.appearance {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark":  NSApp.appearance = NSAppearance(named: .darkAqua)
+        default:      NSApp.appearance = nil   // follow the system
+        }
+    }
+
     private func runCapture(_ kind: CaptureKind) {
         capture.capture(kind) { [weak self] image in
             guard let self, let image else { return }   // nil = user cancelled
             let editor = EditorWindowController(image: image)
+            let stamp = SnapshotNamer.timestamp(Date())
+            editor.setSnapshotTitle("\(stamp) · …")
             self.editors.append(editor)
             editor.show()
-            // Markup history + CloudKit + recents menu wiring lands next phase.
+            // On-device OCR fills in a contextual name once it's ready.
+            SnapshotNamer.contextualName(for: image) { name in
+                editor.setSnapshotTitle("\(stamp) · \(name)")
+            }
         }
     }
 
