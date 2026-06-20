@@ -74,20 +74,26 @@ def main():
     model.eval()
     tokenizer = mobileclip.get_tokenizer(args.model)
 
-    # --- Image encoder → Core ML (normalization baked into the input) ---
+    # --- Image encoder → Core ML ---
+    # Per-channel CLIP normalization is baked INTO the module (ImageType's scale
+    # is a single scalar, so it can't do per-channel std). ImageType then only
+    # divides the 0–255 input by 255 to reach [0,1].
     class ImageEncoder(torch.nn.Module):
-        def __init__(self, m): super().__init__(); self.m = m
-        def forward(self, x): return self.m.encode_image(x)
+        def __init__(self, m, mean, std):
+            super().__init__()
+            self.m = m
+            self.register_buffer("mean", torch.tensor(mean).view(1, 3, 1, 1))
+            self.register_buffer("std", torch.tensor(std).view(1, 3, 1, 1))
+        def forward(self, x):                       # x in [0,1]
+            return self.m.encode_image((x - self.mean) / self.std)
 
-    enc = ImageEncoder(model).eval()
+    enc = ImageEncoder(model, MEAN, STD).eval()
     example = torch.rand(1, 3, args.size, args.size)
     traced = torch.jit.trace(enc, example)
 
-    # scale/bias so the model accepts a plain 0–255 image: (x/255 - mean)/std
-    scale = [1.0 / (255.0 * s) for s in STD]
-    bias  = [-m / s for m, s in zip(MEAN, STD)]
     image_input = ct.ImageType(name="image", shape=(1, 3, args.size, args.size),
-                               scale=scale[0], bias=bias, color_layout=ct.colorlayout.RGB)
+                               scale=1.0 / 255.0, bias=[0.0, 0.0, 0.0],
+                               color_layout=ct.colorlayout.RGB)
     mlmodel = ct.convert(traced, inputs=[image_input],
                          outputs=[ct.TensorType(name="embedding")],
                          minimum_deployment_target=ct.target.macOS14)

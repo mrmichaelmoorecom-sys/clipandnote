@@ -6,3 +6,10 @@ clipandnote.app/
 .claude/
 DerivedData/
 *.xcuserstate
+
+# MobileCLIP model build: ignore the venv, checkpoint, and intermediate package.
+# The shippable artifacts (Resources/MobileCLIPImage.mlmodelc + clip_labels.json)
+# ARE committed so a fresh clone builds an app with the model.
+.venv-mc/
+Resources/*.pt
+Resources/*.mlpackage/

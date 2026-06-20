@@ -43,10 +43,16 @@ copies land as the *latest* clipboard item without flooding clipandcue's queue.
 
 ```sh
 swift build
-swift run        # launches the menu-bar app
+swift run                       # launches the menu-bar app (dev)
+
+scripts/build_app.sh            # → clipandnote.app, ad-hoc signed (local runs)
+scripts/build_app.sh release "Developer ID Application: …"   # distributable build
 ```
 
-A `.app` bundling + signing script (matching clipandcue's) lands with Phase 4.
+`build_app.sh` bundles the executable into `clipandnote.app` and, if the MobileCLIP
+model has been generated into `Resources/`, copies it into the app so captures are
+named with CLIP labels. Without the model the app still ships and names via the
+Vision fallback.
 
 ## Snapshot naming (on-device)
 
@@ -72,10 +78,15 @@ pip install mobileclip coremltools torch
 python scripts/export_mobileclip.py --checkpoint mobileclip_s0.pt --model mobileclip_s0
 ```
 
-This writes `MobileCLIPImage.mlmodelc` + `clip_labels.json`. Place both in the
-built app's `Contents/Resources/` (the only runtime cost is the image encoder + a
-dot product — no text encoder, tokenizer, or network). Edit the `LABELS` list in
-the script to tune the vocabulary.
+This writes `Resources/MobileCLIPImage.mlmodelc` + `Resources/clip_labels.json`
+(those two are committed; the venv, checkpoint, and intermediate `.mlpackage` are
+ignored). From then on `scripts/build_app.sh` bakes them into the app automatically
+— the only runtime cost is the image encoder + a dot product (no text encoder,
+tokenizer, or network). Edit the `LABELS` list in the script to tune the vocabulary.
+
+> `scripts/build_model.sh` automates the whole thing (venv + install + checkpoint
+> + export + compile), but it pip-installs PyTorch/coremltools and Apple's
+> `ml-mobileclip` — run it yourself when you're ready to bring in those deps.
 
 ## License
 
