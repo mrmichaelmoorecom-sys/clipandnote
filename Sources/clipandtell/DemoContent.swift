@@ -107,4 +107,21 @@ enum DemoContent {
     static func makeDocument() -> MarkupDocument {
         MarkupDocument(baseImage: makeBaseImage(), objects: makeObjects(), canvasSize: canvasSize)
     }
+
+    /// A snapshot smaller than the toolbar, to check centering.
+    static func makeSmallDocument() -> MarkupDocument {
+        let size = CGSize(width: 360, height: 240)
+        let img = NSImage(size: size, flipped: true) { _ in
+            NSColor.white.setFill(); NSRect(origin: .zero, size: size).fill()
+            NSColor(white: 0.92, alpha: 1).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 20, y: 20, width: 320, height: 200),
+                         xRadius: 10, yRadius: 10).fill()
+            label("Tiny snapshot", at: CGPoint(x: 44, y: 56), size: 22, weight: .bold)
+            label("Smaller than the toolbar", at: CGPoint(x: 44, y: 100), size: 14)
+            return true
+        }
+        let rect = MarkupObject(kind: .rectangle, frame: CGRect(x: 40, y: 48, width: 180, height: 32),
+                                stroke: .red, lineWidth: 3)
+        return MarkupDocument(baseImage: img, objects: [rect], canvasSize: size)
+    }
 }

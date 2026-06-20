@@ -29,8 +29,9 @@ final class EditorWindowController: NSWindowController {
 
     convenience init(document: MarkupDocument) {
         let canvasSize = document.canvasSize
+        let minW: CGFloat = 760   // enough for the full toolbar
         let maxW: CGFloat = 1400, maxH: CGFloat = 900
-        let contentW = min(max(canvasSize.width, 480), maxW)
+        let contentW = min(max(canvasSize.width, minW), maxW)
         let contentH = min(max(canvasSize.height + 48, 360), maxH)
 
         let window = NSWindow(
@@ -39,6 +40,7 @@ final class EditorWindowController: NSWindowController {
             backing: .buffered, defer: false)
         window.title = "Untitled Markup"
         window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: minW, height: 320)
         window.center()
         self.init(window: window)
 
@@ -119,6 +121,7 @@ final class EditorWindowController: NSWindowController {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
+        scroll.contentView = CenteringClipView()   // center small snapshots
         scroll.documentView = canvas
         scroll.backgroundColor = NSColor(white: 0.16, alpha: 1)
         // Padding around the canvas so it reads as a distinct surface even amid a

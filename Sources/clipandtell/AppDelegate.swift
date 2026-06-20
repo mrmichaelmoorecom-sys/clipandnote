@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var editors: [EditorWindowController] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        applyAppearance()
+        // Appearance follows the system automatically (NSApp.appearance left nil).
         buildMainMenu()
         let sc = StatusItemController()
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
@@ -16,8 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController = sc
 
         switch ProcessInfo.processInfo.environment["CLIPANDTELL_DEMO"] {
-        case "render": renderDemoAndExit()   // headless: write PNG, quit
-        case "1":      openDemo()            // interactive: seed an editor window
+        case "render": renderDemoAndExit()                       // headless: write PNG, quit
+        case "1":      openDemo(DemoContent.makeDocument())      // seeded editor window
+        case "small":  openDemo(DemoContent.makeSmallDocument()) // small snapshot (centering)
         default:       break
         }
     }
@@ -33,9 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         exit(0)
     }
 
-    /// Dev-only: open an editor seeded with one of every annotation kind.
-    private func openDemo() {
-        let editor = EditorWindowController(document: DemoContent.makeDocument())
+    /// Dev-only: open an editor seeded with the given demo document.
+    private func openDemo(_ document: MarkupDocument) {
+        let editor = EditorWindowController(document: document)
         editors.append(editor)
         editor.show()
     }
@@ -72,23 +73,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editItem.submenu = editMenu
         main.addItem(editItem)
 
-        // View → Appearance (light / dark / system).
-        let viewItem = NSMenuItem()
-        let viewMenu = NSMenu(title: "View")
-        let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
-        let appearanceMenu = NSMenu()
-        for (title, value) in [("System", "system"), ("Light", "light"), ("Dark", "dark")] {
-            let mi = NSMenuItem(title: title, action: #selector(setAppearance(_:)), keyEquivalent: "")
-            mi.target = self
-            mi.representedObject = value
-            mi.state = AppSettings.shared.appearance == value ? .on : .off
-            appearanceMenu.addItem(mi)
-        }
-        appearanceItem.submenu = appearanceMenu
-        viewMenu.addItem(appearanceItem)
-        viewItem.submenu = viewMenu
-        main.addItem(viewItem)
-
         // Arrange (z-order) — dispatched through the responder chain to the canvas.
         let arrangeItem = NSMenuItem()
         let arrangeMenu = NSMenu(title: "Arrange")
@@ -105,21 +89,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.addItem(arrangeItem)
 
         NSApp.mainMenu = main
-    }
-
-    @objc private func setAppearance(_ sender: NSMenuItem) {
-        guard let value = sender.representedObject as? String else { return }
-        AppSettings.shared.appearance = value
-        applyAppearance()
-        sender.menu?.items.forEach { $0.state = ($0.representedObject as? String == value) ? .on : .off }
-    }
-
-    private func applyAppearance() {
-        switch AppSettings.shared.appearance {
-        case "light": NSApp.appearance = NSAppearance(named: .aqua)
-        case "dark":  NSApp.appearance = NSAppearance(named: .darkAqua)
-        default:      NSApp.appearance = nil   // follow the system
-        }
     }
 
     private func runCapture(_ kind: CaptureKind) {
