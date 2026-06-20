@@ -244,6 +244,18 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
         // Discard degenerate just-created objects (an accidental click).
         if case .create = drag {
+            // Re-apply geometry from the release point so a fast gesture whose
+            // intermediate drag events were coalesced still yields the full shape.
+            let p = convert(event.locationInWindow, from: nil)
+            if document.objects[idx].kind == .freehand {
+                document.objects[idx].points.append(p)
+                document.objects[idx].recomputeBounds()
+            } else if document.objects[idx].isPathBased {
+                document.objects[idx].points = [dragStart, p]
+                document.objects[idx].recomputeBounds()
+            } else {
+                document.objects[idx].frame = rect(from: dragStart, to: p)
+            }
             let o = document.objects[idx]
             let tooSmall = !o.isPathBased && o.frame.width < 3 && o.frame.height < 3
             let noPath = o.isPathBased && (o.points.count < 2 ||
