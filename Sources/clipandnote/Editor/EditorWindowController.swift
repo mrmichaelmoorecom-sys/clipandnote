@@ -61,7 +61,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let margin = Self.canvasMargin    // even breathing room around the canvas
         let maxW: CGFloat = 1500, maxH: CGFloat = 950
         let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
-        let contentH = min(max(canvasSize.height + 52 + margin * 2, 360), maxH)
+        let contentH = min(max(canvasSize.height + 56 + margin * 2, 360), maxH)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: contentW, height: contentH),
@@ -80,6 +80,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.init(window: window)
 
         buildUI(document: document)
+    }
+
+    /// A hairline vertical divider between toolbar groups.
+    private func toolbarDivider() -> NSView {
+        let line = NSView()
+        line.wantsLayer = true
+        line.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        line.translatesAutoresizingMaskIntoConstraints = false
+        line.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        line.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        return line
     }
 
     private func buildUI(document: MarkupDocument) {
@@ -117,23 +128,38 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         colors.setContentHuggingPriority(.required, for: .horizontal)
         self.colors = colors
 
+        // Stroke / text size: a wedge that reads small→large, then the slider.
+        let sizeRamp = SizeRampView()
+        sizeRamp.toolTip = "Stroke / text size"
         let slider = NSSlider(value: 4, minValue: 1, maxValue: 30,
                               target: self, action: #selector(widthChanged(_:)))
         slider.isContinuous = true
+        slider.toolTip = "Stroke / text size"
         slider.translatesAutoresizingMaskIntoConstraints = false
-        slider.widthAnchor.constraint(equalToConstant: 90).isActive = true
+        slider.widthAnchor.constraint(equalToConstant: 86).isActive = true
         self.widthSlider = slider
+        let sizeGroup = NSStackView(views: [sizeRamp, slider])
+        sizeGroup.orientation = .horizontal
+        sizeGroup.spacing = 6
 
-        // Canvas background fill (shows wherever the canvas has grown past the snapshot).
+        // Canvas background fill (shows wherever the canvas has grown past the
+        // snapshot). Labelled so it reads as the canvas-color control, not a swatch.
+        let bgLabel = NSTextField(labelWithString: "Canvas")
+        bgLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        bgLabel.textColor = .secondaryLabelColor
+        bgLabel.toolTip = "Canvas background color"
         let bgWell = NSColorWell()
         bgWell.color = document.backgroundColor.nsColor
         bgWell.target = self
         bgWell.action = #selector(bgColorChanged(_:))
         bgWell.toolTip = "Canvas background color"
         bgWell.translatesAutoresizingMaskIntoConstraints = false
-        bgWell.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        bgWell.widthAnchor.constraint(equalToConstant: 28).isActive = true
         bgWell.heightAnchor.constraint(equalToConstant: 22).isActive = true
         self.bgWell = bgWell
+        let bgGroup = NSStackView(views: [bgLabel, bgWell])
+        bgGroup.orientation = .horizontal
+        bgGroup.spacing = 6
 
         let copyButton = NSButton(title: "Copy", target: self, action: #selector(copyFlattened))
         copyButton.bezelStyle = .rounded
@@ -146,11 +172,22 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         // A leading spacer so the first tool clears the floating window buttons.
         let trafficSpacer = NSView()
         trafficSpacer.translatesAutoresizingMaskIntoConstraints = false
-        trafficSpacer.widthAnchor.constraint(equalToConstant: 58).isActive = true
+        trafficSpacer.widthAnchor.constraint(equalToConstant: 48).isActive = true
 
-        let palette = NSStackView(views: [trafficSpacer, toolStack, layerStack, colors, slider, bgWell, NSView(), sizeLabel, copyButton])
+        // Groups separated by hairline vertical dividers, in the order:
+        // window buttons │ tools │ layer │ colors │ size │ canvas color.
+        let palette = NSStackView(views: [
+            trafficSpacer,
+            toolbarDivider(), toolStack,
+            toolbarDivider(), layerStack,
+            toolbarDivider(), colors,
+            toolbarDivider(), sizeGroup,
+            toolbarDivider(), bgGroup,
+            NSView(), sizeLabel, copyButton,
+        ])
         palette.orientation = .horizontal
-        palette.spacing = 14
+        palette.alignment = .centerY
+        palette.spacing = 12
         palette.edgeInsets = NSEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         palette.translatesAutoresizingMaskIntoConstraints = false
 
@@ -208,7 +245,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             bar.topAnchor.constraint(equalTo: container.topAnchor),
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            bar.heightAnchor.constraint(equalToConstant: 52),
+            bar.heightAnchor.constraint(equalToConstant: 56),
 
             palette.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
             palette.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
@@ -464,7 +501,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// very top). Gives them room to breathe, like Preview's unified toolbar.
     private func positionTrafficLights() {
         guard let window = window else { return }
-        let bar: CGFloat = 52
+        let bar: CGFloat = 56
         let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
             .compactMap { window.standardWindowButton($0) }
         guard let container = buttons.first?.superview else { return }
@@ -488,7 +525,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let maxW = min(1500, vis.width - 40)
         let maxH = min(1100, vis.height - 40)
         let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
-        let contentH = min(max(canvasSize.height + 52 + margin * 2, 360), maxH)
+        let contentH = min(max(canvasSize.height + 56 + margin * 2, 360), maxH)
         let newFrame = window.frameRect(forContentRect:
             NSRect(x: 0, y: 0, width: contentW, height: contentH))
         var frame = window.frame
@@ -537,5 +574,22 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let s = canvas.document.canvasSize
         sizeLabel?.stringValue = "\(Int(s.width.rounded())) × \(Int(s.height.rounded()))"
         bgWell?.color = canvas.document.backgroundColor.nsColor
+    }
+}
+
+/// A small left-to-right wedge (thin → thick) that visually labels the adjacent
+/// slider as a *size* control, so the slider isn't an unlabelled mystery track.
+final class SizeRampView: NSView {
+    override var intrinsicContentSize: NSSize { NSSize(width: 26, height: 18) }
+    override func draw(_ dirtyRect: NSRect) {
+        let w = bounds.width, mid = bounds.midY, h = bounds.height
+        let wedge = NSBezierPath()
+        wedge.move(to: NSPoint(x: 1, y: mid - 0.75))
+        wedge.line(to: NSPoint(x: w, y: mid - h * 0.42))
+        wedge.line(to: NSPoint(x: w, y: mid + h * 0.42))
+        wedge.line(to: NSPoint(x: 1, y: mid + 0.75))
+        wedge.close()
+        NSColor.secondaryLabelColor.setFill()
+        wedge.fill()
     }
 }
