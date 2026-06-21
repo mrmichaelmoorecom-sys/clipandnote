@@ -3,11 +3,11 @@ import AppKit
 /// The active drawing tool. `.select` manipulates existing objects; the rest
 /// create new objects of the corresponding kind.
 enum Tool: Equatable {
-    case select, arrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
+    case select, crop, arrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
 
     var markupKind: MarkupKind? {
         switch self {
-        case .select:      return nil
+        case .select, .crop: return nil
         case .arrow:       return .arrow
         case .line:        return .line
         case .rectangle:   return .rectangle
@@ -54,7 +54,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Single-key tool shortcuts.
     static let toolShortcuts: [String: Tool] = [
-        "v": .select, "a": .arrow, "l": .line, "r": .rectangle, "o": .ellipse,
+        "v": .select, "c": .crop, "a": .arrow, "l": .line, "r": .rectangle, "o": .ellipse,
         "p": .freehand, "t": .text, "h": .highlighter, "x": .pixelate,
     ]
 
@@ -68,8 +68,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     // Drag state
-    private enum DragKind { case create, move, resize(Handle), endpoint(Int) }
+    private enum DragKind { case create, move, resize(Handle), endpoint(Int), crop }
     private var drag: DragKind?
+    private var cropRect: CGRect = .zero
+
+    /// Fired after a crop changes the canvas size (so the toolbar can refit).
+    var onCropped: (() -> Void)?
     private var dragStart: CGPoint = .zero
     private var preDrag: MarkupObject?          // snapshot of the object being edited
     /// Full undoable state — objects plus canvas geometry, so canvas expansion
@@ -150,6 +154,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
             MarkupRenderer.draw(obj, baseImage: document.baseImage, baseFrame: document.baseImageFrame)
         }
         if let sel = selectedObject { drawSelection(sel) }
+
+        // Crop preview: dim everything outside the crop rectangle.
+        if case .crop = drag, cropRect.width > 0, cropRect.height > 0 {
+            let dim = NSBezierPath(rect: bounds)
+            dim.append(NSBezierPath(rect: cropRect))
+            dim.windingRule = .evenOdd
+            NSColor.black.withAlphaComponent(0.45).setFill()
+            dim.fill()
+            NSColor.controlAccentColor.setStroke()
+            let border = NSBezierPath(rect: cropRect); border.lineWidth = 1.5; border.stroke()
+        }
 
         // Hairline border so the canvas reads as a distinct card against the
         // padded dark backdrop.
@@ -259,6 +274,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
 
+        if tool == .crop {
+            drag = .crop
+            dragStart = p
+            cropRect = CGRect(origin: p, size: .zero)
+            selectedID = nil
+            needsDisplay = true
+            return
+        }
+
         // Creating a new object.
         guard let kind = tool.markupKind else { return }
 
@@ -305,8 +329,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let drag, let id = selectedID, let idx = indexOf(id) else { return }
         let p = convert(event.locationInWindow, from: nil)
+        if case .crop = drag {
+            cropRect = rect(from: dragStart, to: p)
+            needsDisplay = true
+            return
+        }
+        guard let drag, let id = selectedID, let idx = indexOf(id) else { return }
 
         switch drag {
         case .create:
@@ -333,11 +362,19 @@ final class CanvasView: NSView, NSTextViewDelegate {
             pts[i] = p
             document.objects[idx].points = pts
             document.objects[idx].recomputeBounds()
+        case .crop:
+            break   // handled before the guard
         }
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
+        if case .crop = drag {
+            drag = nil
+            applyCrop(cropRect)
+            cropRect = .zero
+            return
+        }
         defer { drag = nil; preDrag = nil }
         guard let id = selectedID, let idx = indexOf(id) else { return }
 
@@ -718,6 +755,30 @@ final class CanvasView: NSView, NSTextViewDelegate {
         document.canvasSize = newSize
         setFrameSize(newSize)
         onCanvasResized?()
+        needsDisplay = true
+    }
+
+    /// Crop the canvas to `rect` (canvas coords): shift the base image + objects,
+    /// drop objects that fall entirely outside, and resize the canvas.
+    private func applyCrop(_ rect: CGRect) {
+        let crop = rect.standardized
+        guard crop.width >= 8, crop.height >= 8 else { needsDisplay = true; return }
+        undoSnapshot = snapshot()
+        let offset = CGSize(width: -crop.minX, height: -crop.minY)
+        document.baseImageFrame = document.baseImageFrame.offsetBy(dx: offset.width, dy: offset.height)
+        let newBounds = CGRect(origin: .zero, size: crop.size)
+        var kept: [MarkupObject] = []
+        for var obj in document.objects {
+            obj.move(by: offset)
+            if obj.frame.standardized.intersects(newBounds) { kept.append(obj) }
+        }
+        document.objects = kept
+        document.canvasSize = crop.size
+        selectedID = nil
+        setFrameSize(crop.size)
+        commitUndo()
+        selectTool(.select)
+        onCropped?()
         needsDisplay = true
     }
 }

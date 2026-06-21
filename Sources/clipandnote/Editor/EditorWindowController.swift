@@ -5,6 +5,9 @@ import UniformTypeIdentifiers
 /// `CanvasView` (in a scroll view) below.
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
+    /// Even breathing room around the canvas, in points (window sizing + scroll insets).
+    static let canvasMargin: CGFloat = 36
+
     private var canvas: CanvasView!
     /// The `.can` file backing this window, once saved/opened.
     private(set) var fileURL: URL?
@@ -22,6 +25,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
         (.select, "cursorarrow", "Select", "V"),
+        (.crop, "crop", "Crop", "C"),
         (.arrow, "arrow.up.left", "Arrow", "A"),
         (.line, "line.diagonal", "Line", "L"),
         (.rectangle, "rectangle", "Rectangle", "R"),
@@ -34,6 +38,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var toolButtons: [ToolButton] = []
     private var colors: ColorPaletteView!
     private var widthSlider: NSSlider!
+    private var sizeLabel: NSTextField!
+    private var scrollView: NSScrollView!
 
     convenience init(image: NSImage) {
         self.init(document: MarkupDocument(baseImage: image, objects: [],
@@ -51,7 +57,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     convenience init(document: MarkupDocument) {
         let canvasSize = document.canvasSize
         let minW: CGFloat = 760           // enough for the full toolbar
-        let margin: CGFloat = 44          // even breathing room around the canvas
+        let margin = Self.canvasMargin    // even breathing room around the canvas
         let maxW: CGFloat = 1500, maxH: CGFloat = 950
         let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
         let contentH = min(max(canvasSize.height + 48 + margin * 2, 360), maxH)
@@ -114,7 +120,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let copyButton = NSButton(title: "Copy", target: self, action: #selector(copyFlattened))
         copyButton.bezelStyle = .rounded
 
-        let palette = NSStackView(views: [toolStack, layerStack, colors, slider, NSView(), copyButton])
+        let sizeLabel = NSTextField(labelWithString: "")
+        sizeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        sizeLabel.textColor = .secondaryLabelColor
+        self.sizeLabel = sizeLabel
+
+        let palette = NSStackView(views: [toolStack, layerStack, colors, slider, NSView(), sizeLabel, copyButton])
         palette.orientation = .horizontal
         palette.spacing = 10
         palette.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
@@ -137,28 +148,23 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             self?.window?.isDocumentEdited = true
             self?.scheduleAutosave()
         }
-        canvas.onCanvasResized = { [weak canvas] in
-            guard let canvas, let clip = canvas.enclosingScrollView?.contentView else { return }
-            let doc = canvas.frame.size, vis = clip.bounds.size
-            let x = max(0, (doc.width - vis.width) / 2)
-            let y = max(0, (doc.height - vis.height) / 2)
-            canvas.scroll(NSPoint(x: x, y: y))
-        }
-        // The canvas floats as a distinct card on the dark surround.
-        canvas.wantsLayer = true
-        canvas.layer?.masksToBounds = false
-        canvas.layer?.shadowColor = NSColor.black.cgColor
-        canvas.layer?.shadowOpacity = 0.45
-        canvas.layer?.shadowRadius = 16
-        canvas.layer?.shadowOffset = CGSize(width: 0, height: -2)
-
+        canvas.onCanvasResized = { [weak self] in self?.updateSizeLabel() }
+        canvas.onCropped = { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
-        scroll.contentView = CenteringClipView()   // centers the canvas → even margins
         scroll.documentView = canvas
         scroll.backgroundColor = NSColor(white: 0.17, alpha: 1)
+        // Even margin on every side via content insets. Unlike a centering clip
+        // view, insets don't shift the clip's bounds origin, so mouse events keep
+        // mapping correctly to canvas coordinates (hit-testing stays intact).
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsets(top: Self.canvasMargin, left: Self.canvasMargin,
+                                            bottom: Self.canvasMargin, right: Self.canvasMargin)
+        scroll.scrollerInsets = NSEdgeInsets(top: -Self.canvasMargin, left: -Self.canvasMargin,
+                                             bottom: -Self.canvasMargin, right: -Self.canvasMargin)
         scroll.translatesAutoresizingMaskIntoConstraints = false
+        self.scrollView = scroll
 
         // An opaque toolbar bar that fully owns the top band and catches every
         // click there — otherwise clicks fall through to the canvas behind it.
@@ -258,6 +264,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvas.document = MarkupDocument(baseImage: image, objects: [], canvasSize: image.size)
         canvas.setFrameSize(image.size)
         dismissEmptyState()
+        DispatchQueue.main.async { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
     }
 
     /// Load a `.can` document into this window (from Open or a drop).
@@ -266,6 +273,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvas.setFrameSize(doc.canvasSize)
         if let url { setFileURL(url) }
         dismissEmptyState()
+        DispatchQueue.main.async { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
     }
 
     /// User picked a tool in the palette.
@@ -415,5 +423,35 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
+    }
+
+    /// Resize the window so the canvas sits inside it with an even margin on
+    /// every side (clamped to sane min/max; large captures keep margins and
+    /// scroll within the inset band rather than filling edge-to-edge).
+    private func resizeWindowToCanvas() {
+        guard let window = window, let screen = window.screen ?? NSScreen.main else { return }
+        let canvasSize = canvas.document.canvasSize
+        let margin = Self.canvasMargin
+        let minW: CGFloat = 760
+        let vis = screen.visibleFrame
+        let maxW = min(1500, vis.width - 40)
+        let maxH = min(1100, vis.height - 40)
+        let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
+        let contentH = min(max(canvasSize.height + 44 + margin * 2, 360), maxH)
+        let newFrame = window.frameRect(forContentRect:
+            NSRect(x: 0, y: 0, width: contentW, height: contentH))
+        var frame = window.frame
+        // Keep the top-left corner anchored as the window grows/shrinks.
+        let top = frame.maxY
+        frame.size = newFrame.size
+        frame.origin.y = top - newFrame.size.height
+        window.setFrame(frame, display: true, animate: false)
+        window.center()
+    }
+
+    private func updateSizeLabel() {
+        let s = canvas.document.canvasSize
+        sizeLabel?.stringValue = "\(Int(s.width.rounded())) × \(Int(s.height.rounded()))"
     }
 }
