@@ -50,10 +50,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     convenience init(document: MarkupDocument) {
         let canvasSize = document.canvasSize
-        let minW: CGFloat = 760   // enough for the full toolbar
-        let maxW: CGFloat = 1400, maxH: CGFloat = 900
-        let contentW = min(max(canvasSize.width, minW), maxW)
-        let contentH = min(max(canvasSize.height + 48, 360), maxH)
+        let minW: CGFloat = 760           // enough for the full toolbar
+        let margin: CGFloat = 44          // even breathing room around the canvas
+        let maxW: CGFloat = 1500, maxH: CGFloat = 950
+        let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
+        let contentH = min(max(canvasSize.height + 48 + margin * 2, 360), maxH)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: contentW, height: contentH),
@@ -143,16 +144,20 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             let y = max(0, (doc.height - vis.height) / 2)
             canvas.scroll(NSPoint(x: x, y: y))
         }
+        // The canvas floats as a distinct card on the dark surround.
+        canvas.wantsLayer = true
+        canvas.layer?.masksToBounds = false
+        canvas.layer?.shadowColor = NSColor.black.cgColor
+        canvas.layer?.shadowOpacity = 0.45
+        canvas.layer?.shadowRadius = 16
+        canvas.layer?.shadowOffset = CGSize(width: 0, height: -2)
+
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
-        scroll.contentView = CenteringClipView()   // center small snapshots
+        scroll.contentView = CenteringClipView()   // centers the canvas → even margins
         scroll.documentView = canvas
-        scroll.backgroundColor = NSColor(white: 0.16, alpha: 1)
-        // Padding around the canvas so it reads as a distinct surface even amid a
-        // cluttered desktop.
-        scroll.automaticallyAdjustsContentInsets = false
-        scroll.contentInsets = NSEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+        scroll.backgroundColor = NSColor(white: 0.17, alpha: 1)
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
         // An opaque toolbar bar that fully owns the top band and catches every
