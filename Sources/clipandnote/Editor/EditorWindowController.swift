@@ -160,16 +160,20 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             self?.window?.isDocumentEdited = true
             self?.scheduleAutosave()
         }
-        canvas.onCanvasResized = { [weak self] in self?.updateSizeLabel() }
+        canvas.onCanvasResized = { [weak self] in self?.fitCanvas(); self?.updateSizeLabel() }
         canvas.onCropped = { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.documentView = canvas
         scroll.backgroundColor = NSColor(white: 0.17, alpha: 1)
-        // Even margin on every side via content insets. Unlike a centering clip
-        // view, insets don't shift the clip's bounds origin, so mouse events keep
-        // mapping correctly to canvas coordinates (hit-testing stays intact).
+        // Zoom-to-fit large captures via plain scroll-view magnification (no
+        // custom clip view — that shifted the bounds origin and broke event
+        // mapping). Centering + even margins come from dynamic contentInsets,
+        // which don't move the bounds origin, so hit-testing stays intact.
+        scroll.allowsMagnification = true
+        scroll.minMagnification = 0.05
+        scroll.maxMagnification = 1
         scroll.automaticallyAdjustsContentInsets = false
         scroll.contentInsets = NSEdgeInsets(top: Self.canvasMargin, left: Self.canvasMargin,
                                             bottom: Self.canvasMargin, right: Self.canvasMargin)
@@ -464,6 +468,38 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         frame.origin.y = top - newFrame.size.height
         window.setFrame(frame, display: true, animate: false)
         window.center()
+        fitCanvas()
+    }
+
+    /// Scale the canvas so the *whole* thing fits the viewport with an even
+    /// margin, and center it. Large captures shrink to fit instead of running
+    /// edge-to-edge; small ones stay at 1:1. Magnification keeps mouse events
+    /// correctly mapped, and dynamic insets center the (scaled) canvas.
+    func fitCanvas() {
+        guard let scroll = scrollView else { return }
+        // The viewport is the clip's frame (insets are part of it).
+        let viewport = scroll.contentView.frame.size
+        guard viewport.width > 1, viewport.height > 1 else { return }
+        let margin = Self.canvasMargin
+        let canvasSize = canvas.document.canvasSize
+        let availW = max(viewport.width - margin * 2, 1)
+        let availH = max(viewport.height - margin * 2, 1)
+        let scale = min(1, min(availW / canvasSize.width, availH / canvasSize.height))
+        scroll.magnification = max(scale, scroll.minMagnification)
+
+        // Center the scaled canvas by padding the slack with insets (never less
+        // than the margin). Insets don't shift the bounds origin, so events stay
+        // mapped correctly — unlike a centering clip view.
+        let scaledW = canvasSize.width * scroll.magnification
+        let scaledH = canvasSize.height * scroll.magnification
+        let insetX = max(margin, (viewport.width - scaledW) / 2)
+        let insetY = max(margin, (viewport.height - scaledH) / 2)
+        scroll.contentInsets = NSEdgeInsets(top: insetY, left: insetX, bottom: insetY, right: insetX)
+        scroll.scrollerInsets = NSEdgeInsets(top: -insetY, left: -insetX, bottom: -insetY, right: -insetX)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        fitCanvas()
     }
 
     private func updateSizeLabel() {
