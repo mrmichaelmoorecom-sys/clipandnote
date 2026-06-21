@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
         sc.onOpenGallery = { [weak self] in self?.openGallery(nil) }
+        sc.onExportAll = { [weak self] in self?.exportAllMarkups(nil) }
         sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc
 
@@ -39,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "library": libraryTestAndExit()                     // headless: library add/list/load
         case "gallery": seedAndOpenGallery()                     // seed entries + open the gallery
         case "exportall": exportAllTestAndExit()                 // headless: multi-page PDF
-        default:       break
+        default:       showHome()                                // normal launch → home window
         }
     }
 
@@ -300,18 +301,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         capture.capture(kind) { [weak self] image in
             guard let self, let image else { return }   // nil = user cancelled
             let editor = EditorWindowController(image: image)
-            let stamp = SnapshotNamer.timestamp(Date())
-            editor.setSnapshotTitle("\(stamp) · …")
-            // Autosave to the library immediately (clipandcue captures everything).
-            let id = MarkupLibrary.shared.add(editor.currentDocument, name: "\(stamp) · …", at: Date())
-            editor.bindToLibrary(id)
             self.editors.append(editor)
             editor.show()
-            // On-device OCR fills in a contextual name once it's ready.
-            SnapshotNamer.contextualName(for: image) { name in
-                editor.setSnapshotTitle("\(stamp) · \(name)")
-            }
+            self.finishCapture(image, in: editor, replacingBlank: false)
         }
+    }
+
+    /// Register a fresh capture into the library and start naming it.
+    private func finishCapture(_ image: NSImage, in editor: EditorWindowController, replacingBlank: Bool) {
+        if replacingBlank { editor.setBaseImage(image) }
+        let stamp = SnapshotNamer.timestamp(Date())
+        editor.setSnapshotTitle("\(stamp) · …")
+        let id = MarkupLibrary.shared.add(editor.currentDocument, name: "\(stamp) · …", at: Date())
+        editor.bindToLibrary(id)
+        SnapshotNamer.contextualName(for: image) { name in
+            editor.setSnapshotTitle("\(stamp) · \(name)")
+        }
+    }
+
+    // MARK: - Home (blank) window
+
+    /// The standalone window shown on launch: toolbar + open/capture/drop area.
+    private func showHome() {
+        let editor = EditorWindowController()
+        editor.onRequestOpen = { [weak self, weak editor] in
+            guard let editor else { return }; self?.openInto(editor)
+        }
+        editor.onRequestCapture = { [weak self, weak editor] in
+            guard let editor else { return }; self?.captureInto(editor)
+        }
+        editor.onCaptureImage = { [weak self, weak editor] image in
+            guard let editor else { return }; self?.finishCapture(image, in: editor, replacingBlank: true)
+        }
+        editor.onOpenCanURL = { [weak editor] url in
+            guard let editor, let doc = try? CanFile.read(url) else { return }
+            editor.loadCan(doc, url: url)
+        }
+        editors.append(editor)
+        editor.show()
+    }
+
+    private func openInto(_ editor: EditorWindowController) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.canDocument]
+        panel.allowsMultipleSelection = false
+        panel.begin { resp in
+            guard resp == .OK, let url = panel.url, let doc = try? CanFile.read(url) else { return }
+            editor.loadCan(doc, url: url)
+        }
+    }
+
+    private func captureInto(_ editor: EditorWindowController) {
+        capture.capture(.crosshair) { [weak self] image in
+            guard let self, let image else { return }
+            self.finishCapture(image, in: editor, replacingBlank: true)
+        }
+    }
+
+    /// Reopen the home window when the dock icon is clicked with no windows open.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showHome() }
+        return true
     }
 
     // MARK: - Recents (the menu-bar cue)

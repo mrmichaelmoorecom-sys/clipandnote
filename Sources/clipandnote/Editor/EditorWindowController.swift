@@ -12,6 +12,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private(set) var libraryID: UUID?
     private var autosaveWork: DispatchWorkItem?
 
+    /// Empty-state actions (the blank "home" window).
+    var onRequestOpen: (() -> Void)?
+    var onRequestCapture: (() -> Void)?
+    var onCaptureImage: ((NSImage) -> Void)?
+    var onOpenCanURL: ((URL) -> Void)?
+    private var emptyState: NSView?
+
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
         (.select, "cursorarrow", "Select", "V"),
@@ -32,6 +39,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.init(document: MarkupDocument(baseImage: image, objects: [],
                                            canvasSize: image.size))
     }
+
+    /// A blank "home" window — toolbar + an empty drop/open/capture area.
+    convenience init() {
+        self.init(document: MarkupDocument(baseImage: nil, objects: [],
+                                           canvasSize: CGSize(width: 900, height: 560)))
+    }
+
+    private var isBlank: Bool { canvas.document.baseImage == nil && canvas.document.objects.isEmpty }
 
     convenience init(document: MarkupDocument) {
         let canvasSize = document.canvasSize
@@ -171,9 +186,82 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = container
         window.makeFirstResponder(canvas)
         window.delegate = self
+
+        if document.baseImage == nil && document.objects.isEmpty {
+            installEmptyState(in: container, below: bar)
+            window.title = "clipandnote"
+        }
     }
 
     func windowWillClose(_ notification: Notification) { autosaveNow() }
+
+    // MARK: - Empty state (blank home window)
+
+    private func installEmptyState(in container: NSView, below bar: NSView) {
+        let zone = DropZoneView()
+        zone.translatesAutoresizingMaskIntoConstraints = false
+        zone.onImage = { [weak self] image in self?.onCaptureImage?(image) }
+        zone.onCanURL = { [weak self] url in self?.onOpenCanURL?(url) }
+
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: "photo.badge.plus", accessibilityDescription: nil)
+        icon.symbolConfiguration = .init(pointSize: 40, weight: .regular)
+        icon.contentTintColor = .secondaryLabelColor
+
+        let title = NSTextField(labelWithString: "Open a markup or capture a screenshot")
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
+        let subtitle = NSTextField(labelWithString: "or drag an image or .can file here")
+        subtitle.font = .systemFont(ofSize: 12)
+        subtitle.textColor = .secondaryLabelColor
+
+        let openBtn = NSButton(title: "Open…", target: self, action: #selector(emptyOpen))
+        openBtn.bezelStyle = .rounded; openBtn.keyEquivalent = "\r"
+        let captureBtn = NSButton(title: "Capture", target: self, action: #selector(emptyCapture))
+        captureBtn.bezelStyle = .rounded
+        let buttons = NSStackView(views: [openBtn, captureBtn]); buttons.spacing = 10
+
+        let stack = NSStackView(views: [icon, title, subtitle, buttons])
+        stack.orientation = .vertical; stack.alignment = .centerX; stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        zone.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: zone.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: zone.centerYAnchor),
+        ])
+
+        container.addSubview(zone)   // over the canvas, below the toolbar band
+        NSLayoutConstraint.activate([
+            zone.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            zone.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            zone.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            zone.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        emptyState = zone
+    }
+
+    @objc private func emptyOpen() { onRequestOpen?() }
+    @objc private func emptyCapture() { onRequestCapture?() }
+
+    private func dismissEmptyState() {
+        emptyState?.removeFromSuperview()
+        emptyState = nil
+        window?.makeFirstResponder(canvas)
+    }
+
+    /// Replace the blank canvas with a captured/dropped image.
+    func setBaseImage(_ image: NSImage) {
+        canvas.document = MarkupDocument(baseImage: image, objects: [], canvasSize: image.size)
+        canvas.setFrameSize(image.size)
+        dismissEmptyState()
+    }
+
+    /// Load a `.can` document into this window (from Open or a drop).
+    func loadCan(_ doc: MarkupDocument, url: URL?) {
+        canvas.document = doc
+        canvas.setFrameSize(doc.canvasSize)
+        if let url { setFileURL(url) }
+        dismissEmptyState()
+    }
 
     /// User picked a tool in the palette.
     private func pickTool(_ tool: Tool) {

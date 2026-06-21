@@ -9,6 +9,7 @@ final class StatusItemController {
     /// Fired when the user clicks a recent markup (index into the recents list).
     var onPickRecent: ((Int) -> Void)?
     var onOpenGallery: (() -> Void)?
+    var onExportAll: (() -> Void)?
     var onPreferences: (() -> Void)?
 
     private let statusItem: NSStatusItem
@@ -74,6 +75,11 @@ final class StatusItemController {
         gallery.target = self
         menu.addItem(gallery)
 
+        let exportAll = NSMenuItem(title: "Export All Markups…",
+                                   action: #selector(exportAll), keyEquivalent: "")
+        exportAll.target = self
+        menu.addItem(exportAll)
+
         let prefs = NSMenuItem(title: "Preferences…",
                                action: #selector(openPreferences),
                                keyEquivalent: ",")
@@ -110,6 +116,10 @@ final class StatusItemController {
 
     @objc private func openGallery() {
         onOpenGallery?()
+    }
+
+    @objc private func exportAll() {
+        onExportAll?()
     }
 
     @objc private func openPreferences() {
