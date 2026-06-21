@@ -8,6 +8,7 @@ final class StatusItemController {
     var onCapture: ((CaptureKind) -> Void)?
     /// Fired when the user clicks a recent markup (index into the recents list).
     var onPickRecent: ((Int) -> Void)?
+    var onOpenGallery: (() -> Void)?
     var onPreferences: (() -> Void)?
 
     private let statusItem: NSStatusItem
@@ -68,6 +69,11 @@ final class StatusItemController {
 
         menu.addItem(.separator())
 
+        let gallery = NSMenuItem(title: "Markup Library…",
+                                 action: #selector(openGallery), keyEquivalent: "0")
+        gallery.target = self
+        menu.addItem(gallery)
+
         let prefs = NSMenuItem(title: "Preferences…",
                                action: #selector(openPreferences),
                                keyEquivalent: ",")
@@ -100,6 +106,10 @@ final class StatusItemController {
 
     @objc private func pickRecent(_ sender: NSMenuItem) {
         onPickRecent?(sender.tag)
+    }
+
+    @objc private func openGallery() {
+        onOpenGallery?()
     }
 
     @objc private func openPreferences() {

@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeys = HotkeyManager()
     private var statusController: StatusItemController!
     private var prefsWindow: PreferencesWindowController?
+    private var galleryWindow: GalleryWindowController?
     /// Strong references so editor windows aren't deallocated while open.
     private var editors: [EditorWindowController] = []
 
@@ -14,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let sc = StatusItemController()
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
+        sc.onOpenGallery = { [weak self] in self?.openGallery(nil) }
         sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc
 
@@ -34,8 +36,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "canio":  canIOTestAndExit()                        // headless: .can round-trip
         case "export": exportTestAndExit()                       // headless: PNG + PDF export
         case "library": libraryTestAndExit()                     // headless: library add/list/load
+        case "gallery": seedAndOpenGallery()                     // seed entries + open the gallery
         default:       break
         }
+    }
+
+    /// Dev-only: seed a few library entries and open the gallery to eyeball it.
+    private func seedAndOpenGallery() {
+        let lib = MarkupLibrary.shared
+        if lib.entries.count < 3 {
+            let now = Date()
+            lib.add(DemoContent.makeDocument(), name: "2026-06-20 14-02 · Account settings", at: now)
+            lib.add(DemoContent.makeSmallDocument(), name: "2026-06-20 13-40 · Tiny snapshot", at: now.addingTimeInterval(-60))
+            let id = lib.add(DemoContent.makeDocument(), name: "2026-06-20 11-15 · Login error", at: now.addingTimeInterval(-3600))
+            lib.setPinned(id, true)
+        }
+        openGallery(nil)
     }
 
     /// Dev-only: add a couple of markups to the library, then read them back.
@@ -288,19 +304,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController.updateRecents(items)
     }
 
-    /// Click a recent markup → copy its flattened PNG to the clipboard (stamped so
-    /// it doesn't flood clipandcue's queue) and open the .can for editing.
+    /// Click a recent markup → copy + open.
     private func pickRecent(_ index: Int) {
         let recents = MarkupLibrary.shared.recent(10)
         guard index < recents.count else { return }
-        let entry = recents[index]
-        if let png = MarkupLibrary.shared.flatPNG(entry.id) {
+        activateEntry(recents[index].id)
+    }
+
+    /// Copy a markup's flattened PNG to the clipboard (stamped so it doesn't flood
+    /// clipandcue's queue) and open the .can for editing.
+    private func activateEntry(_ id: UUID) {
+        if let png = MarkupLibrary.shared.flatPNG(id) {
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setData(png, forType: .png)
             pb.setData(Data(), forType: .clipandnoteMarkup)
         }
-        openLibraryEntry(entry.id)
+        openLibraryEntry(id)
+    }
+
+    @objc private func openGallery(_ sender: Any?) {
+        if galleryWindow == nil {
+            let g = GalleryWindowController()
+            g.onOpen = { [weak self] id in self?.activateEntry(id) }
+            galleryWindow = g
+        }
+        galleryWindow?.show()
     }
 
     /// Open a library entry into an editor bound to it (so edits keep autosaving).
