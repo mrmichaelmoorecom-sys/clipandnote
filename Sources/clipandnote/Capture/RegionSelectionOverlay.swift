@@ -4,7 +4,7 @@ import AppKit
 /// `screencapture -i` (which never reports the chosen rect), this hands back the
 /// exact rectangle in screencapture's coordinate space (top-left origin, points)
 /// — so "Previous Snapshot Area" can replay it. Returns nil if cancelled (Esc).
-final class RegionSelectionOverlay: NSWindow {
+final class RegionSelectionOverlay: NSPanel {
     private static var active: RegionSelectionOverlay?
 
     private var completion: ((NSRect?) -> Void)?
@@ -16,15 +16,17 @@ final class RegionSelectionOverlay: NSWindow {
         let screen = NSScreen.main ?? NSScreen.screens.first!
         let overlay = RegionSelectionOverlay(screen: screen, completion: completion)
         active = overlay
-        overlay.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        // A non-activating panel: it gets the selection without bringing
+        // clipandnote's other windows in front of what you're capturing.
+        overlay.orderFrontRegardless()
+        overlay.makeKey()
     }
 
     private init(screen: NSScreen, completion: @escaping (NSRect?) -> Void) {
         self.completion = completion
         self.screenHeight = screen.frame.height
         self.screenOrigin = screen.frame.origin
-        super.init(contentRect: screen.frame, styleMask: .borderless,
+        super.init(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
@@ -32,6 +34,7 @@ final class RegionSelectionOverlay: NSWindow {
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         contentView = regionView
+        initialFirstResponder = regionView   // so Esc reaches it without activating the app
         regionView.onComplete = { [weak self] r in self?.finish(r) }
         regionView.onCancel = { [weak self] in self?.finish(nil) }
     }
