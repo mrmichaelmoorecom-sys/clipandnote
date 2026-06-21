@@ -414,10 +414,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Folder of Files…")
         alert.addButton(withTitle: "Cancel")
         switch alert.runModal() {
-        case .alertFirstButtonReturn:  exportAllPDF(entries)
+        case .alertFirstButtonReturn:  chooseAndMergePDF()
         case .alertSecondButtonReturn: exportAllFolder(entries)
         default: break
         }
+    }
+
+    private var mergeSelection: MergeSelectionWindowController?
+
+    /// Pop the thumbnail picker (newest first) and merge the ticked markups.
+    private func chooseAndMergePDF() {
+        let ordered = MarkupLibrary.shared.entries.sorted { $0.createdAt > $1.createdAt }
+        let wc = MergeSelectionWindowController(entries: ordered) { [weak self] selected in
+            guard !selected.isEmpty else { return }
+            self?.exportAllPDF(selected)
+            self?.mergeSelection = nil
+        }
+        mergeSelection = wc
+        wc.show()
     }
 
     private func exportAllPDF(_ entries: [MarkupLibrary.Entry]) {

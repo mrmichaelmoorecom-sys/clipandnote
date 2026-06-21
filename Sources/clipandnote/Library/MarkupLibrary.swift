@@ -108,6 +108,13 @@ final class MarkupLibrary {
         }
     }
 
+    /// Re-apply the retention limit now (e.g. after the user lowers it in
+    /// Preferences). Pinned items are never evicted; persists the new index.
+    func applyRetention() {
+        enforceRetention()
+        saveIndex()
+    }
+
     private func enforceRetention() {
         let limit = max(AppSettings.shared.localHistoryLimit, 1)
         let evictable = entries.filter { !$0.pinned }.sorted { $0.createdAt > $1.createdAt }

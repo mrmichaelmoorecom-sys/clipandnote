@@ -67,8 +67,29 @@ final class ToolButton: NSView {
             NSColor.controlAccentColor.setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
         }
-        guard let symbol else { return }
         let tint = isSelected ? NSColor.white : NSColor.labelColor
+
+        // The arrow tool previews the *actual* rendered arrow shape (tapered
+        // shaft, swept-back head) rather than a generic line-arrow glyph.
+        if tool == .arrow {
+            let inset: CGFloat = 7
+            let obj = MarkupObject(kind: .arrow,
+                                   points: [CGPoint(x: bounds.maxX - inset, y: inset + 1),
+                                            CGPoint(x: inset, y: bounds.maxY - inset)],
+                                   lineWidth: 4.5)
+            let pts = MarkupRenderer.arrowPolygon(obj)
+            guard pts.count >= 3 else { return }
+            let path = NSBezierPath()
+            path.move(to: pts[0])
+            for p in pts.dropFirst() { path.line(to: p) }
+            path.close()
+            path.lineJoinStyle = .round
+            tint.setFill()
+            path.fill()
+            return
+        }
+
+        guard let symbol else { return }
         let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
             .applying(.init(paletteColors: [tint]))
         let img = symbol.withSymbolConfiguration(conf) ?? symbol
