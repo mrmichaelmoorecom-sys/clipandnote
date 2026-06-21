@@ -61,7 +61,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let margin = Self.canvasMargin    // even breathing room around the canvas
         let maxW: CGFloat = 1500, maxH: CGFloat = 950
         let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
-        let contentH = min(max(canvasSize.height + 48 + margin * 2, 360), maxH)
+        let contentH = min(max(canvasSize.height + 52 + margin * 2, 360), maxH)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: contentW, height: contentH),
@@ -83,7 +83,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         // --- Tool palette ---
         let toolStack = NSStackView()
         toolStack.orientation = .horizontal
-        toolStack.spacing = 2
+        toolStack.spacing = 4
         for t in tools {
             let b = ToolButton(tool: t.tool, symbolName: t.symbol, tooltip: "\(t.label)  (\(t.key))")
             b.isSelected = (t.tool == .select)
@@ -104,7 +104,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         backward.onClick = { [weak self] in self?.canvas.sendBackward(nil) }
         let layerStack = NSStackView(views: [forward, backward])
         layerStack.orientation = .horizontal
-        layerStack.spacing = 2
+        layerStack.spacing = 4
 
         let colors = ColorPaletteView()
         colors.translatesAutoresizingMaskIntoConstraints = false
@@ -139,8 +139,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         let palette = NSStackView(views: [toolStack, layerStack, colors, slider, bgWell, NSView(), sizeLabel, copyButton])
         palette.orientation = .horizontal
-        palette.spacing = 10
-        palette.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        palette.spacing = 14
+        palette.edgeInsets = NSEdgeInsets(top: 8, left: 18, bottom: 8, right: 16)
         palette.translatesAutoresizingMaskIntoConstraints = false
 
         // --- Canvas ---
@@ -197,7 +197,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             bar.topAnchor.constraint(equalTo: container.topAnchor),
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            bar.heightAnchor.constraint(equalToConstant: 44),
+            bar.heightAnchor.constraint(equalToConstant: 52),
 
             palette.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
             palette.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
@@ -458,7 +458,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let maxW = min(1500, vis.width - 40)
         let maxH = min(1100, vis.height - 40)
         let contentW = min(max(canvasSize.width + margin * 2, minW), maxW)
-        let contentH = min(max(canvasSize.height + 44 + margin * 2, 360), maxH)
+        let contentH = min(max(canvasSize.height + 52 + margin * 2, 360), maxH)
         let newFrame = window.frameRect(forContentRect:
             NSRect(x: 0, y: 0, width: contentW, height: contentH))
         var frame = window.frame

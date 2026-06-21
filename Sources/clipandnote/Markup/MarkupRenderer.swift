@@ -131,13 +131,16 @@ enum MarkupRenderer {
         guard !o.text.isEmpty else { return }
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
-        // Negative strokeWidth → fill the glyphs AND stroke them with the contrast
-        // color, giving an outlined label that reads on any background.
+        // A soft contrast halo (not a glyph outline) keeps the label legible on
+        // any background while still reading as plain, clean text.
+        let halo = NSShadow()
+        halo.shadowColor = contrastColor(for: o.stroke.nsColor).withAlphaComponent(0.65)
+        halo.shadowBlurRadius = 4
+        halo.shadowOffset = .zero
         let attrs: [NSAttributedString.Key: Any] = [
             .font: o.resolvedFont(),
             .foregroundColor: o.stroke.nsColor,
-            .strokeColor: contrastColor(for: o.stroke.nsColor),
-            .strokeWidth: -3.0,
+            .shadow: halo,
             .paragraphStyle: style,
         ]
         NSAttributedString(string: o.text, attributes: attrs).draw(in: o.frame)
