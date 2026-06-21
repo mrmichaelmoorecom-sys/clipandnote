@@ -186,6 +186,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // File — open/save .can documents.
         let fileItem = NSMenuItem()
         let fileMenu = NSMenu(title: "File")
+        let newItem = NSMenuItem(title: "New Clip and Note",
+                                 action: #selector(newClipAndNote(_:)), keyEquivalent: "n")
+        newItem.target = self
+        fileMenu.addItem(newItem)
+        fileMenu.addItem(.separator())
         let openItem = NSMenuItem(title: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o")
         openItem.target = self
         fileMenu.addItem(openItem)
@@ -320,6 +325,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Home (blank) window
+
+    /// File ▸ New Clip and Note — opens a fresh default (home) window.
+    @objc private func newClipAndNote(_ sender: Any?) { showHome() }
 
     /// The standalone window shown on launch: toolbar + open/capture/drop area.
     private func showHome() {

@@ -41,6 +41,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var sizeLabel: NSTextField!
     private var bgWell: NSColorWell!
     private var scrollView: NSScrollView!
+    private var fileNameLabel: NSTextField!
 
     convenience init(image: NSImage) {
         self.init(document: MarkupDocument(baseImage: image, objects: [],
@@ -256,6 +257,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             scroll.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
+        installBottomNotch(in: container)
+
         window.contentView = container
         window.makeFirstResponder(canvas)
         window.delegate = self
@@ -264,6 +267,118 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             installEmptyState(in: container, below: bar)
             window.title = "clipandnote"
         }
+    }
+
+    /// A floating, centered "notch" pill at the bottom of the window: brand mark
+    /// (links to clipandnote.com), then the file name, export menu, and the
+    /// system share button.
+    private func installBottomNotch(in container: NSView) {
+        // Brand: logo placeholder + wordmark, clickable → clipandnote.com.
+        let logo = NSView()
+        logo.wantsLayer = true
+        logo.layer?.cornerRadius = 5
+        logo.layer?.backgroundColor = NSColor.systemGreen.cgColor
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        logo.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        logo.toolTip = "clipandnote.com"
+
+        let wordmark = NSTextField(labelWithString: "clipandnote")
+        wordmark.font = .systemFont(ofSize: 12, weight: .semibold)
+        wordmark.textColor = .labelColor
+        wordmark.toolTip = "clipandnote.com"
+
+        let brand = NSStackView(views: [logo, wordmark])
+        brand.orientation = .horizontal
+        brand.spacing = 6
+        brand.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openWebsite)))
+        brand.toolTip = "clipandnote.com"
+
+        // File name.
+        let nameLabel = NSTextField(labelWithString: "Untitled")
+        nameLabel.font = .systemFont(ofSize: 12)
+        nameLabel.textColor = .secondaryLabelColor
+        nameLabel.lineBreakMode = .byTruncatingMiddle
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        self.fileNameLabel = nameLabel
+
+        // Export menu + system share.
+        let exportButton = IconButton(symbolName: "square.and.arrow.down", tooltip: "Export…")
+        exportButton.onClick = { [weak self, weak exportButton] in
+            guard let exportButton else { return }; self?.showExportMenu(from: exportButton)
+        }
+        let shareButton = IconButton(symbolName: "square.and.arrow.up", tooltip: "Share…")
+        shareButton.onClick = { [weak self, weak shareButton] in
+            guard let shareButton else { return }; self?.shareDocument(from: shareButton)
+        }
+
+        let stack = NSStackView(views: [brand, notchDivider(), nameLabel, notchDivider(),
+                                        exportButton, shareButton])
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 5, left: 12, bottom: 5, right: 8)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let notch = NSView()
+        notch.wantsLayer = true
+        notch.layer?.cornerRadius = 12
+        notch.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.96).cgColor
+        notch.layer?.borderWidth = 1
+        notch.layer?.borderColor = NSColor.separatorColor.cgColor
+        notch.layer?.shadowColor = .black
+        notch.layer?.shadowOpacity = 0.28
+        notch.layer?.shadowRadius = 10
+        notch.layer?.shadowOffset = CGSize(width: 0, height: -2)
+        notch.layer?.masksToBounds = false
+        notch.translatesAutoresizingMaskIntoConstraints = false
+        notch.addSubview(stack)
+
+        container.addSubview(notch)   // added last → floats above the scroll view
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: notch.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: notch.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: notch.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: notch.bottomAnchor),
+            notch.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            notch.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
+            notch.widthAnchor.constraint(lessThanOrEqualTo: container.widthAnchor, constant: -48),
+        ])
+        updateFileNameLabel()
+    }
+
+    private func notchDivider() -> NSView {
+        let line = NSView()
+        line.wantsLayer = true
+        line.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        line.translatesAutoresizingMaskIntoConstraints = false
+        line.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        line.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        return line
+    }
+
+    @objc private func openWebsite() {
+        if let url = URL(string: "https://clipandnote.com") { NSWorkspace.shared.open(url) }
+    }
+
+    private func updateFileNameLabel() {
+        fileNameLabel?.stringValue = fileURL?.lastPathComponent ?? "Untitled"
+    }
+
+    private func showExportMenu(from view: NSView) {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Export as PNG…", action: #selector(exportPNG(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Export as PDF…", action: #selector(exportPDF(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Export as SVG…", action: #selector(exportSVG(_:)), keyEquivalent: "")
+        for item in menu.items { item.target = self }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
+    }
+
+    private func shareDocument(from view: NSView) {
+        // Share the flattened image (works whether or not the doc is saved).
+        guard let image = canvas.flatten() else { return }
+        let picker = NSSharingServicePicker(items: [image])
+        picker.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
     }
 
     func windowWillClose(_ notification: Notification) { autosaveNow() }
@@ -326,6 +441,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvas.document = MarkupDocument(baseImage: image, objects: [], canvasSize: image.size)
         canvas.setFrameSize(image.size)
         dismissEmptyState()
+        updateFileNameLabel()
         DispatchQueue.main.async { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
     }
 
@@ -406,6 +522,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window?.representedURL = url
         window?.title = url.deletingPathExtension().lastPathComponent
         window?.isDocumentEdited = false
+        updateFileNameLabel()
     }
 
     @objc func save(_ sender: Any?) {

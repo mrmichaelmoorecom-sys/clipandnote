@@ -87,6 +87,14 @@ final class ColorPaletteView: NSView {
         well.toolTip = "Pick a custom color — it’s saved to an empty slot"
         stack.addArrangedSubview(well)
 
+        // Eyedropper: sample a color from anywhere on screen into a custom slot.
+        let dropper = IconButton(symbolName: "eyedropper",
+                                 tooltip: "Sample a color from anywhere on screen")
+        dropper.onClick = { [weak self] in self?.sampleColor() }
+        dropper.translatesAutoresizingMaskIntoConstraints = false
+        dropper.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        stack.addArrangedSubview(dropper)
+
         addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -113,6 +121,18 @@ final class ColorPaletteView: NSView {
         selected = c
         refresh()
         onPick?(c)
+    }
+
+    /// Pick a color from anywhere on screen with the system magnifier loupe.
+    private func sampleColor() {
+        NSColorSampler().show { [weak self] color in
+            guard let self, let color else { return }
+            self.addCustom(color)
+            self.selected = color
+            self.well.color = color
+            self.refresh()
+            self.onPick?(color)
+        }
     }
 
     /// Reflect an externally-chosen color (e.g. the selected object's color).
