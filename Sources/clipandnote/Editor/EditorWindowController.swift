@@ -128,19 +128,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         colors.setContentHuggingPriority(.required, for: .horizontal)
         self.colors = colors
 
-        // Stroke / text size: a wedge that reads small→large, then the slider.
-        let sizeRamp = SizeRampView()
-        sizeRamp.toolTip = "Stroke / text size"
-        let slider = NSSlider(value: 4, minValue: 1, maxValue: 30,
-                              target: self, action: #selector(widthChanged(_:)))
+        // Stroke / text size: the slider's *own track* is a thin→thick ramp, so
+        // it reads as a size control with no separate label needed.
+        let slider = RampSlider(value: 4, minValue: 1, maxValue: 30,
+                                target: self, action: #selector(widthChanged(_:)))
         slider.isContinuous = true
         slider.toolTip = "Stroke / text size"
         slider.translatesAutoresizingMaskIntoConstraints = false
-        slider.widthAnchor.constraint(equalToConstant: 86).isActive = true
+        slider.widthAnchor.constraint(equalToConstant: 104).isActive = true
+        slider.heightAnchor.constraint(equalToConstant: 18).isActive = true
         self.widthSlider = slider
-        let sizeGroup = NSStackView(views: [sizeRamp, slider])
-        sizeGroup.orientation = .horizontal
-        sizeGroup.spacing = 6
 
         // Canvas background fill (shows wherever the canvas has grown past the
         // snapshot). Labelled so it reads as the canvas-color control, not a swatch.
@@ -169,10 +166,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         sizeLabel.textColor = .secondaryLabelColor
         self.sizeLabel = sizeLabel
 
-        // A leading spacer so the first tool clears the floating window buttons.
+        // A leading spacer so the first divider/tool clears the floating window
+        // buttons (whose right edge sits ~74pt in).
         let trafficSpacer = NSView()
         trafficSpacer.translatesAutoresizingMaskIntoConstraints = false
-        trafficSpacer.widthAnchor.constraint(equalToConstant: 48).isActive = true
+        trafficSpacer.widthAnchor.constraint(equalToConstant: 66).isActive = true
 
         // Groups separated by hairline vertical dividers, in the order:
         // window buttons │ tools │ layer │ colors │ size │ canvas color.
@@ -181,7 +179,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             toolbarDivider(), toolStack,
             toolbarDivider(), layerStack,
             toolbarDivider(), colors,
-            toolbarDivider(), sizeGroup,
+            toolbarDivider(), slider,
             toolbarDivider(), bgGroup,
             NSView(), sizeLabel, copyButton,
         ])
@@ -577,19 +575,39 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 }
 
-/// A small left-to-right wedge (thin → thick) that visually labels the adjacent
-/// slider as a *size* control, so the slider isn't an unlabelled mystery track.
-final class SizeRampView: NSView {
-    override var intrinsicContentSize: NSSize { NSSize(width: 26, height: 18) }
-    override func draw(_ dirtyRect: NSRect) {
-        let w = bounds.width, mid = bounds.midY, h = bounds.height
+/// A horizontal slider whose track *is* a thin→thick wedge, so it reads as a
+/// size control on its own (no separate ramp icon needed).
+final class RampSlider: NSSlider {
+    override class var cellClass: AnyClass? {
+        get { RampSliderCell.self }
+        set { }
+    }
+}
+
+final class RampSliderCell: NSSliderCell {
+    override func drawBar(inside rect: NSRect, flipped: Bool) {
+        guard let view = controlView else { return }
+        let midY = view.bounds.midY
+        let leftH: CGFloat = 2
+        let rightH = min(view.bounds.height - 2, 13)
         let wedge = NSBezierPath()
-        wedge.move(to: NSPoint(x: 1, y: mid - 0.75))
-        wedge.line(to: NSPoint(x: w, y: mid - h * 0.42))
-        wedge.line(to: NSPoint(x: w, y: mid + h * 0.42))
-        wedge.line(to: NSPoint(x: 1, y: mid + 0.75))
+        wedge.move(to: NSPoint(x: rect.minX, y: midY - leftH / 2))
+        wedge.line(to: NSPoint(x: rect.maxX, y: midY - rightH / 2))
+        wedge.line(to: NSPoint(x: rect.maxX, y: midY + rightH / 2))
+        wedge.line(to: NSPoint(x: rect.minX, y: midY + leftH / 2))
         wedge.close()
-        NSColor.secondaryLabelColor.setFill()
+        NSColor.tertiaryLabelColor.setFill()
         wedge.fill()
+    }
+
+    override func drawKnob(_ knobRect: NSRect) {
+        let d = min(knobRect.width, knobRect.height) - 1
+        let r = NSRect(x: knobRect.midX - d / 2, y: knobRect.midY - d / 2, width: d, height: d)
+        let knob = NSBezierPath(ovalIn: r)
+        NSColor.controlAccentColor.setFill()
+        knob.fill()
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        knob.lineWidth = 1
+        knob.stroke()
     }
 }
