@@ -26,6 +26,8 @@ extension NSPasteboard.PasteboardType {
     static let clipandnoteMarkup = NSPasteboard.PasteboardType("com.clipandnote.markup")
     /// A single copied markup object (JSON), so paste re-creates the object.
     static let clipandnoteObject = NSPasteboard.PasteboardType("com.clipandnote.object")
+    /// Several copied objects (JSON array) from a marquee selection.
+    static let clipandnoteObjects = NSPasteboard.PasteboardType("com.clipandnote.objects")
 }
 
 /// The interactive markup canvas. Flipped (top-left origin) so coordinates match
@@ -60,7 +62,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func selectTool(_ t: Tool) { tool = t; onToolChanged?(t) }
 
-    private var selectedID: UUID? { didSet { onSelectionChanged?(selectedObject) } }
+    /// The full selection (one or many, via marquee). The source of truth.
+    private var selectedIDs: Set<UUID> = [] {
+        didSet {
+            guard selectedIDs != oldValue else { return }
+            onSelectionChanged?(selectedObject)
+        }
+    }
+    /// Single-selection accessor used by inspectors, handles, layering and copy:
+    /// reads as nil unless *exactly one* object is selected; assigning replaces
+    /// the whole selection. Keeps the existing single-object call sites working.
+    private var selectedID: UUID? {
+        get { selectedIDs.count == 1 ? selectedIDs.first : nil }
+        set { selectedIDs = newValue.map { [$0] } ?? [] }
+    }
 
     /// Translucent fill for a highlighter of the given color.
     static func highlighterFill(_ c: NSColor) -> RGBAColor {
@@ -68,8 +83,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     // Drag state
-    private enum DragKind { case create, move, resize(Handle), endpoint(Int), crop }
+    private enum DragKind { case create, move, resize(Handle), endpoint(Int), crop, marquee }
     private var drag: DragKind?
+    /// In-progress marquee rectangle (select tool, dragging over empty canvas).
+    private var marqueeRect: CGRect = .zero
+    /// Pre-drag snapshot of every selected object, for moving a group together.
+    private var preDragGroup: [UUID: MarkupObject] = [:]
     private var cropRect: CGRect = .zero
 
     /// Fired after a crop changes the canvas size (so the toolbar can refit).
@@ -155,7 +174,23 @@ final class CanvasView: NSView, NSTextViewDelegate {
         for obj in document.objects where obj.id != editingID {
             MarkupRenderer.draw(obj, baseImage: document.baseImage, baseFrame: document.baseImageFrame)
         }
-        if let sel = selectedObject { drawSelection(sel) }
+        // Dashed outline on every selected object; resize handles only when a
+        // single object is selected (a marquee group shows outlines, no handles).
+        for obj in document.objects where selectedIDs.contains(obj.id) {
+            drawSelectionOutline(obj)
+        }
+        if let sel = selectedObject { drawHandles(sel) }
+
+        // Marquee rubber-band.
+        if case .marquee = drag, marqueeRect.width > 0 || marqueeRect.height > 0 {
+            NSColor.controlAccentColor.withAlphaComponent(0.12).setFill()
+            NSBezierPath(rect: marqueeRect).fill()
+            NSColor.controlAccentColor.setStroke()
+            let band = NSBezierPath(rect: marqueeRect)
+            band.lineWidth = 1
+            band.setLineDash([4, 3], count: 2, phase: 0)
+            band.stroke()
+        }
 
         // Crop preview: dim everything outside the crop rectangle.
         if case .crop = drag, cropRect.width > 0, cropRect.height > 0 {
@@ -176,13 +211,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
         border.stroke()
     }
 
-    private func drawSelection(_ obj: MarkupObject) {
+    private func drawSelectionOutline(_ obj: MarkupObject) {
         let outline = NSBezierPath(rect: obj.frame.insetBy(dx: -2, dy: -2))
         outline.lineWidth = 1
         NSColor.controlAccentColor.setStroke()
         outline.setLineDash([4, 3], count: 2, phase: 0)
         outline.stroke()
+    }
 
+    private func drawHandles(_ obj: MarkupObject) {
         NSColor.controlAccentColor.setFill()
         for r in handleRects(obj).values {
             let dot = NSBezierPath(ovalIn: r)
@@ -236,6 +273,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     // MARK: Mouse
 
+    /// Start moving the current selection (one object or a marquee group).
+    private func beginMove(at p: CGPoint) {
+        preDragGroup = [:]
+        for obj in document.objects where selectedIDs.contains(obj.id) {
+            preDragGroup[obj.id] = obj
+        }
+        preDrag = selectedObject
+        drag = .move
+        dragStart = p
+    }
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         commitTextEditing()
@@ -251,7 +299,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
 
         if tool == .select {
-            // 1. Handle drag on the current selection?
+            // 1. Handle drag on the current selection (single-selection only)?
             if let sel = selectedObject {
                 for (h, r) in handleRects(sel) where r.contains(p) {
                     preDrag = sel
@@ -263,14 +311,18 @@ final class CanvasView: NSView, NSTextViewDelegate {
                     return
                 }
             }
-            // 2. Select / move an object, or deselect.
+            // 2. Select / move an object, or start a marquee on empty canvas.
             if let hit = hitTestObject(at: p) {
-                selectedID = hit.id
-                preDrag = hit
-                drag = .move
-                dragStart = p
+                // Click inside the existing multi-selection → move the whole group.
+                if !selectedIDs.contains(hit.id) {
+                    selectedIDs = [hit.id]
+                }
+                beginMove(at: p)
             } else {
                 selectedID = nil
+                drag = .marquee
+                dragStart = p
+                marqueeRect = CGRect(origin: p, size: .zero)
             }
             needsDisplay = true
             return
@@ -292,9 +344,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         // select tool and grab it — don't stack a new one on top.
         if let hit = hitTestObject(at: p), hit.kind == kind {
             selectedID = hit.id
-            preDrag = hit
-            drag = .move
-            dragStart = p
+            beginMove(at: p)
             needsDisplay = true
             return
         }
@@ -331,14 +381,39 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard let drag else { return }
         let p = convert(event.locationInWindow, from: nil)
-        if case .crop = drag {
+
+        switch drag {
+        case .crop:
             cropRect = rect(from: dragStart, to: p)
             needsDisplay = true
             return
+        case .marquee:
+            marqueeRect = rect(from: dragStart, to: p)
+            // Select every object the rubber-band touches (the base snapshot
+            // isn't an object, so it's never caught — as required).
+            selectedIDs = Set(document.objects
+                .filter { $0.frame.standardized.intersects(marqueeRect) }
+                .map { $0.id })
+            needsDisplay = true
+            return
+        case .move:
+            // Moves the whole selection (one object or a marquee group) together.
+            let d = CGSize(width: p.x - dragStart.x, height: p.y - dragStart.y)
+            for (id, pre) in preDragGroup {
+                guard let idx = indexOf(id) else { continue }
+                var moved = pre
+                moved.move(by: d)
+                document.objects[idx] = moved
+            }
+            needsDisplay = true
+            return
+        case .create, .resize, .endpoint:
+            break   // single-object edits, handled below
         }
-        guard let drag, let id = selectedID, let idx = indexOf(id) else { return }
 
+        guard let id = selectedID, let idx = indexOf(id) else { return }
         switch drag {
         case .create:
             if document.objects[idx].kind == .freehand {
@@ -350,11 +425,6 @@ final class CanvasView: NSView, NSTextViewDelegate {
             } else {
                 document.objects[idx].frame = rect(from: dragStart, to: p)
             }
-        case .move:
-            guard let pre = preDrag else { break }
-            var moved = pre
-            moved.move(by: CGSize(width: p.x - dragStart.x, height: p.y - dragStart.y))
-            document.objects[idx] = moved
         case .resize(let h):
             guard let pre = preDrag else { break }
             document.objects[idx].frame = resized(pre.frame, handle: h, to: p)
@@ -364,8 +434,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
             pts[i] = p
             document.objects[idx].points = pts
             document.objects[idx].recomputeBounds()
-        case .crop:
-            break   // handled before the guard
+        case .move, .crop, .marquee:
+            break   // handled above
         }
         needsDisplay = true
     }
@@ -375,6 +445,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
             drag = nil
             applyCrop(cropRect)
             cropRect = .zero
+            return
+        }
+        if case .marquee = drag {
+            drag = nil
+            marqueeRect = .zero
+            undoSnapshot = nil          // selection-only: not an undoable doc edit
+            needsDisplay = true
+            return
+        }
+        if case .move = drag {
+            drag = nil; preDrag = nil; preDragGroup = [:]
+            expandCanvasIfNeeded()      // grow if the move pushed past the snapshot
+            commitUndo()
+            needsDisplay = true
             return
         }
         defer { drag = nil; preDrag = nil }
@@ -501,10 +585,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     private func deleteSelection() {
-        guard let id = selectedID, let idx = indexOf(id) else { return }
+        guard !selectedIDs.isEmpty else { return }
         undoSnapshot = snapshot()
-        document.objects.remove(at: idx)
-        selectedID = nil
+        document.objects.removeAll { selectedIDs.contains($0.id) }
+        selectedIDs = []
         commitUndo()
         needsDisplay = true
     }
@@ -514,7 +598,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
     @objc func paste(_ sender: Any?) {
         let pb = NSPasteboard.general
         undoSnapshot = snapshot()
-        // A copied markup object → paste it as a new, offset object.
+        // Several copied objects (marquee selection) → paste them all, offset.
+        if let data = pb.data(forType: .clipandnoteObjects),
+           let originals = try? JSONDecoder().decode([MarkupObject].self, from: data),
+           !originals.isEmpty {
+            let copies = originals.map { $0.duplicated(offsetBy: CGSize(width: 18, height: 18)) }
+            document.objects.append(contentsOf: copies)
+            selectedIDs = Set(copies.map { $0.id })
+            tool = .select
+            expandCanvasIfNeeded()
+            commitUndo()
+            needsDisplay = true
+            return
+        }
+        // A single copied markup object → paste it as a new, offset object.
         if let data = pb.data(forType: .clipandnoteObject),
            let original = try? JSONDecoder().decode(MarkupObject.self, from: data) {
             let obj = original.duplicated(offsetBy: CGSize(width: 18, height: 18))
@@ -557,7 +654,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
     @objc func copy(_ sender: Any?) {
         let pb = NSPasteboard.general
         pb.clearContents()
-        // An object is selected → copy just that object (paste re-creates it).
+        // A marquee group is selected → copy all of them (paste re-creates them).
+        if selectedIDs.count > 1 {
+            let objs = document.objects.filter { selectedIDs.contains($0.id) }
+            if let data = try? JSONEncoder().encode(objs) {
+                pb.setData(data, forType: .clipandnoteObjects)
+                return
+            }
+        }
+        // A single object is selected → copy just that object (paste re-creates it).
         if let id = selectedID, let obj = document.objects.first(where: { $0.id == id }),
            let data = try? JSONEncoder().encode(obj) {
             pb.setData(data, forType: .clipandnoteObject)
