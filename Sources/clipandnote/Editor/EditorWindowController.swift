@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 
 /// A markup editor window: a tool palette across the top and the interactive
 /// `CanvasView` (in a scroll view) below.
@@ -249,6 +250,29 @@ final class EditorWindowController: NSWindowController {
             setFileURL(url)
         } catch {
             if let window { NSAlert(error: error).beginSheetModal(for: window) }
+        }
+    }
+
+    // MARK: Export
+
+    @objc func exportPNG(_ sender: Any?) {
+        exportData(ext: "png", type: .png) { MarkupExporter.png(self.canvas.document) }
+    }
+    @objc func exportPDF(_ sender: Any?) {
+        exportData(ext: "pdf", type: .pdf) { MarkupExporter.pdf(self.canvas.document) }
+    }
+    @objc func exportSVG(_ sender: Any?) {
+        exportData(ext: "svg", type: .svg) { SVGExporter.svg(self.canvas.document).data(using: .utf8) }
+    }
+
+    private func exportData(ext: String, type: UTType, make: @escaping () -> Data?) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [type]
+        panel.nameFieldStringValue =
+            (fileURL?.deletingPathExtension().lastPathComponent ?? snapshotTitle) + ".\(ext)"
+        panel.beginSheetModal(for: window!) { resp in
+            guard resp == .OK, let url = panel.url, let data = make() else { return }
+            try? data.write(to: url)
         }
     }
 

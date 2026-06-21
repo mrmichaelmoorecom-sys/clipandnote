@@ -30,7 +30,7 @@ enum MarkupRenderer {
     }
 
     /// Width of the contrasting outline drawn beneath a stroked mark.
-    private static func outlineWidth(_ lineWidth: CGFloat) -> CGFloat { lineWidth + max(lineWidth * 0.9, 3) }
+    static func outlineWidth(_ lineWidth: CGFloat) -> CGFloat { lineWidth + max(lineWidth * 0.9, 3) }
 
     // MARK: Stroked shapes (outline underlay → colored stroke)
 
@@ -69,12 +69,14 @@ enum MarkupRenderer {
 
     /// A single filled arrow with a tapered shaft and a swept-back head — one
     /// path, so the head can't drift, and a contrasting outline so it pops.
-    private static func drawArrow(_ o: MarkupObject) {
-        guard o.points.count >= 2 else { return }
+    /// The arrow outline as one polygon (tapered shaft + swept-back head). Shared
+    /// by the canvas/PDF renderer and the SVG exporter so they stay identical.
+    static func arrowPolygon(_ o: MarkupObject) -> [CGPoint] {
+        guard o.points.count >= 2 else { return [] }
         let s = o.points[0], e = o.points[1]
         let dx = e.x - s.x, dy = e.y - s.y
         let len = hypot(dx, dy)
-        guard len > 0.5 else { return }
+        guard len > 0.5 else { return [] }
 
         let ux = dx / len, uy = dy / len          // unit direction
         let px = -uy, py = ux                      // unit perpendicular
@@ -86,16 +88,24 @@ enum MarkupRenderer {
         let bx = e.x - ux * headLen, by = e.y - uy * headLen          // head base
         let sweep = headLen * 0.28                                    // swept-back shoulders
         let sx = bx - ux * sweep, sy = by - uy * sweep
-
         func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+        return [
+            p(s.x + px * tailHalf, s.y + py * tailHalf),
+            p(bx + px * baseHalf, by + py * baseHalf),
+            p(sx + px * headHalf, sy + py * headHalf),   // swept shoulder
+            p(e.x, e.y),                                 // tip
+            p(sx - px * headHalf, sy - py * headHalf),
+            p(bx - px * baseHalf, by - py * baseHalf),
+            p(s.x - px * tailHalf, s.y - py * tailHalf),
+        ]
+    }
+
+    private static func drawArrow(_ o: MarkupObject) {
+        let pts = arrowPolygon(o)
+        guard pts.count >= 3 else { return }
         let path = NSBezierPath()
-        path.move(to: p(s.x + px * tailHalf, s.y + py * tailHalf))
-        path.line(to: p(bx + px * baseHalf, by + py * baseHalf))
-        path.line(to: p(sx + px * headHalf, sy + py * headHalf))      // swept shoulder
-        path.line(to: p(e.x, e.y))                                    // tip
-        path.line(to: p(sx - px * headHalf, sy - py * headHalf))
-        path.line(to: p(bx - px * baseHalf, by - py * baseHalf))
-        path.line(to: p(s.x - px * tailHalf, s.y - py * tailHalf))
+        path.move(to: pts[0])
+        for pt in pts.dropFirst() { path.line(to: pt) }
         path.close()
         path.lineJoinStyle = .round
 

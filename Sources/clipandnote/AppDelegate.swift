@@ -28,8 +28,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "name":   nameDemoAndExit()                         // headless: OCR + visual naming
         case "classify": classifyDemoAndExit()                   // headless: visual classifier
         case "canio":  canIOTestAndExit()                        // headless: .can round-trip
+        case "export": exportTestAndExit()                       // headless: PNG + PDF export
         default:       break
         }
+    }
+
+    /// Dev-only: export the demo to PNG + PDF, and rasterize the PDF to check it.
+    private func exportTestAndExit() {
+        let doc = DemoContent.makeDocument()
+        if let png = MarkupExporter.png(doc, scale: 2) {
+            try? png.write(to: URL(fileURLWithPath: "/tmp/clipandnote-export.png"))
+            print("PNG bytes=\(png.count)")
+        }
+        if let pdf = MarkupExporter.pdf(doc) {
+            try? pdf.write(to: URL(fileURLWithPath: "/tmp/clipandnote-export.pdf"))
+            print("PDF bytes=\(pdf.count)")
+            // Rasterize the PDF back to PNG to eyeball orientation/content.
+            if let raster = NSImage(data: pdf)?.pngData() {
+                try? raster.write(to: URL(fileURLWithPath: "/tmp/clipandnote-export-pdf.png"))
+            }
+        }
+        let svg = SVGExporter.svg(doc)
+        try? svg.write(toFile: "/tmp/clipandnote-export.svg", atomically: true, encoding: .utf8)
+        print("SVG bytes=\(svg.utf8.count)")
+        exit(0)
     }
 
     /// Dev-only: write the demo to a .can file, read it back, and report fidelity.
@@ -123,6 +145,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let saveAsItem = NSMenuItem(title: "Save As…", action: #selector(EditorWindowController.saveAs(_:)), keyEquivalent: "s")
         saveAsItem.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(saveAsItem)
+
+        let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
+        let exportMenu = NSMenu()
+        exportMenu.addItem(NSMenuItem(title: "PNG…", action: #selector(EditorWindowController.exportPNG(_:)), keyEquivalent: ""))
+        exportMenu.addItem(NSMenuItem(title: "PDF…", action: #selector(EditorWindowController.exportPDF(_:)), keyEquivalent: ""))
+        exportMenu.addItem(NSMenuItem(title: "SVG…", action: #selector(EditorWindowController.exportSVG(_:)), keyEquivalent: ""))
+        exportItem.submenu = exportMenu
+        fileMenu.addItem(exportItem)
+
         fileMenu.addItem(.separator())
         fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)),
                                     keyEquivalent: "w"))
