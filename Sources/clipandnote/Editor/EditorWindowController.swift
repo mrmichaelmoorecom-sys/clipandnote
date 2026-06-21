@@ -5,6 +5,8 @@ import AppKit
 final class EditorWindowController: NSWindowController {
 
     private var canvas: CanvasView!
+    /// The `.can` file backing this window, once saved/opened.
+    private(set) var fileURL: URL?
 
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
@@ -111,6 +113,7 @@ final class EditorWindowController: NSWindowController {
             self.widthSlider.doubleValue = Double(obj.kind == .text ? obj.fontSize / 5 : obj.lineWidth)
         }
         canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
+        canvas.onMutated = { [weak self] in self?.window?.isDocumentEdited = true }
         canvas.onCanvasResized = { [weak canvas] in
             guard let canvas, let clip = canvas.enclosingScrollView?.contentView else { return }
             let doc = canvas.frame.size, vis = clip.bounds.size
@@ -213,6 +216,40 @@ final class EditorWindowController: NSWindowController {
     /// Flattened PNG of the current markup (used by the dev demo hook).
     func canvasFlattenedPNG() -> Data? {
         canvas.flatten()?.pngData()
+    }
+
+    // MARK: - Saving / opening .can files
+
+    /// Adopt a file (after opening, or after the first save).
+    func setFileURL(_ url: URL) {
+        fileURL = url
+        window?.representedURL = url
+        window?.title = url.deletingPathExtension().lastPathComponent
+        window?.isDocumentEdited = false
+    }
+
+    @objc func save(_ sender: Any?) {
+        if let url = fileURL { write(to: url) } else { saveAs(sender) }
+    }
+
+    @objc func saveAs(_ sender: Any?) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.canDocument]
+        panel.nameFieldStringValue = (fileURL?.deletingPathExtension().lastPathComponent
+            ?? snapshotTitle) + ".\(CanFile.ext)"
+        panel.beginSheetModal(for: window!) { [weak self] resp in
+            guard resp == .OK, let url = panel.url else { return }
+            self?.write(to: url)
+        }
+    }
+
+    private func write(to url: URL) {
+        do {
+            try CanFile.write(canvas.document, to: url)
+            setFileURL(url)
+        } catch {
+            if let window { NSAlert(error: error).beginSheetModal(for: window) }
+        }
     }
 
     /// The snapshot's name (timestamp + AI label), shown as the window title and

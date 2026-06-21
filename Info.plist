@@ -24,5 +24,43 @@
     <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Michael Moore. clipandnote — CC BY-NC 4.0. Non-commercial use only.</string>
+
+    <!-- The .can markup document type (a JSON file, so it also conforms to public.json). -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>clipandnote Markup</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Owner</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>com.clipandnote.can</string>
+            </array>
+        </dict>
+    </array>
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>com.clipandnote.can</string>
+            <key>UTTypeDescription</key>
+            <string>clipandnote Markup</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.json</string>
+                <string>public.content</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>can</string>
+                </array>
+            </dict>
+        </dict>
+    </array>
 </dict>
 </plist>

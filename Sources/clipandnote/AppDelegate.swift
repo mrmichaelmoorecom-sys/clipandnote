@@ -27,8 +27,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "small":  openDemo(DemoContent.makeSmallDocument()) // small snapshot (centering)
         case "name":   nameDemoAndExit()                         // headless: OCR + visual naming
         case "classify": classifyDemoAndExit()                   // headless: visual classifier
+        case "canio":  canIOTestAndExit()                        // headless: .can round-trip
         default:       break
         }
+    }
+
+    /// Dev-only: write the demo to a .can file, read it back, and report fidelity.
+    private func canIOTestAndExit() {
+        let original = DemoContent.makeDocument()
+        let url = URL(fileURLWithPath: "/tmp/clipandnote-test.can")
+        do {
+            try CanFile.write(original, to: url)
+            let loaded = try CanFile.read(url)
+            let bytes = (try? Data(contentsOf: url))?.count ?? 0
+            print("CANIO objs \(original.objects.count)->\(loaded.objects.count) "
+                + "base=\(loaded.baseImage != nil) canvas=\(loaded.canvasSize) "
+                + "frame=\(loaded.baseImageFrame) bytes=\(bytes)")
+        } catch {
+            print("CANIO error: \(error)")
+        }
+        exit(0)
     }
 
     /// Dev-only: report whether MobileCLIP loaded and its top labels for the demo.
@@ -92,6 +110,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appItem.submenu = appMenu
         main.addItem(appItem)
 
+        // File — open/save .can documents.
+        let fileItem = NSMenuItem()
+        let fileMenu = NSMenu(title: "File")
+        let openItem = NSMenuItem(title: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o")
+        openItem.target = self
+        fileMenu.addItem(openItem)
+        fileMenu.addItem(.separator())
+        // save: / saveAs: travel the responder chain to the key editor window.
+        let saveItem = NSMenuItem(title: "Save…", action: #selector(EditorWindowController.save(_:)), keyEquivalent: "s")
+        fileMenu.addItem(saveItem)
+        let saveAsItem = NSMenuItem(title: "Save As…", action: #selector(EditorWindowController.saveAs(_:)), keyEquivalent: "s")
+        saveAsItem.keyEquivalentModifierMask = [.command, .shift]
+        fileMenu.addItem(saveAsItem)
+        fileMenu.addItem(.separator())
+        fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)),
+                                    keyEquivalent: "w"))
+        fileItem.submenu = fileMenu
+        main.addItem(fileItem)
+
         let editItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
         func add(_ title: String, _ sel: String, _ key: String, _ mask: NSEvent.ModifierFlags = .command) {
@@ -140,6 +177,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             prefsWindow = w
         }
         prefsWindow?.show()
+    }
+
+    // MARK: - Documents
+
+    @objc private func openDocument(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.canDocument]
+        panel.allowsMultipleSelection = false
+        panel.begin { [weak self] resp in
+            guard resp == .OK, let url = panel.url else { return }
+            self?.openFile(url)
+        }
+    }
+
+    /// Open a `.can` file into a new editor window (also the Finder double-click path).
+    func openFile(_ url: URL) {
+        // Focus an already-open window for this file rather than duplicating it.
+        if let existing = editors.first(where: { $0.fileURL == url }) { existing.show(); return }
+        do {
+            let document = try CanFile.read(url)
+            let editor = EditorWindowController(document: document)
+            editor.setFileURL(url)
+            editors.append(editor)
+            editor.show()
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        urls.forEach(openFile)
     }
 
     private func runCapture(_ kind: CaptureKind) {

@@ -32,7 +32,9 @@ extension NSPasteboard.PasteboardType {
 /// edit gestures; and supports undo, delete, paste-as-object, and copy-flattened.
 final class CanvasView: NSView, NSTextViewDelegate {
 
-    var document: MarkupDocument { didSet { needsDisplay = true } }
+    var document: MarkupDocument { didSet { needsDisplay = true; onMutated?() } }
+    /// Fired on any change to the document, so the editor can mark itself edited.
+    var onMutated: (() -> Void)?
     var tool: Tool = .select { didSet { if tool != .select { selectedID = nil; needsDisplay = true } } }
     var strokeColor: NSColor = RGBAColor.red.nsColor
     var lineWidth: CGFloat = 4
