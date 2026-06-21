@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let capture = CaptureEngine()
@@ -37,8 +38,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "export": exportTestAndExit()                       // headless: PNG + PDF export
         case "library": libraryTestAndExit()                     // headless: library add/list/load
         case "gallery": seedAndOpenGallery()                     // seed entries + open the gallery
+        case "exportall": exportAllTestAndExit()                 // headless: multi-page PDF
         default:       break
         }
+    }
+
+    /// Dev-only: build a multi-page PDF from a couple of docs and count its pages.
+    private func exportAllTestAndExit() {
+        let docs = [DemoContent.makeDocument(), DemoContent.makeSmallDocument(), DemoContent.makeDocument()]
+        if let pdf = MarkupExporter.multiPagePDF(docs) {
+            let url = URL(fileURLWithPath: "/tmp/clipandnote-all.pdf")
+            try? pdf.write(to: url)
+            let pages = CGDataProvider(data: pdf as CFData).flatMap { CGPDFDocument($0)?.numberOfPages } ?? 0
+            print("EXPORTALL docs=\(docs.count) pdfPages=\(pages) bytes=\(pdf.count)")
+        }
+        exit(0)
     }
 
     /// Dev-only: seed a few library entries and open the gallery to eyeball it.
@@ -190,6 +204,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         exportItem.submenu = exportMenu
         fileMenu.addItem(exportItem)
 
+        let exportAllItem = NSMenuItem(title: "Export All Markups…",
+                                       action: #selector(exportAllMarkups(_:)), keyEquivalent: "")
+        exportAllItem.target = self
+        fileMenu.addItem(exportAllItem)
+
         fileMenu.addItem(.separator())
         fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)),
                                     keyEquivalent: "w"))
@@ -321,6 +340,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pb.setData(Data(), forType: .clipandnoteMarkup)
         }
         openLibraryEntry(id)
+    }
+
+    // MARK: - Export all markups
+
+    @objc private func exportAllMarkups(_ sender: Any?) {
+        let entries = MarkupLibrary.shared.recent(.max)
+        guard !entries.isEmpty else {
+            let a = NSAlert(); a.messageText = "No markups to export yet."; a.runModal(); return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Export \(entries.count) Markups"
+        alert.informativeText = "Combine into one multi-page PDF, or write a folder of individual files."
+        alert.addButton(withTitle: "Multi-page PDF…")
+        alert.addButton(withTitle: "Folder of Files…")
+        alert.addButton(withTitle: "Cancel")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:  exportAllPDF(entries)
+        case .alertSecondButtonReturn: exportAllFolder(entries)
+        default: break
+        }
+    }
+
+    private func exportAllPDF(_ entries: [MarkupLibrary.Entry]) {
+        let docs = entries.compactMap { MarkupLibrary.shared.document($0.id) }
+        guard let pdf = MarkupExporter.multiPagePDF(docs) else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = "clipandnote markups.pdf"
+        panel.begin { resp in
+            if resp == .OK, let url = panel.url { try? pdf.write(to: url) }
+        }
+    }
+
+    private func exportAllFolder(_ entries: [MarkupLibrary.Entry]) {
+        let fmt = NSAlert()
+        fmt.messageText = "File format"
+        ["PNG", "PDF", "SVG", "Cancel"].forEach { fmt.addButton(withTitle: $0) }
+        let ext: String
+        switch fmt.runModal() {
+        case .alertFirstButtonReturn:  ext = "png"
+        case .alertSecondButtonReturn: ext = "pdf"
+        case .alertThirdButtonReturn:  ext = "svg"
+        default: return
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Export Here"
+        panel.begin { resp in
+            guard resp == .OK, let dir = panel.url else { return }
+            for (i, entry) in entries.enumerated() {
+                guard let doc = MarkupLibrary.shared.document(entry.id) else { continue }
+                let data: Data?
+                switch ext {
+                case "pdf": data = MarkupExporter.pdf(doc)
+                case "svg": data = SVGExporter.svg(doc).data(using: .utf8)
+                default:    data = MarkupExporter.png(doc)
+                }
+                guard let data else { continue }
+                let safe = entry.name.replacingOccurrences(of: "/", with: "-")
+                let name = String(format: "%03d %@.%@", i + 1, safe, ext)
+                try? data.write(to: dir.appendingPathComponent(name))
+            }
+        }
     }
 
     @objc private func openGallery(_ sender: Any?) {
