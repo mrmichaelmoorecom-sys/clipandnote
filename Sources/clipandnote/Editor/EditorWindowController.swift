@@ -478,12 +478,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window?.makeFirstResponder(canvas)
     }
 
-    /// Open with the crop tool armed — used after a full-screen Menu Snapshot so
-    /// you can immediately crop down to the captured menu.
-    func armCropTool() {
-        DispatchQueue.main.async { [weak self] in self?.pickTool(.crop) }
-    }
-
     /// Reflect the active tool in the palette (also called when a keyboard
     /// shortcut changes the tool inside the canvas).
     private func setActiveTool(_ tool: Tool) {

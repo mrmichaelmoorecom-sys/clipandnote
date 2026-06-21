@@ -23,12 +23,9 @@ final class CaptureEngine {
         case .crosshair:
             selectThenShoot(delay: 0, completion: completion)
         case .timedCrosshair:
-            // Visible countdown, then the region overlay — so you control the
-            // moment and can set up a hover/transient state first.
-            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds,
-                             hint: "then drag to select") { [weak self] in
-                self?.selectThenShoot(delay: 0, completion: completion)
-            }
+            // Region overlay after a delay, so you can set up a hover/transient
+            // state first, then drag the region.
+            selectThenShoot(delay: AppSettings.shared.timedDelaySeconds, completion: completion)
         case .previousArea:
             if let r = lastRegion {
                 shootRect(r, completion: completion)
@@ -40,14 +37,11 @@ final class CaptureEngine {
         case .window:
             shoot(["-x", "-i", "-W"], completion: completion)
         case .menu:
-            // Open the menu while the countdown runs; at zero the HUD vanishes
-            // and a full-screen grab captures the still-open menu (crop it in
-            // the editor). Menus dismiss on any click, so an interactive picker
-            // can't be used here — a timed full grab is the reliable path.
-            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds,
-                             hint: "open your menu — it grabs the whole screen") { [weak self] in
-                self?.shoot(["-x"], completion: completion)
-            }
+            // Distinct from Timed (which drags a region): after a delay to open
+            // the target menu, capture in window/menu selection mode (-W) so a
+            // click grabs the whole menu or window, with its shadow.
+            let delay = max(AppSettings.shared.timedDelaySeconds, 3)
+            shoot(["-x", "-T", String(delay), "-W"], completion: completion)
         }
     }
 

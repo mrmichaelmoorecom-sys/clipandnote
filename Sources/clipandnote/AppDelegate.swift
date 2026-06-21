@@ -321,9 +321,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let editor = EditorWindowController(image: image)
             self.editors.append(editor)
             editor.show()
-            // A Menu Snapshot grabs the whole screen, so land in crop mode to
-            // trim straight down to the menu.
-            if kind == .menu { editor.armCropTool() }
             self.finishCapture(image, in: editor, replacingBlank: false)
         }
     }
