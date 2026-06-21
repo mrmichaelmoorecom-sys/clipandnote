@@ -13,9 +13,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildMainMenu()
         let sc = StatusItemController()
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
-        sc.onPickRecent = { [weak self] idx in self?.pasteRecent(idx) }
+        sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
         sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc
+
+        // Keep the menu-bar "Recent Markups" list in sync with the library.
+        MarkupLibrary.shared.onChange = { [weak self] in self?.refreshRecents() }
+        refreshRecents()
 
         // Global capture hotkeys (⌘⌥… by default; customizable in Preferences).
         hotkeys.onCapture = { [weak self] kind in self?.runCapture(kind) }
@@ -29,8 +33,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "classify": classifyDemoAndExit()                   // headless: visual classifier
         case "canio":  canIOTestAndExit()                        // headless: .can round-trip
         case "export": exportTestAndExit()                       // headless: PNG + PDF export
+        case "library": libraryTestAndExit()                     // headless: library add/list/load
         default:       break
         }
+    }
+
+    /// Dev-only: add a couple of markups to the library, then read them back.
+    private func libraryTestAndExit() {
+        let lib = MarkupLibrary.shared
+        let id1 = lib.add(DemoContent.makeDocument(), name: "Demo A", at: Date())
+        let id2 = lib.add(DemoContent.makeSmallDocument(), name: "Demo B", at: Date())
+        let recents = lib.recent(10)
+        let loaded = lib.document(id1)
+        print("LIB entries=\(lib.entries.count) recent=\(recents.map { $0.name }) "
+            + "reload=\(loaded?.objects.count ?? -1)objs "
+            + "png1=\(lib.flatPNG(id1)?.count ?? 0)b thumb2=\(lib.thumbnail(id2) != nil)")
+        // clean up the two test entries so we don't pollute a real library
+        lib.delete(id1); lib.delete(id2)
+        exit(0)
     }
 
     /// Dev-only: export the demo to PNG + PDF, and rasterize the PDF to check it.
@@ -247,6 +267,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let editor = EditorWindowController(image: image)
             let stamp = SnapshotNamer.timestamp(Date())
             editor.setSnapshotTitle("\(stamp) · …")
+            // Autosave to the library immediately (clipandcue captures everything).
+            let id = MarkupLibrary.shared.add(editor.currentDocument, name: "\(stamp) · …", at: Date())
+            editor.bindToLibrary(id)
             self.editors.append(editor)
             editor.show()
             // On-device OCR fills in a contextual name once it's ready.
@@ -256,8 +279,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func pasteRecent(_ index: Int) {
-        // Recents are empty until the history store exists (next phase).
+    // MARK: - Recents (the menu-bar cue)
+
+    private func refreshRecents() {
+        let items = MarkupLibrary.shared.recent(10).map {
+            (title: $0.name, thumbnail: MarkupLibrary.shared.thumbnail($0.id))
+        }
+        statusController.updateRecents(items)
+    }
+
+    /// Click a recent markup → copy its flattened PNG to the clipboard (stamped so
+    /// it doesn't flood clipandcue's queue) and open the .can for editing.
+    private func pickRecent(_ index: Int) {
+        let recents = MarkupLibrary.shared.recent(10)
+        guard index < recents.count else { return }
+        let entry = recents[index]
+        if let png = MarkupLibrary.shared.flatPNG(entry.id) {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setData(png, forType: .png)
+            pb.setData(Data(), forType: .clipandnoteMarkup)
+        }
+        openLibraryEntry(entry.id)
+    }
+
+    /// Open a library entry into an editor bound to it (so edits keep autosaving).
+    private func openLibraryEntry(_ id: UUID) {
+        if let existing = editors.first(where: { $0.libraryID == id }) { existing.show(); return }
+        guard let doc = MarkupLibrary.shared.document(id) else { return }
+        let editor = EditorWindowController(document: doc)
+        if let name = MarkupLibrary.shared.entries.first(where: { $0.id == id })?.name {
+            editor.setSnapshotTitle(name)
+        }
+        editor.bindToLibrary(id)
+        editors.append(editor)
+        editor.show()
     }
 
     /// Keep the app alive when the last editor window closes — it lives in the

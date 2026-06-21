@@ -3,11 +3,14 @@ import UniformTypeIdentifiers
 
 /// A markup editor window: a tool palette across the top and the interactive
 /// `CanvasView` (in a scroll view) below.
-final class EditorWindowController: NSWindowController {
+final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private var canvas: CanvasView!
     /// The `.can` file backing this window, once saved/opened.
     private(set) var fileURL: URL?
+    /// The library entry this window autosaves to (every capture has one).
+    private(set) var libraryID: UUID?
+    private var autosaveWork: DispatchWorkItem?
 
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
@@ -114,7 +117,10 @@ final class EditorWindowController: NSWindowController {
             self.widthSlider.doubleValue = Double(obj.kind == .text ? obj.fontSize / 5 : obj.lineWidth)
         }
         canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
-        canvas.onMutated = { [weak self] in self?.window?.isDocumentEdited = true }
+        canvas.onMutated = { [weak self] in
+            self?.window?.isDocumentEdited = true
+            self?.scheduleAutosave()
+        }
         canvas.onCanvasResized = { [weak canvas] in
             guard let canvas, let clip = canvas.enclosingScrollView?.contentView else { return }
             let doc = canvas.frame.size, vis = clip.bounds.size
@@ -164,7 +170,10 @@ final class EditorWindowController: NSWindowController {
 
         window.contentView = container
         window.makeFirstResponder(canvas)
+        window.delegate = self
     }
+
+    func windowWillClose(_ notification: Notification) { autosaveNow() }
 
     /// User picked a tool in the palette.
     private func pickTool(_ tool: Tool) {
@@ -213,6 +222,9 @@ final class EditorWindowController: NSWindowController {
     @objc private func copyFlattened() {
         canvas.copy(nil)
     }
+
+    /// The live document (for creating/refreshing its library entry).
+    var currentDocument: MarkupDocument { canvas.document }
 
     /// Flattened PNG of the current markup (used by the dev demo hook).
     func canvasFlattenedPNG() -> Data? {
@@ -277,11 +289,33 @@ final class EditorWindowController: NSWindowController {
     }
 
     /// The snapshot's name (timestamp + AI label), shown as the window title and
-    /// used as the default filename when saving (Phase 3).
+    /// used as the default filename when saving.
     private(set) var snapshotTitle: String = "Untitled Markup"
     func setSnapshotTitle(_ title: String) {
         snapshotTitle = title
         window?.title = title
+        if let id = libraryID { MarkupLibrary.shared.update(canvas.document, id: id, name: title) }
+    }
+
+    // MARK: - Library autosave
+
+    /// Bind this window to a library entry; from now on edits autosave to it.
+    func bindToLibrary(_ id: UUID) { libraryID = id }
+
+    private func scheduleAutosave() {
+        guard libraryID != nil else { return }
+        autosaveWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.autosaveNow() }
+        autosaveWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
+    }
+
+    /// Flush any pending autosave immediately (e.g. on close).
+    func autosaveNow() {
+        autosaveWork?.cancel(); autosaveWork = nil
+        guard let id = libraryID else { return }
+        MarkupLibrary.shared.update(canvas.document, id: id, name: snapshotTitle)
+        window?.isDocumentEdited = false
     }
 
     func show() {
