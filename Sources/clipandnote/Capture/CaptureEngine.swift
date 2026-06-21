@@ -4,10 +4,8 @@ import AppKit
 enum CaptureKind {
     case crosshair          // drag-select a region (custom overlay)
     case previousArea       // re-shoot the last region, non-interactively
-    case timedCrosshair     // region select after a delay
     case fullscreen         // all displays
     case window             // interactive window picker
-    case menu               // delayed interactive — time to open a menu
 }
 
 /// Captures the screen. Region modes use `RegionSelectionOverlay` so the chosen
@@ -22,8 +20,6 @@ final class CaptureEngine {
         switch kind {
         case .crosshair:
             selectThenShoot(delay: 0, completion: completion)
-        case .timedCrosshair:
-            selectThenShoot(delay: AppSettings.shared.timedDelaySeconds, completion: completion)
         case .previousArea:
             if let r = lastRegion {
                 shootRect(r, completion: completion)
@@ -34,12 +30,6 @@ final class CaptureEngine {
             shoot(["-x"], completion: completion)
         case .window:
             shoot(["-x", "-i", "-W"], completion: completion)
-        case .menu:
-            // Distinct from Timed (which drags a region): after a delay to open
-            // the target menu, capture in window/menu selection mode (-W) so a
-            // click grabs the whole menu or window, with its shadow.
-            let delay = max(AppSettings.shared.timedDelaySeconds, 3)
-            shoot(["-x", "-T", String(delay), "-W"], completion: completion)
         }
     }
 

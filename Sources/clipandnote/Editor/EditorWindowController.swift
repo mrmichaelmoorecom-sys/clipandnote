@@ -71,10 +71,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered, defer: false)
         window.title = "Untitled Markup"
         window.isReleasedWhenClosed = false
-        window.isRestorable = false   // always open at the computed default size
-        // Default sizing still uses minW so windows open comfortably, but allow
-        // shrinking much smaller — the toolbar scrolls to keep every tool reachable.
-        window.minSize = NSSize(width: 460, height: 320)
+        window.minSize = NSSize(width: minW, height: 320)
         // Unified toolbar look: the toolbar fills the top band and the window
         // buttons float in it, vertically centered with room to breathe (like
         // Preview) instead of crammed into a short standard title bar.
@@ -172,11 +169,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.sizeLabel = sizeLabel
 
         // A leading spacer so the first divider/tool clears the floating window
+        // buttons (whose right edge sits ~74pt in).
+        let trafficSpacer = NSView()
+        trafficSpacer.translatesAutoresizingMaskIntoConstraints = false
+        trafficSpacer.widthAnchor.constraint(equalToConstant: 66).isActive = true
+
         // Groups separated by hairline vertical dividers, in the order:
-        // window buttons │ tools │ layer │ colors │ size │ canvas color. (The
-        // window-buttons clearance is provided by the scroll view's leading inset
-        // below, so the leading divider sits just right of the traffic lights.)
+        // window buttons │ tools │ layer │ colors │ size │ canvas color.
         let palette = NSStackView(views: [
+            trafficSpacer,
             toolbarDivider(), toolStack,
             toolbarDivider(), layerStack,
             toolbarDivider(), colors,
@@ -187,7 +188,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         palette.orientation = .horizontal
         palette.alignment = .centerY
         palette.spacing = 12
-        palette.edgeInsets = NSEdgeInsets(top: 8, left: 14, bottom: 8, right: 16)
+        palette.edgeInsets = NSEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         palette.translatesAutoresizingMaskIntoConstraints = false
 
         // --- Canvas ---
@@ -235,24 +236,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         bar.wantsLayer = true
         bar.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         bar.translatesAutoresizingMaskIntoConstraints = false
-
-        // The palette lives in a horizontal scroll view so that when the window
-        // is too narrow to show every tool, you can swipe to reach the rest
-        // instead of having them clipped. When the window is wide the palette
-        // simply fills the bar (the >= width constraint lets the flexible spacer
-        // push the size/Copy group to the right, as before). The leading inset
-        // keeps the first tool clear of the floating window buttons.
-        let paletteScroll = NSScrollView()
-        paletteScroll.drawsBackground = false
-        paletteScroll.hasHorizontalScroller = true
-        paletteScroll.hasVerticalScroller = false
-        paletteScroll.horizontalScrollElasticity = .allowed
-        paletteScroll.verticalScrollElasticity = .none
-        paletteScroll.scrollerStyle = .overlay
-        paletteScroll.autohidesScrollers = true
-        paletteScroll.documentView = palette
-        paletteScroll.translatesAutoresizingMaskIntoConstraints = false
-        bar.addSubview(paletteScroll)
+        bar.addSubview(palette)
 
         // A footer bar seated at the bottom edge (incorporated, matching the top
         // toolbar) — brand, file name, export, share.
@@ -263,23 +247,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         container.addSubview(scroll)
         container.addSubview(bar)
         container.addSubview(footer)
-        let clip = paletteScroll.contentView
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: container.topAnchor),
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             bar.heightAnchor.constraint(equalToConstant: 56),
 
-            paletteScroll.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 70),
-            paletteScroll.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
-            paletteScroll.topAnchor.constraint(equalTo: bar.topAnchor),
-            paletteScroll.bottomAnchor.constraint(equalTo: bar.bottomAnchor),
-
-            palette.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
-            palette.topAnchor.constraint(equalTo: clip.topAnchor),
-            palette.bottomAnchor.constraint(equalTo: clip.bottomAnchor),
-            palette.heightAnchor.constraint(equalTo: clip.heightAnchor),
-            palette.widthAnchor.constraint(greaterThanOrEqualTo: clip.widthAnchor),
+            palette.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            palette.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+            palette.topAnchor.constraint(equalTo: bar.topAnchor),
+            palette.bottomAnchor.constraint(equalTo: bar.bottomAnchor),
 
             footer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             footer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
