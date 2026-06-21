@@ -25,7 +25,8 @@ final class CaptureEngine {
         case .timedCrosshair:
             // Visible countdown, then the region overlay — so you control the
             // moment and can set up a hover/transient state first.
-            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds) { [weak self] in
+            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds,
+                             hint: "then drag to select") { [weak self] in
                 self?.selectThenShoot(delay: 0, completion: completion)
             }
         case .previousArea:
@@ -43,7 +44,8 @@ final class CaptureEngine {
             // and a full-screen grab captures the still-open menu (crop it in
             // the editor). Menus dismiss on any click, so an interactive picker
             // can't be used here — a timed full grab is the reliable path.
-            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds) { [weak self] in
+            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds,
+                             hint: "open your menu — it grabs the whole screen") { [weak self] in
                 self?.shoot(["-x"], completion: completion)
             }
         }
