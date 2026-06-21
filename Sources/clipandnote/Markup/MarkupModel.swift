@@ -103,6 +103,15 @@ struct MarkupObject: Identifiable, Codable, Equatable {
 
     var isPathBased: Bool { kind == .line || kind == .arrow || kind == .freehand }
 
+    /// A copy with a fresh id, shifted by a delta (for paste/duplicate).
+    func duplicated(offsetBy d: CGSize) -> MarkupObject {
+        MarkupObject(kind: kind,
+                     frame: frame.offsetBy(dx: d.width, dy: d.height),
+                     points: points.map { CGPoint(x: $0.x + d.width, y: $0.y + d.height) },
+                     stroke: stroke, fill: fill, lineWidth: lineWidth,
+                     text: text, fontSize: fontSize, fontName: fontName, imageData: imageData)
+    }
+
     /// Translate the whole object by a delta.
     mutating func move(by d: CGSize) {
         frame = frame.offsetBy(dx: d.width, dy: d.height)

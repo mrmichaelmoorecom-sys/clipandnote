@@ -24,6 +24,8 @@ enum Tool: Equatable {
 /// a clipandnote markup and keep it out of its history queue (interop, Phase 5).
 extension NSPasteboard.PasteboardType {
     static let clipandnoteMarkup = NSPasteboard.PasteboardType("com.clipandnote.markup")
+    /// A single copied markup object (JSON), so paste re-creates the object.
+    static let clipandnoteObject = NSPasteboard.PasteboardType("com.clipandnote.object")
 }
 
 /// The interactive markup canvas. Flipped (top-left origin) so coordinates match
@@ -473,6 +475,18 @@ final class CanvasView: NSView, NSTextViewDelegate {
     @objc func paste(_ sender: Any?) {
         let pb = NSPasteboard.general
         undoSnapshot = snapshot()
+        // A copied markup object → paste it as a new, offset object.
+        if let data = pb.data(forType: .clipandnoteObject),
+           let original = try? JSONDecoder().decode(MarkupObject.self, from: data) {
+            let obj = original.duplicated(offsetBy: CGSize(width: 18, height: 18))
+            document.objects.append(obj)
+            selectedID = obj.id
+            tool = .select
+            expandCanvasIfNeeded()
+            commitUndo()
+            needsDisplay = true
+            return
+        }
         if let img = NSImage(pasteboard: pb), let png = img.pngData() {
             // THE core Skitch fix: paste arrives as a new, movable object —
             // it never replaces the canvas or your existing markup.
@@ -502,9 +516,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     @objc func copy(_ sender: Any?) {
-        guard let png = flatten()?.pngData() else { return }
         let pb = NSPasteboard.general
         pb.clearContents()
+        // An object is selected → copy just that object (paste re-creates it).
+        if let id = selectedID, let obj = document.objects.first(where: { $0.id == id }),
+           let data = try? JSONEncoder().encode(obj) {
+            pb.setData(data, forType: .clipandnoteObject)
+            return
+        }
+        // Nothing selected → copy the whole flattened markup.
+        guard let png = flatten()?.pngData() else { return }
         pb.setData(png, forType: .png)
         pb.setData(Data(), forType: .clipandnoteMarkup)   // interop marker
     }
@@ -515,6 +536,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func setActiveColor(_ c: NSColor) {
         strokeColor = c
+        // Live-update text that's currently being typed.
+        if let id = editingID, let idx = indexOf(id) {
+            document.objects[idx].stroke = RGBAColor(c)
+            textView?.textColor = c
+            return
+        }
         guard let id = selectedID, let idx = indexOf(id) else { return }
         undoSnapshot = snapshot()
         if document.objects[idx].kind == .highlighter {
@@ -529,6 +556,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func setActiveWidth(_ w: CGFloat) {
         lineWidth = w
+        // Live-update the size of text that's currently being typed.
+        if let id = editingID, let idx = indexOf(id) {
+            document.objects[idx].fontSize = max(w * 5, 12)
+            textView?.font = document.objects[idx].resolvedFont()
+            sizeTextView()
+            return
+        }
         guard let id = selectedID, let idx = indexOf(id) else { return }
         undoSnapshot = snapshot()
         if document.objects[idx].kind == .text {
