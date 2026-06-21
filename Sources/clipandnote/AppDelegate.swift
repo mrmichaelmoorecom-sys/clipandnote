@@ -275,7 +275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openDocument(_ sender: Any?) {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.canDocument]
+        panel.allowedContentTypes = [.canDocument, .image]   // .can or any image
         panel.allowsMultipleSelection = false
         panel.begin { [weak self] resp in
             guard resp == .OK, let url = panel.url else { return }
@@ -283,18 +283,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Open a `.can` file into a new editor window (also the Finder double-click path).
+    /// Open a `.can` document — or import any image as a new markup — into a new
+    /// editor window (also the Finder double-click path).
     func openFile(_ url: URL) {
         // Focus an already-open window for this file rather than duplicating it.
         if let existing = editors.first(where: { $0.fileURL == url }) { existing.show(); return }
-        do {
-            let document = try CanFile.read(url)
-            let editor = EditorWindowController(document: document)
-            editor.setFileURL(url)
+        if url.pathExtension.lowercased() == CanFile.ext {
+            do {
+                let document = try CanFile.read(url)
+                let editor = EditorWindowController(document: document)
+                editor.setFileURL(url)
+                editors.append(editor)
+                editor.show()
+            } catch {
+                NSAlert(error: error).runModal()
+            }
+        } else if let image = NSImage(contentsOf: url) {
+            let editor = EditorWindowController(image: image)
             editors.append(editor)
             editor.show()
-        } catch {
-            NSAlert(error: error).runModal()
+            finishCapture(image, in: editor, replacingBlank: false)
+        } else {
+            let a = NSAlert()
+            a.messageText = "Couldn’t open “\(url.lastPathComponent)”."
+            a.informativeText = "It isn’t a clipandnote document or a supported image."
+            a.runModal()
         }
     }
 
@@ -351,11 +364,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openInto(_ editor: EditorWindowController) {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.canDocument]
+        panel.allowedContentTypes = [.canDocument, .image]   // .can or any image
         panel.allowsMultipleSelection = false
-        panel.begin { resp in
-            guard resp == .OK, let url = panel.url, let doc = try? CanFile.read(url) else { return }
-            editor.loadCan(doc, url: url)
+        panel.begin { [weak self] resp in
+            guard resp == .OK, let url = panel.url else { return }
+            if url.pathExtension.lowercased() == CanFile.ext {
+                if let doc = try? CanFile.read(url) { editor.loadCan(doc, url: url) }
+            } else if let image = NSImage(contentsOf: url) {
+                self?.finishCapture(image, in: editor, replacingBlank: true)
+            }
         }
     }
 
@@ -375,7 +392,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Recents (the menu-bar cue)
 
     private func refreshRecents() {
-        let items = MarkupLibrary.shared.recent(10).map {
+        let items = MarkupLibrary.shared.recent(60).map {
             (title: $0.name, thumbnail: MarkupLibrary.shared.thumbnail($0.id))
         }
         statusController.updateRecents(items)
@@ -383,7 +400,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Click a recent markup → copy + open.
     private func pickRecent(_ index: Int) {
-        let recents = MarkupLibrary.shared.recent(10)
+        let recents = MarkupLibrary.shared.recent(60)
         guard index < recents.count else { return }
         activateEntry(recents[index].id)
     }

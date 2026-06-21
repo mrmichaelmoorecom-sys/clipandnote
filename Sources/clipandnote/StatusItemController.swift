@@ -28,9 +28,12 @@ final class StatusItemController {
 
     /// Replace the recent-markups list and rebuild the menu.
     func updateRecents(_ items: [(title: String, thumbnail: NSImage?)]) {
-        recents = Array(items.prefix(10))
+        recents = Array(items.prefix(60))
         rebuildMenu()
     }
+
+    /// How many recents sit inline before the rest move into a scrolling submenu.
+    private let inlineRecents = 8
 
     /// Rebuild the menu (e.g. after shortcuts change in Preferences).
     func rebuild() { rebuildMenu() }
@@ -53,18 +56,15 @@ final class StatusItemController {
             empty.isEnabled = false
             menu.addItem(empty)
         } else {
-            for (i, item) in recents.enumerated() {
-                let mi = NSMenuItem(title: item.title,
-                                    action: #selector(pickRecent(_:)),
-                                    keyEquivalent: "")
-                mi.target = self
-                mi.tag = i
-                if let thumb = item.thumbnail {
-                    let t = thumb.copy() as! NSImage
-                    t.size = NSSize(width: 32, height: 20)
-                    mi.image = t
-                }
-                menu.addItem(mi)
+            // The most recent few inline; the rest in a scrolling "Earlier" submenu.
+            for i in 0..<min(inlineRecents, recents.count) { menu.addItem(recentItem(i)) }
+            if recents.count > inlineRecents {
+                menu.addItem(.separator())
+                let more = NSMenuItem(title: "Earlier Markups", action: nil, keyEquivalent: "")
+                let sub = NSMenu()
+                for i in inlineRecents..<recents.count { sub.addItem(recentItem(i)) }
+                more.submenu = sub
+                menu.addItem(more)
             }
         }
 
@@ -91,6 +91,19 @@ final class StatusItemController {
                                 keyEquivalent: "q"))
 
         statusItem.menu = menu
+    }
+
+    private func recentItem(_ i: Int) -> NSMenuItem {
+        let item = recents[i]
+        let mi = NSMenuItem(title: item.title, action: #selector(pickRecent(_:)), keyEquivalent: "")
+        mi.target = self
+        mi.tag = i
+        if let thumb = item.thumbnail {
+            let t = thumb.copy() as! NSImage
+            t.size = NSSize(width: 32, height: 20)
+            mi.image = t
+        }
+        return mi
     }
 
     private func addCapture(_ menu: NSMenu, _ command: CaptureCommand) {
