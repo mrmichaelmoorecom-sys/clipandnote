@@ -139,6 +139,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
+    // The window is movable-by-background (for the unified toolbar); never let a
+    // canvas drag (marquee, drawing, moving objects) move the window instead.
+    override var mouseDownCanMoveWindow: Bool { false }
     override func becomeFirstResponder() -> Bool { true }
 
     // MARK: Cursor feedback

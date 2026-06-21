@@ -65,11 +65,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: contentW, height: contentH),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false)
         window.title = "Untitled Markup"
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: minW, height: 320)
+        // Unified toolbar look: the toolbar fills the top band and the window
+        // buttons float in it, vertically centered with room to breathe (like
+        // Preview) instead of crammed into a short standard title bar.
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
         window.center()
         self.init(window: window)
 
@@ -137,10 +143,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         sizeLabel.textColor = .secondaryLabelColor
         self.sizeLabel = sizeLabel
 
-        let palette = NSStackView(views: [toolStack, layerStack, colors, slider, bgWell, NSView(), sizeLabel, copyButton])
+        // A leading spacer so the first tool clears the floating window buttons.
+        let trafficSpacer = NSView()
+        trafficSpacer.translatesAutoresizingMaskIntoConstraints = false
+        trafficSpacer.widthAnchor.constraint(equalToConstant: 58).isActive = true
+
+        let palette = NSStackView(views: [trafficSpacer, toolStack, layerStack, colors, slider, bgWell, NSView(), sizeLabel, copyButton])
         palette.orientation = .horizontal
         palette.spacing = 14
-        palette.edgeInsets = NSEdgeInsets(top: 8, left: 18, bottom: 8, right: 16)
+        palette.edgeInsets = NSEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         palette.translatesAutoresizingMaskIntoConstraints = false
 
         // --- Canvas ---
@@ -443,7 +454,26 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        DispatchQueue.main.async { [weak self] in self?.resizeWindowToCanvas(); self?.updateSizeLabel() }
+        DispatchQueue.main.async { [weak self] in
+            self?.resizeWindowToCanvas(); self?.updateSizeLabel(); self?.positionTrafficLights()
+        }
+    }
+
+    /// Vertically center the close/minimize/zoom buttons in the tall toolbar band
+    /// (the window uses fullSizeContentView, so they'd otherwise sit jammed at the
+    /// very top). Gives them room to breathe, like Preview's unified toolbar.
+    private func positionTrafficLights() {
+        guard let window = window else { return }
+        let bar: CGFloat = 52
+        let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+            .compactMap { window.standardWindowButton($0) }
+        guard let container = buttons.first?.superview else { return }
+        let pitch = buttons.count > 1 ? buttons[1].frame.minX - buttons[0].frame.minX : 20
+        let leftInset: CGFloat = 20
+        for (i, b) in buttons.enumerated() {
+            let y = container.bounds.height - bar / 2 - b.frame.height / 2
+            b.setFrameOrigin(NSPoint(x: leftInset + CGFloat(i) * pitch, y: y))
+        }
     }
 
     /// Resize the window so the canvas sits inside it with an even margin on
@@ -500,6 +530,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     func windowDidResize(_ notification: Notification) {
         fitCanvas()
+        positionTrafficLights()
     }
 
     private func updateSizeLabel() {
