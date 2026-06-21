@@ -42,6 +42,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var bgWell: NSColorWell!
     private var scrollView: NSScrollView!
     private var fileNameLabel: NSTextField!
+    private var footerView: NSView!
 
     convenience init(image: NSImage) {
         self.init(document: MarkupDocument(baseImage: image, objects: [],
@@ -237,9 +238,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         bar.translatesAutoresizingMaskIntoConstraints = false
         bar.addSubview(palette)
 
-        // Scroll first (behind), bar second (in front) so the bar wins hit-testing.
+        // A footer bar seated at the bottom edge (incorporated, matching the top
+        // toolbar) — brand, file name, export, share.
+        let footer = makeFooter()
+        self.footerView = footer
+
+        // Scroll first (behind), bar + footer in front so they win hit-testing.
         container.addSubview(scroll)
         container.addSubview(bar)
+        container.addSubview(footer)
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: container.topAnchor),
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -251,13 +258,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             palette.topAnchor.constraint(equalTo: bar.topAnchor),
             palette.bottomAnchor.constraint(equalTo: bar.bottomAnchor),
 
+            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            footer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            footer.heightAnchor.constraint(equalToConstant: 38),
+
             scroll.topAnchor.constraint(equalTo: bar.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
         ])
-
-        installBottomNotch(in: container)
 
         window.contentView = container
         window.makeFirstResponder(canvas)
@@ -269,10 +279,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// A floating, centered "notch" pill at the bottom of the window: brand mark
-    /// (links to clipandnote.com), then the file name, export menu, and the
-    /// system share button.
-    private func installBottomNotch(in container: NSView) {
+    /// The bottom footer, seated flush at the window's bottom edge (a hairline
+    /// separates it from the canvas, mirroring the top toolbar): centered brand
+    /// mark (links to clipandnote.com), file name, Export menu, and share.
+    private func makeFooter() -> NSView {
         // Brand: logo placeholder + wordmark, clickable → clipandnote.com.
         let logo = NSView()
         logo.wantsLayer = true
@@ -294,57 +304,60 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         brand.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openWebsite)))
         brand.toolTip = "clipandnote.com"
 
-        // File name.
-        let nameLabel = NSTextField(labelWithString: "Untitled")
+        // File name (the generated snapshot title until the doc is saved).
+        let nameLabel = NSTextField(labelWithString: snapshotTitle)
         nameLabel.font = .systemFont(ofSize: 12)
         nameLabel.textColor = .secondaryLabelColor
         nameLabel.lineBreakMode = .byTruncatingMiddle
         nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         self.fileNameLabel = nameLabel
 
-        // Export menu + system share.
-        let exportButton = IconButton(symbolName: "square.and.arrow.down", tooltip: "Export…")
-        exportButton.onClick = { [weak self, weak exportButton] in
-            guard let exportButton else { return }; self?.showExportMenu(from: exportButton)
-        }
-        let shareButton = IconButton(symbolName: "square.and.arrow.up", tooltip: "Share…")
-        shareButton.onClick = { [weak self, weak shareButton] in
-            guard let shareButton else { return }; self?.shareDocument(from: shareButton)
-        }
+        // Export — a labelled pull-down so it never reads as "import".
+        let exportButton = NSButton(title: "Export", target: self,
+                                    action: #selector(exportButtonClicked(_:)))
+        exportButton.bezelStyle = .texturedRounded
+        exportButton.controlSize = .small
+        exportButton.toolTip = "Export as PNG, PDF, or SVG"
+
+        // System share.
+        let shareButton = NSButton(
+            image: NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: "Share")!,
+            target: self, action: #selector(shareButtonClicked(_:)))
+        shareButton.bezelStyle = .texturedRounded
+        shareButton.controlSize = .small
+        shareButton.imageScaling = .scaleProportionallyDown
+        shareButton.toolTip = "Share…"
 
         let stack = NSStackView(views: [brand, notchDivider(), nameLabel, notchDivider(),
                                         exportButton, shareButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 5, left: 12, bottom: 5, right: 8)
+        stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let notch = NSView()
-        notch.wantsLayer = true
-        notch.layer?.cornerRadius = 12
-        notch.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.96).cgColor
-        notch.layer?.borderWidth = 1
-        notch.layer?.borderColor = NSColor.separatorColor.cgColor
-        notch.layer?.shadowColor = .black
-        notch.layer?.shadowOpacity = 0.28
-        notch.layer?.shadowRadius = 10
-        notch.layer?.shadowOffset = CGSize(width: 0, height: -2)
-        notch.layer?.masksToBounds = false
-        notch.translatesAutoresizingMaskIntoConstraints = false
-        notch.addSubview(stack)
+        let footer = NSView()
+        footer.wantsLayer = true
+        footer.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        footer.translatesAutoresizingMaskIntoConstraints = false
 
-        container.addSubview(notch)   // added last → floats above the scroll view
+        let topLine = NSView()
+        topLine.wantsLayer = true
+        topLine.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        topLine.translatesAutoresizingMaskIntoConstraints = false
+
+        footer.addSubview(topLine)
+        footer.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: notch.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: notch.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: notch.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: notch.bottomAnchor),
-            notch.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            notch.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
-            notch.widthAnchor.constraint(lessThanOrEqualTo: container.widthAnchor, constant: -48),
+            topLine.leadingAnchor.constraint(equalTo: footer.leadingAnchor),
+            topLine.trailingAnchor.constraint(equalTo: footer.trailingAnchor),
+            topLine.topAnchor.constraint(equalTo: footer.topAnchor),
+            topLine.heightAnchor.constraint(equalToConstant: 1),
+            stack.centerXAnchor.constraint(equalTo: footer.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: footer.leadingAnchor, constant: 12),
         ])
         updateFileNameLabel()
+        return footer
     }
 
     private func notchDivider() -> NSView {
@@ -361,8 +374,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         if let url = URL(string: "https://clipandnote.com") { NSWorkspace.shared.open(url) }
     }
 
+    @objc private func exportButtonClicked(_ sender: NSButton) { showExportMenu(from: sender) }
+    @objc private func shareButtonClicked(_ sender: NSButton) { shareDocument(from: sender) }
+
     private func updateFileNameLabel() {
-        fileNameLabel?.stringValue = fileURL?.lastPathComponent ?? "Untitled"
+        fileNameLabel?.stringValue = fileURL?.deletingPathExtension().lastPathComponent
+            ?? snapshotTitle
     }
 
     private func showExportMenu(from view: NSView) {
@@ -422,7 +439,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             zone.topAnchor.constraint(equalTo: bar.bottomAnchor),
             zone.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             zone.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            zone.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            zone.bottomAnchor.constraint(equalTo: footerView.topAnchor),
         ])
         emptyState = zone
     }
@@ -578,6 +595,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     func setSnapshotTitle(_ title: String) {
         snapshotTitle = title
         window?.title = title
+        updateFileNameLabel()
         if let id = libraryID { MarkupLibrary.shared.update(canvas.document, id: id, name: title) }
     }
 
