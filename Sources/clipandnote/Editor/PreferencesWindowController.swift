@@ -38,6 +38,7 @@ final class PreferencesWindowController: NSWindowController {
         let header = NSTextField(labelWithString: "Capture Shortcuts")
         header.font = .boldSystemFont(ofSize: 13)
         rows.addArrangedSubview(header)
+        rows.addArrangedSubview(captureDelayRow())
 
         for (i, command) in CaptureCommand.allCases.enumerated() {
             let label = NSTextField(labelWithString: command.title)
@@ -117,6 +118,49 @@ final class PreferencesWindowController: NSWindowController {
 
     @objc private func autosaveFieldChanged(_ sender: NSTextField) { setAutosaveLimit(sender.integerValue) }
     @objc private func autosaveStepperChanged(_ sender: NSStepper) { setAutosaveLimit(sender.integerValue) }
+
+    private var delayField: NSTextField!
+    private var delayStepper: NSStepper!
+
+    /// "Timed / Menu snapshot countdown" — seconds before those captures fire.
+    private func captureDelayRow() -> NSView {
+        let label = NSTextField(labelWithString: "Timed / Menu countdown (seconds):")
+        label.font = .systemFont(ofSize: 12)
+
+        let field = NSTextField()
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        field.alignment = .right
+        field.integerValue = AppSettings.shared.timedDelaySeconds
+        field.target = self
+        field.action = #selector(delayFieldChanged(_:))
+        self.delayField = field
+
+        let stepper = NSStepper()
+        stepper.minValue = 1
+        stepper.maxValue = 60
+        stepper.increment = 1
+        stepper.valueWraps = false
+        stepper.integerValue = AppSettings.shared.timedDelaySeconds
+        stepper.target = self
+        stepper.action = #selector(delayStepperChanged(_:))
+        self.delayStepper = stepper
+
+        let row = NSStackView(views: [label, field, stepper])
+        row.orientation = .horizontal
+        row.spacing = 8
+        return row
+    }
+
+    private func setCaptureDelay(_ value: Int) {
+        let clamped = max(1, min(60, value))
+        AppSettings.shared.timedDelaySeconds = clamped
+        delayField.integerValue = clamped
+        delayStepper.integerValue = clamped
+    }
+
+    @objc private func delayFieldChanged(_ sender: NSTextField) { setCaptureDelay(sender.integerValue) }
+    @objc private func delayStepperChanged(_ sender: NSStepper) { setCaptureDelay(sender.integerValue) }
 
     @objc private func clearShortcut(_ sender: NSButton) {
         let command = CaptureCommand.allCases[sender.tag]

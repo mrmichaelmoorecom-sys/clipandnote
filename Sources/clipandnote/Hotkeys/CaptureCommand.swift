@@ -5,14 +5,16 @@ import Carbon.HIToolbox
 /// Defaults use ⌘⌥ (command-option) to avoid colliding with the macOS system
 /// screenshot shortcuts (⌘⇧3 / ⌘⇧4 / ⌘⇧5).
 enum CaptureCommand: String, CaseIterable {
-    case crosshair, previousArea, fullscreen, window
+    case crosshair, previousArea, timedCrosshair, fullscreen, window, menu
 
     var kind: CaptureKind {
         switch self {
         case .crosshair:      return .crosshair
         case .previousArea:   return .previousArea
+        case .timedCrosshair: return .timedCrosshair
         case .fullscreen:     return .fullscreen
         case .window:         return .window
+        case .menu:           return .menu
         }
     }
 
@@ -20,8 +22,10 @@ enum CaptureCommand: String, CaseIterable {
         switch self {
         case .crosshair:      return "Crosshair Snapshot"
         case .previousArea:   return "Previous Snapshot Area"
+        case .timedCrosshair: return "Timed Crosshair Snapshot"
         case .fullscreen:     return "Fullscreen Snapshot"
         case .window:         return "Window Snapshot…"
+        case .menu:           return "Menu Snapshot (Timed)"
         }
     }
 
@@ -35,6 +39,8 @@ enum CaptureCommand: String, CaseIterable {
         case .fullscreen:     return sc(kVK_ANSI_3, "3")
         case .window:         return sc(kVK_ANSI_5, "5")
         case .previousArea:   return sc(kVK_ANSI_6, "6")
+        case .timedCrosshair: return .none      // unset by default
+        case .menu:           return .none
         }
     }
 }

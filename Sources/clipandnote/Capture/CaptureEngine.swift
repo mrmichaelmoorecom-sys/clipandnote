@@ -4,8 +4,10 @@ import AppKit
 enum CaptureKind {
     case crosshair          // drag-select a region (custom overlay)
     case previousArea       // re-shoot the last region, non-interactively
+    case timedCrosshair     // countdown, then drag-select a region
     case fullscreen         // all displays
     case window             // interactive window picker
+    case menu               // countdown (open a menu), then full-screen grab
 }
 
 /// Captures the screen. Region modes use `RegionSelectionOverlay` so the chosen
@@ -20,6 +22,12 @@ final class CaptureEngine {
         switch kind {
         case .crosshair:
             selectThenShoot(delay: 0, completion: completion)
+        case .timedCrosshair:
+            // Visible countdown, then the region overlay — so you control the
+            // moment and can set up a hover/transient state first.
+            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds) { [weak self] in
+                self?.selectThenShoot(delay: 0, completion: completion)
+            }
         case .previousArea:
             if let r = lastRegion {
                 shootRect(r, completion: completion)
@@ -30,6 +38,14 @@ final class CaptureEngine {
             shoot(["-x"], completion: completion)
         case .window:
             shoot(["-x", "-i", "-W"], completion: completion)
+        case .menu:
+            // Open the menu while the countdown runs; at zero the HUD vanishes
+            // and a full-screen grab captures the still-open menu (crop it in
+            // the editor). Menus dismiss on any click, so an interactive picker
+            // can't be used here — a timed full grab is the reliable path.
+            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds) { [weak self] in
+                self?.shoot(["-x"], completion: completion)
+            }
         }
     }
 

@@ -7,6 +7,7 @@ final class AppSettings {
     private let defaults = UserDefaults.standard
 
     private enum Key {
+        static let timedDelay = "timedDelaySeconds"
         static let historyLimit = "localHistoryLimit"
         static let copyAfterCapture = "copyAfterCapture"
         static let syncEnabled = "syncEnabled"
@@ -14,10 +15,17 @@ final class AppSettings {
 
     private init() {
         defaults.register(defaults: [
+            Key.timedDelay: 5,
             Key.historyLimit: 100,     // how many markups to keep locally (gallery)
             Key.copyAfterCapture: true,
             Key.syncEnabled: false,    // CloudKit off until set up
         ])
+    }
+
+    /// Countdown (seconds) before a Timed or Menu snapshot fires.
+    var timedDelaySeconds: Int {
+        get { max(1, defaults.integer(forKey: Key.timedDelay)) }
+        set { defaults.set(newValue, forKey: Key.timedDelay) }
     }
 
     /// How many past markups to retain in the local gallery (user-tunable).
