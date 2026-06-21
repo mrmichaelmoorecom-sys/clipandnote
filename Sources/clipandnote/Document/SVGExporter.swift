@@ -8,7 +8,7 @@ enum SVGExporter {
 
     static func svg(_ doc: MarkupDocument) -> String {
         let w = num(doc.canvasSize.width), h = num(doc.canvasSize.height)
-        var body = "<rect x=\"0\" y=\"0\" width=\"\(w)\" height=\"\(h)\" fill=\"#ffffff\"/>\n"
+        var body = "<rect x=\"0\" y=\"0\" width=\"\(w)\" height=\"\(h)\" fill=\"\(hex(doc.backgroundColor.nsColor))\"/>\n"
         if let png = doc.baseImage?.pngData() { body += image(png, doc.baseImageFrame, pixelated: false) }
         for object in doc.objects {
             body += element(object, base: doc.baseImage, baseFrame: doc.baseImageFrame)

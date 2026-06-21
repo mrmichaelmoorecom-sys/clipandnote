@@ -6,7 +6,7 @@ enum MarkupExporter {
 
     /// Draw the document into the *current* flipped (top-left) graphics context.
     static func draw(_ doc: MarkupDocument) {
-        NSColor.white.setFill()
+        doc.backgroundColor.nsColor.setFill()
         NSRect(origin: .zero, size: doc.canvasSize).fill()
         doc.baseImage?.draw(in: doc.baseImageFrame)
         for object in doc.objects {

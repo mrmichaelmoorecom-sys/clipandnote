@@ -18,6 +18,7 @@ struct RGBAColor: Codable, Equatable {
 
     static let red = RGBAColor(r: 0.93, g: 0.20, b: 0.18, a: 1)
     static let highlighter = RGBAColor(r: 1.0, g: 0.86, b: 0.18, a: 0.38)
+    static let white = RGBAColor(r: 1, g: 1, b: 1, a: 1)
 }
 
 /// The kinds of object that can live on the canvas. Each is an independent,
@@ -130,12 +131,17 @@ struct MarkupDocument {
     /// Where the base image sits within the canvas. Starts filling the canvas;
     /// shifts when the canvas expands so the snapshot stays put relative to marks.
     var baseImageFrame: CGRect
+    /// Fills the canvas behind the base image — visible wherever the canvas has
+    /// expanded past the original snapshot. Defaults to white.
+    var backgroundColor: RGBAColor
 
     init(baseImage: NSImage?, objects: [MarkupObject] = [],
-         canvasSize: CGSize, baseImageFrame: CGRect? = nil) {
+         canvasSize: CGSize, baseImageFrame: CGRect? = nil,
+         backgroundColor: RGBAColor = .white) {
         self.baseImage = baseImage
         self.objects = objects
         self.canvasSize = canvasSize
         self.baseImageFrame = baseImageFrame ?? CGRect(origin: .zero, size: canvasSize)
+        self.backgroundColor = backgroundColor
     }
 }

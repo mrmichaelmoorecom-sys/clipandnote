@@ -17,6 +17,8 @@ struct CanDocument: Codable {
     var baseImageFrame: CGRect
     var baseImagePNG: Data?
     var objects: [MarkupObject]
+    /// Optional for back-compat with v1 files (which had no background); nil = white.
+    var backgroundColor: RGBAColor?
 
     init(_ doc: MarkupDocument) {
         version = 1
@@ -24,11 +26,13 @@ struct CanDocument: Codable {
         baseImageFrame = doc.baseImageFrame
         baseImagePNG = doc.baseImage?.pngData()
         objects = doc.objects
+        backgroundColor = doc.backgroundColor
     }
 
     var markupDocument: MarkupDocument {
         MarkupDocument(baseImage: baseImagePNG.flatMap { NSImage(data: $0) },
-                       objects: objects, canvasSize: canvasSize, baseImageFrame: baseImageFrame)
+                       objects: objects, canvasSize: canvasSize, baseImageFrame: baseImageFrame,
+                       backgroundColor: backgroundColor ?? .white)
     }
 }
 

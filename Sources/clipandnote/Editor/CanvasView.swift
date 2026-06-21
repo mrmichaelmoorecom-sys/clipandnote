@@ -82,6 +82,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         var objects: [MarkupObject]
         var canvasSize: CGSize
         var baseImageFrame: CGRect
+        var backgroundColor: RGBAColor
     }
     private var undoSnapshot: DocSnapshot?
 
@@ -90,7 +91,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     private func snapshot() -> DocSnapshot {
         DocSnapshot(objects: document.objects, canvasSize: document.canvasSize,
-                    baseImageFrame: document.baseImageFrame)
+                    baseImageFrame: document.baseImageFrame,
+                    backgroundColor: document.backgroundColor)
     }
 
     // Inline text editing
@@ -146,7 +148,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.white.setFill()
+        document.backgroundColor.nsColor.setFill()
         bounds.fill()
         document.baseImage?.draw(in: document.baseImageFrame)
 
@@ -591,6 +593,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
         needsDisplay = true
     }
 
+    /// Set the canvas background fill (shown wherever the canvas grew past the snapshot).
+    func setBackgroundColor(_ c: NSColor) {
+        let rgba = RGBAColor(c)
+        guard rgba != document.backgroundColor else { return }
+        undoSnapshot = snapshot()
+        document.backgroundColor = rgba
+        commitUndo()
+        needsDisplay = true
+    }
+
     func setActiveWidth(_ w: CGFloat) {
         lineWidth = w
         // Live-update the size of text that's currently being typed.
@@ -627,8 +639,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let objs = document.objects
         let base = document.baseImage
         let baseFrame = document.baseImageFrame
+        let bg = document.backgroundColor.nsColor
         return NSImage(size: document.canvasSize, flipped: true) { _ in
-            NSColor.white.setFill()
+            bg.setFill()
             NSRect(origin: .zero, size: self.document.canvasSize).fill()
             base?.draw(in: baseFrame)
             for o in objs { MarkupRenderer.draw(o, baseImage: base, baseFrame: baseFrame) }
@@ -726,6 +739,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         document.objects = s.objects
         document.canvasSize = s.canvasSize
         document.baseImageFrame = s.baseImageFrame
+        document.backgroundColor = s.backgroundColor
         selectedID = nil
         setFrameSize(s.canvasSize)
         onCanvasResized?()

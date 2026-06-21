@@ -39,6 +39,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var colors: ColorPaletteView!
     private var widthSlider: NSSlider!
     private var sizeLabel: NSTextField!
+    private var bgWell: NSColorWell!
     private var scrollView: NSScrollView!
 
     convenience init(image: NSImage) {
@@ -117,6 +118,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         slider.widthAnchor.constraint(equalToConstant: 90).isActive = true
         self.widthSlider = slider
 
+        // Canvas background fill (shows wherever the canvas has grown past the snapshot).
+        let bgWell = NSColorWell()
+        bgWell.color = document.backgroundColor.nsColor
+        bgWell.target = self
+        bgWell.action = #selector(bgColorChanged(_:))
+        bgWell.toolTip = "Canvas background color"
+        bgWell.translatesAutoresizingMaskIntoConstraints = false
+        bgWell.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        bgWell.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        self.bgWell = bgWell
+
         let copyButton = NSButton(title: "Copy", target: self, action: #selector(copyFlattened))
         copyButton.bezelStyle = .rounded
 
@@ -125,7 +137,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         sizeLabel.textColor = .secondaryLabelColor
         self.sizeLabel = sizeLabel
 
-        let palette = NSStackView(views: [toolStack, layerStack, colors, slider, NSView(), sizeLabel, copyButton])
+        let palette = NSStackView(views: [toolStack, layerStack, colors, slider, bgWell, NSView(), sizeLabel, copyButton])
         palette.orientation = .horizontal
         palette.spacing = 10
         palette.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
@@ -320,6 +332,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvas.setActiveWidth(CGFloat(sender.doubleValue))
     }
 
+    @objc private func bgColorChanged(_ sender: NSColorWell) {
+        canvas.setBackgroundColor(sender.color)
+    }
+
     @objc private func copyFlattened() {
         canvas.copy(nil)
     }
@@ -453,5 +469,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private func updateSizeLabel() {
         let s = canvas.document.canvasSize
         sizeLabel?.stringValue = "\(Int(s.width.rounded())) × \(Int(s.height.rounded()))"
+        bgWell?.color = canvas.document.backgroundColor.nsColor
     }
 }
