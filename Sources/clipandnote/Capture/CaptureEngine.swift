@@ -4,10 +4,9 @@ import AppKit
 enum CaptureKind {
     case crosshair          // drag-select a region (custom overlay)
     case previousArea       // re-shoot the last region, non-interactively
-    case timedCrosshair     // countdown, then drag-select a region
     case fullscreen         // all displays
     case window             // interactive window picker
-    case menu               // countdown (open a menu), then full-screen grab
+    case menu               // countdown, then auto-grab the open menu + submenus
 }
 
 /// Captures the screen. Region modes use `RegionSelectionOverlay` so the chosen
@@ -22,10 +21,6 @@ final class CaptureEngine {
         switch kind {
         case .crosshair:
             selectThenShoot(delay: 0, completion: completion)
-        case .timedCrosshair:
-            // Region overlay after a delay, so you can set up a hover/transient
-            // state first, then drag the region.
-            selectThenShoot(delay: AppSettings.shared.timedDelaySeconds, completion: completion)
         case .previousArea:
             if let r = lastRegion {
                 shootRect(r, completion: completion)
@@ -37,12 +32,58 @@ final class CaptureEngine {
         case .window:
             shoot(["-x", "-i", "-W"], completion: completion)
         case .menu:
-            // Distinct from Timed (which drags a region): after a delay to open
-            // the target menu, capture in window/menu selection mode (-W) so a
-            // click grabs the whole menu or window, with its shadow.
-            let delay = max(AppSettings.shared.timedDelaySeconds, 3)
-            shoot(["-x", "-T", String(delay), "-W"], completion: completion)
+            // A countdown gives you time to open the menu; at zero we find the
+            // open menu's window(s) and grab exactly those — no click, so the
+            // menu is never dismissed (clicking would close it).
+            CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds,
+                             hint: "open the menu (and any submenu)") { [weak self] in
+                self?.shootOpenMenus(completion: completion)
+            }
         }
+    }
+
+    // MARK: Auto-grab the open menu
+
+    /// Capture whatever menu(s) are open right now, by window. All cascading
+    /// menu windows (a menu plus any open submenus) sit at the pop-up-menu
+    /// window level, so we union their bounds and grab that one rectangle. No
+    /// interactive click is involved, so the menu stays open through the grab.
+    private func shootOpenMenus(completion: @escaping (NSImage?) -> Void) {
+        let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                              kCGNullWindowID) as? [[String: Any]] ?? []
+        // Menus/submenus render at the pop-up-menu window level (101); status
+        // items live below (≤25) and our countdown HUD above (screen-saver,
+        // 1000). Accept the menu level up to — but not including — the HUD's.
+        let menuLevel = Int(CGWindowLevelForKey(.popUpMenuWindow))
+        let hudLevel = Int(CGWindowLevelForKey(.screenSaverWindow))
+
+        func bounds(_ w: [String: Any]) -> CGRect? {
+            guard let dict = w[kCGWindowBounds as String] as? NSDictionary,
+                  let r = CGRect(dictionaryRepresentation: dict) else { return nil }
+            return r
+        }
+        func owner(_ w: [String: Any]) -> String { w[kCGWindowOwnerName as String] as? String ?? "" }
+        func layer(_ w: [String: Any]) -> Int { w[kCGWindowLayer as String] as? Int ?? 0 }
+
+        // Every open menu / submenu window.
+        let menus = info.filter { layer($0) >= menuLevel && layer($0) < hudLevel }
+            .compactMap { bounds($0) }
+            .filter { $0.width >= 8 && $0.height >= 8 }
+
+        if let union = menus.dropFirst().reduce(menus.first, { $0?.union($1) }) {
+            shootRect(union, completion: completion)
+            return
+        }
+
+        // Nothing open — fall back to the frontmost real window (not fullscreen).
+        if let front = info.first(where: {
+            layer($0) == 0 && owner($0) != "clipandnote"
+                && (bounds($0)?.width ?? 0) >= 40 && (bounds($0)?.height ?? 0) >= 40
+        }), let id = front[kCGWindowNumber as String] as? Int {
+            shoot(["-x", "-l", String(id)], completion: completion)
+            return
+        }
+        completion(nil)
     }
 
     // MARK: Region overlay

@@ -124,7 +124,7 @@ final class PreferencesWindowController: NSWindowController {
 
     /// "Timed / Menu snapshot countdown" — seconds before those captures fire.
     private func captureDelayRow() -> NSView {
-        let label = NSTextField(labelWithString: "Timed / Menu countdown (seconds):")
+        let label = NSTextField(labelWithString: "Menu Snapshot countdown (seconds):")
         label.font = .systemFont(ofSize: 12)
 
         let field = NSTextField()
