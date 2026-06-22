@@ -11,6 +11,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var editors: [EditorWindowController] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Show tooltips faster than the macOS default (~1.5 s) — feels closer to
+        // a labelled toolbar. NSInitialToolTipDelay still takes effect when
+        // registered before AppKit reads it (i.e. during launch).
+        UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 0.35])
+
         // Appearance follows the system automatically (NSApp.appearance left nil).
         buildMainMenu()
         let sc = StatusItemController()

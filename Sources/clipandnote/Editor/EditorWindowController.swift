@@ -136,6 +136,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             if t.tool == .text {
                 b.onLongPress = { [weak self, weak b] in if let b { self?.showFontMenu(from: b) } }
             }
+            // Long-press the rectangle / ellipse buttons to switch between
+            // outline and filled style for the *next* shape drawn.
+            if t.tool == .rectangle || t.tool == .ellipse {
+                let tool = t.tool
+                b.onLongPress = { [weak self, weak b] in
+                    if let b { self?.showShapeStyleMenu(for: tool, from: b) }
+                }
+            }
             // The arrow tool previews the actual rendered shape (handled in
             // ToolButton.draw) — give it the active color through a closure.
             if t.tool == .arrow {
@@ -159,7 +167,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                     // rendered mark will look on the canvas.
                     let outline: NSColor? = colored
                         ? MarkupRenderer.contrastColor(for: fill) : nil
-                    return SVGToolIcon.render(svgName, fill: fill, outline: outline, size: 22)
+                    // Filled state flips the rect/ellipse icon between
+                    // outlined and solid silhouette to mirror the long-press
+                    // choice; everything else stays outlined.
+                    let filled: Bool
+                    switch t.tool {
+                    case .rectangle: filled = self.canvas.rectFilled
+                    case .ellipse:   filled = self.canvas.ellipseFilled
+                    default: filled = false
+                    }
+                    return SVGToolIcon.render(svgName, fill: fill, outline: outline,
+                                              filled: filled, size: 22)
                 }
             }
             toolButtons.append(b)
@@ -540,9 +558,26 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         for b in toolButtons { b.isSelected = (b.tool == tool) }
     }
 
-    /// Press-and-hold the text tool: choose from every installed font family.
+    /// Press-and-hold the text tool: pick a font family + flip between filled
+    /// and outline-only style.
     private func showFontMenu(from button: ToolButton) {
         let menu = NSMenu()
+
+        // Style options at the top, with a checkmark on the active one.
+        let filled = NSMenuItem(title: "Filled",
+                                action: #selector(setTextStyle(_:)), keyEquivalent: "")
+        filled.target = self
+        filled.tag = 0
+        filled.state = canvas.textOutlined ? .off : .on
+        menu.addItem(filled)
+        let outlined = NSMenuItem(title: "Outline",
+                                  action: #selector(setTextStyle(_:)), keyEquivalent: "")
+        outlined.target = self
+        outlined.tag = 1
+        outlined.state = canvas.textOutlined ? .on : .off
+        menu.addItem(outlined)
+        menu.addItem(.separator())
+
         let def = NSMenuItem(title: "System Font (default)",
                              action: #selector(pickFont(_:)), keyEquivalent: "")
         def.target = self
@@ -565,6 +600,46 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let family = sender.representedObject as? String ?? ""
         canvas.setActiveFont(family.isEmpty ? nil : family)
         pickTool(.text)
+    }
+
+    @objc private func setTextStyle(_ sender: NSMenuItem) {
+        canvas.textOutlined = (sender.tag == 1)
+        pickTool(.text)
+        refreshColoredToolIcons()
+    }
+
+    /// Press-and-hold the rectangle / ellipse buttons: pick outline or filled
+    /// for the *next* shape drawn. (Existing marks aren't retroactively changed.)
+    private func showShapeStyleMenu(for tool: Tool, from button: ToolButton) {
+        let isFilled = (tool == .rectangle) ? canvas.rectFilled : canvas.ellipseFilled
+        let menu = NSMenu()
+        let outline = NSMenuItem(title: "Outline",
+                                 action: #selector(setShapeStyle(_:)), keyEquivalent: "")
+        outline.target = self
+        outline.tag = 0
+        outline.representedObject = tool
+        outline.state = isFilled ? .off : .on
+        menu.addItem(outline)
+        let filled = NSMenuItem(title: "Filled",
+                                action: #selector(setShapeStyle(_:)), keyEquivalent: "")
+        filled.target = self
+        filled.tag = 1
+        filled.representedObject = tool
+        filled.state = isFilled ? .on : .off
+        menu.addItem(filled)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
+    }
+
+    @objc private func setShapeStyle(_ sender: NSMenuItem) {
+        guard let tool = sender.representedObject as? Tool else { return }
+        let filled = (sender.tag == 1)
+        switch tool {
+        case .rectangle: canvas.rectFilled = filled
+        case .ellipse:   canvas.ellipseFilled = filled
+        default: break
+        }
+        pickTool(tool)
+        refreshColoredToolIcons()
     }
 
     @objc private func widthChanged(_ sender: NSSlider) {

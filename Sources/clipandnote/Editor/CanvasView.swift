@@ -44,6 +44,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var strokeColor: NSColor = RGBAColor.red.nsColor
     var lineWidth: CGFloat = 4
 
+    /// Per-shape style toggles for newly-created objects. The user picks via the
+    /// tool button's long-press menu — existing marks aren't retroactively
+    /// changed, only the next one drawn.
+    var rectFilled: Bool = false
+    var ellipseFilled: Bool = false
+    var textOutlined: Bool = false
+
     /// Fired whenever the selection changes, so the toolbar can reflect the
     /// selected object's color and width.
     var onSelectionChanged: ((MarkupObject?) -> Void)?
@@ -388,6 +395,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
                                    stroke: RGBAColor(strokeColor), lineWidth: lineWidth)
             obj.fontSize = max(lineWidth * 6, 22)
             obj.fontName = fontName
+            obj.textOutlined = textOutlined ? true : nil
             document.objects.append(obj)
             selectedID = obj.id
             commitUndo()
@@ -402,6 +410,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let f = Self.highlighterFill(strokeColor); obj.fill = f; obj.stroke = f
         }
         if kind == .pixelate { obj.fill = nil }
+        // Shape fill toggle (set via long-press on the tool button). Filled
+        // shapes use the stroke colour as their fill.
+        if kind == .rectangle, rectFilled { obj.fill = RGBAColor(strokeColor) }
+        if kind == .ellipse,   ellipseFilled { obj.fill = RGBAColor(strokeColor) }
         if obj.isPathBased {
             if obj.kind == .doubleArrow {
                 // Start, control (at start until drag computes a midpoint with

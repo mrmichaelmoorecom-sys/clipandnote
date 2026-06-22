@@ -1,6 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <!-- A curved connector arching between two points, arrowheads at each end -->
-  <path d="M5.5 16 C9 9.5, 15 9.5, 18.5 16"/>
-  <path d="M3.7 14.5 L5.5 16 L7.6 15.0" fill="currentColor" stroke="currentColor"/>
-  <path d="M16.4 15.0 L18.5 16 L20.3 14.5" fill="currentColor" stroke="currentColor"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+     fill="currentColor" stroke="currentColor"
+     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- C-shaped curve opening to the right; arrowheads at both ends. The path
+       bulges left through (5, 12) and lands near the right edge at top and
+       bottom so the heads point outward (up-right and down-right). -->
+  <path d="M 16 5.5 C 9 8.5, 9 15.5, 16 18.5" fill="none"/>
+  <!-- Upper arrowhead, tip up-right of curve start. -->
+  <polygon points="19,4 14.5,3.4 15.5,7.5"/>
+  <!-- Lower arrowhead, tip down-right of curve end. -->
+  <polygon points="19,20 14.5,20.6 15.5,16.5"/>
 </svg>

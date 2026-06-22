@@ -10,10 +10,16 @@ enum SVGToolIcon {
     /// Render the tool icon at the given point size. `fill` is the visible color
     /// (use `.labelColor` for monochrome tools); `outline` darkens a wider
     /// underlay so a chosen color still reads against the toolbar background.
-    static func render(_ name: String, fill: NSColor, outline: NSColor?, size: CGFloat) -> NSImage? {
+    /// `filled` flips `fill="none"` shapes (rectangle / ellipse) into solid
+    /// silhouettes so the icon previews the long-press fill/outline choice.
+    static func render(_ name: String, fill: NSColor, outline: NSColor?,
+                       filled: Bool = false, size: CGFloat) -> NSImage? {
         guard let url = Bundle.main.url(forResource: name, withExtension: "svg",
                                         subdirectory: "toolicons"),
-              let svgText = try? String(contentsOf: url) else { return nil }
+              let rawSvg = try? String(contentsOf: url) else { return nil }
+        let svgText = filled
+            ? rawSvg.replacingOccurrences(of: "fill=\"none\"", with: "fill=\"currentColor\"")
+            : rawSvg
         let fillHex = fill.toolboxHexString
 
         let pixel = Int(size * 2)   // @2x bitmap so the icon stays sharp on Retina
@@ -29,17 +35,19 @@ enum SVGToolIcon {
 
         if let outline {
             let outlineHex = outline.toolboxHexString
-            // Outline pass: same SVG, currentColor → outline color, every
-            // stroke-width bumped just enough to peek around the colored core.
-            // A small bump (≈1.2) keeps the colored fill dominant at icon size,
-            // matching how a marker's stroke reads vs. a thin contour around it.
+            // Outline pass via multi-direction offset render: stamp the SVG in
+            // the outline color at 8 positions around the centre, then the
+            // fill pass fully covers the inner area. This produces a clean
+            // halo around BOTH stroked SVGs (line / rect / ellipse / freehand)
+            // and filled-only SVGs (text / pixelate) — the earlier
+            // stroke-width-bump trick missed fill-only paths entirely.
             let outlineSvg = withCurrentColor(svgText, outlineHex)
-                .replacingMatches(of: #"stroke-width="(\d+(?:\.\d+)?)""#) { match in
-                    let w = Double(match) ?? 0
-                    return "stroke-width=\"\(w + 1.2)\""
-                }
             if let data = outlineSvg.data(using: .utf8), let img = NSImage(data: data) {
-                img.draw(in: frame)
+                let r: CGFloat = max(0.7, size * 0.045)
+                for angle in stride(from: 0, to: 360, by: 45) {
+                    let rad = CGFloat(angle) * .pi / 180
+                    img.draw(in: frame.offsetBy(dx: cos(rad) * r, dy: sin(rad) * r))
+                }
             }
         }
 

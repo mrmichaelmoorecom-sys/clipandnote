@@ -91,14 +91,22 @@ enum SVGExporter {
         let tspans = lines.enumerated().map { i, line in
             "<tspan x=\"\(x)\" dy=\"\(i == 0 ? "0" : num(o.fontSize * 1.2))\">\(escape(line))</tspan>"
         }.joined()
-        // paint-order="stroke" draws the contrast outline UNDER the fill,
-        // matching the NSAttributedString negative-strokeWidth look on canvas.
-        // Stroke width = 3 % of font size to mirror strokeWidth=-3.
-        let strokeWidth = num(o.fontSize * 0.06)
-        return "<text x=\"\(x)\" y=\"\(num(o.frame.minY + o.fontSize * 0.82))\" "
-            + "font-family=\"\(escape(family))\" font-size=\"\(num(o.fontSize))\" font-weight=\"600\" "
-            + "fill=\"\(color)\" stroke=\"\(contrast)\" stroke-width=\"\(strokeWidth)\" "
-            + "stroke-linejoin=\"round\" paint-order=\"stroke\">\(tspans)</text>\n"
+        let yBase = num(o.frame.minY + o.fontSize * 0.82)
+        let common = "x=\"\(x)\" y=\"\(yBase)\" font-family=\"\(escape(family))\" "
+            + "font-size=\"\(num(o.fontSize))\" font-weight=\"600\""
+
+        // Outline-only: hollow glyphs in the chosen color.
+        if o.textOutlined == true {
+            let sw = num(max(2.0, o.fontSize * 0.06))
+            return "<text \(common) fill=\"none\" stroke=\"\(color)\" stroke-width=\"\(sw)\" "
+                + "stroke-linejoin=\"round\">\(tspans)</text>\n"
+        }
+
+        // Filled with contrast outline (paint-order="stroke" → outline under fill).
+        let sw = num(o.fontSize * 0.06)
+        return "<text \(common) fill=\"\(color)\" stroke=\"\(contrast)\" "
+            + "stroke-width=\"\(sw)\" stroke-linejoin=\"round\" "
+            + "paint-order=\"stroke\">\(tspans)</text>\n"
     }
 
     private static func image(_ png: Data, _ frame: CGRect, pixelated: Bool) -> String {
