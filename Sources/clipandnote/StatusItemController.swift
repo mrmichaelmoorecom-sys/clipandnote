@@ -19,9 +19,7 @@ final class StatusItemController {
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            if let url = Bundle.main.url(forResource: "menubarTemplate", withExtension: "png"),
-               let img = NSImage(contentsOf: url) {
-                img.isTemplate = true   // monochrome; auto-inverts for light/dark menu bar
+            if let img = Self.crispMenuBarIcon() {
                 button.image = img
             } else {
                 button.image = NSImage(systemSymbolName: "pencil.tip.crop.circle",
@@ -30,6 +28,47 @@ final class StatusItemController {
             }
         }
         rebuildMenu()
+    }
+
+    /// Load the @2x template PNG and re-render it ourselves into a fresh
+    /// `NSBitmapImageRep` whose pixel dimensions exactly match the Retina menu-
+    /// bar pixel grid, with interpolation turned off — so each source pixel
+    /// snaps to a device pixel instead of getting smoothed by AppKit's default
+    /// auto-scale at draw time. Template tinting then paints onto an already-
+    /// crisp glyph instead of a blurred one.
+    private static func crispMenuBarIcon() -> NSImage? {
+        guard let url = Bundle.main.url(forResource: "menubarTemplate", withExtension: "png"),
+              let src = NSImage(contentsOf: url) else { return nil }
+
+        // Target: 12pt tall in the menu bar (matches clipandcue's visual size);
+        // width preserves the source's aspect. @2x because every modern Mac is
+        // Retina; the rep is built at the matching device-pixel size.
+        let pointHeight: CGFloat = 12
+        let aspect = src.size.width / max(src.size.height, 1)
+        let pointWidth = (pointHeight * aspect).rounded()
+        let scale: CGFloat = 2
+        let pxW = Int(pointWidth * scale)
+        let pxH = Int(pointHeight * scale)
+
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+                pixelsWide: pxW, pixelsHigh: pxH, bitsPerSample: 8, samplesPerPixel: 4,
+                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                bytesPerRow: pxW * 4, bitsPerPixel: 32) else { return nil }
+        rep.size = NSSize(width: pointWidth, height: pointHeight)   // @2x rep
+
+        NSGraphicsContext.saveGraphicsState()
+        let ctx = NSGraphicsContext(bitmapImageRep: rep)!
+        NSGraphicsContext.current = ctx
+        ctx.imageInterpolation = .none
+        ctx.cgContext.interpolationQuality = .none
+        src.draw(in: NSRect(x: 0, y: 0, width: pointWidth, height: pointHeight),
+                 from: .zero, operation: .copy, fraction: 1.0)
+        NSGraphicsContext.restoreGraphicsState()
+
+        let image = NSImage(size: NSSize(width: pointWidth, height: pointHeight))
+        image.addRepresentation(rep)
+        image.isTemplate = true   // monochrome; the OS tints after our crisp render
+        return image
     }
 
     /// Replace the recent-markups list and rebuild the menu.
