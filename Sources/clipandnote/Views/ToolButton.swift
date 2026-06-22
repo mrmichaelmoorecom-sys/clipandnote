@@ -112,10 +112,11 @@ final class ToolButton: NSView {
             path.close()
             path.lineJoinStyle = .round
 
-            // Outline first (contrast color of the toolbar, so it's visible
-            // whether the tool is selected or not), then colored fill on top.
+            // Outline matches MarkupRenderer.contrastColor for the fill, so it
+            // mirrors the contrasting edge the canvas paints around an arrow
+            // marked in this color (dark fill → white outline, and vice versa).
             let fillColor = fillProvider?() ?? tint
-            NSColor.labelColor.setStroke()
+            MarkupRenderer.contrastColor(for: fillColor).setStroke()
             path.lineWidth = 1.4
             path.stroke()
             fillColor.setFill()

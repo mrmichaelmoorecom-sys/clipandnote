@@ -151,10 +151,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                            ? CanvasView.highlighterFill(self.canvas.strokeColor).nsColor
                            : self.canvas.strokeColor)
                         : .labelColor
-                    // .labelColor adapts to light/dark mode, so the outline is
-                    // visible against the toolbar in either theme regardless of
-                    // which color the user has picked.
-                    let outline: NSColor? = colored ? .labelColor : nil
+                    // Outline matches MarkupRenderer.contrastColor — i.e. the
+                    // same contrasting edge the canvas paints around a mark in
+                    // this color. So the tool icon literally previews how the
+                    // rendered mark will look on the canvas.
+                    let outline: NSColor? = colored
+                        ? MarkupRenderer.contrastColor(for: fill) : nil
                     return SVGToolIcon.render(svgName, fill: fill, outline: outline, size: 22)
                 }
             }
