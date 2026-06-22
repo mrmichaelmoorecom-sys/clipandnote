@@ -1,5 +1,9 @@
 import AppKit
-// Render Resources/menubar-icon.svg → crisp template PNG (hard 1-bit alpha).
+// Render Resources/menubar-icon.svg → template PNG with high-quality
+// anti-aliasing. Renders at 8× oversample and box-filters the alpha down so
+// edges are smooth without being soft — plain scaled rendering gives
+// sub-pixel strokes that look blurred, and a hard threshold gives jaggies;
+// this middle path is what well-made menu-bar icons look like.
 //   swift scripts/render_menubar_icon.swift <png-out> <width> <height>
 // Used to produce Resources/menubarTemplate.png (28×16) and @2x.png (56×32).
 let svg = URL(fileURLWithPath: "Resources/menubar-icon.svg")
@@ -37,7 +41,7 @@ for y in 0..<h {
         }
         let i = y * outStride + x * 4
         outBuf[i] = 0; outBuf[i+1] = 0; outBuf[i+2] = 0
-        outBuf[i+3] = (aSum / block) >= 128 ? 255 : 0
+        outBuf[i+3] = UInt8(aSum / block)   // averaged alpha → smooth AA edges
     }
 }
 try! final.representation(using: .png, properties: [:])!.write(to: out)

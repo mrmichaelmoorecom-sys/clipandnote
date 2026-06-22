@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clipandnote — capture, mark it up, done</title>
+<meta name="description" content="A fast, native macOS screenshot-markup app — a modern, open take on Skitch. Capture from the menu bar, annotate with selectable objects, keep a searchable history, and export real layered files.">
+<link rel="icon" href="img/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="img/appicon_256.png">
+<meta name="theme-color" content="#d0bcd5">
+<meta name="author" content="Michael Moore">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="clipandnote">
+<meta property="og:title" content="clipandnote — capture, mark it up, done">
+<meta property="og:description" content="A native macOS screenshot-markup app. Capture from the menu bar, annotate with selectable objects, keep a searchable history, export layered files.">
+<meta property="og:image" content="img/appicon_1024.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --thistle:#d0bcd5; --lilac:#a29ab1; --grape:#524c61; --shadow:#1f1b25; --cyan:#e0fbfc;
+  --tint:#f3edf4; --cream:#fffdfe; --ink:#241f2b; --ink-soft:#6b6175; --line:rgba(36,31,43,.10);
+  --max:1080px; --r:18px; --shadow-lg:0 18px 50px -22px rgba(50,40,60,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--cream)}
+body{font-family:'Outfit',-apple-system,system-ui,sans-serif;color:var(--ink);background:transparent;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.serif{font-family:'Instrument Serif',Georgia,serif;font-style:italic}
+a{color:inherit}
+.wrap{width:100%;max-width:var(--max);margin:0 auto;padding:0 24px}
+h1,h2,h3{line-height:1.08;letter-spacing:-.02em;font-weight:700}
+section{position:relative}
+
+#bgfx{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;
+  background:linear-gradient(125deg,#fffdfe 0%,#f3edf4 45%,#f7f1f8 60%,#fffdfe 100%);
+  background-size:240% 240%;animation:wash 26s ease-in-out infinite}
+@keyframes wash{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.blob{position:absolute;border-radius:50%;filter:blur(72px);opacity:.5;will-change:transform,translate}
+.blob.b1{width:540px;height:540px;background:radial-gradient(circle,#d9c7de,transparent 68%);top:-150px;left:-120px;animation:drift1 28s ease-in-out infinite}
+.blob.b2{width:470px;height:470px;background:radial-gradient(circle,#cfe9ea,transparent 68%);top:34%;right:-170px;animation:drift2 32s ease-in-out infinite}
+.blob.b3{width:620px;height:620px;background:radial-gradient(circle,#e2d3e6,transparent 68%);bottom:-220px;left:22%;animation:drift1 36s ease-in-out infinite}
+.bgclip{position:absolute;color:var(--lilac);opacity:.07;will-change:transform,translate}
+.bgclip.c1{top:11%;left:7%;width:120px;rotate:-18deg;animation:drift2 19s ease-in-out infinite}
+.bgclip.c2{top:46%;left:80%;width:160px;rotate:24deg;animation:drift1 23s ease-in-out infinite}
+.bgclip.c3{top:78%;left:13%;width:140px;rotate:9deg;animation:drift2 27s ease-in-out infinite}
+@keyframes drift1{0%,100%{translate:0 0}50%{translate:26px -30px}}
+@keyframes drift2{0%,100%{translate:0 0}50%{translate:-28px 22px}}
+#progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--lilac),var(--grape));z-index:60;transition:width .08s linear}
+
+.poweredby{position:fixed;top:14px;left:16px;z-index:55;display:inline-flex;align-items:center;gap:7px;
+  background:rgba(31,27,37,.85);backdrop-filter:blur(8px);color:#fff;text-decoration:none;
+  padding:6px 12px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.04em;
+  transition:opacity .35s ease,transform .35s ease,background .2s}
+.poweredby:hover{background:rgba(31,27,37,.98)}
+.poweredby span{opacity:.78;text-transform:uppercase}
+.poweredby img{height:13px;width:auto;display:block}
+.poweredby.hide{opacity:0;pointer-events:none;transform:translateY(-8px)}
+@media (max-width:520px){.poweredby span{display:none}}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+  padding:13px 24px;background:rgba(255,253,254,.82);backdrop-filter:blur(12px);border-bottom:1px solid transparent;
+  transform:translateY(-110%);transition:transform .4s ease,border-color .4s}
+nav.show{transform:translateY(0);border-color:var(--line)}
+nav .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:18px;letter-spacing:-.02em}
+nav .brand svg{width:30px;height:30px}
+.btn{display:inline-flex;align-items:center;gap:9px;border:none;border-radius:999px;cursor:pointer;
+  font-family:inherit;font-weight:600;font-size:15px;padding:11px 22px;background:var(--grape);color:#fff;
+  transition:transform .18s ease,box-shadow .25s ease,opacity .2s,background .2s;text-decoration:none}
+.btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px -10px rgba(82,76,97,.55)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn[disabled]{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.kbd{font-weight:600;font-size:.86em;background:#fff;border:1px solid var(--line);border-bottom-width:2px;border-radius:7px;padding:2px 8px;color:var(--ink);display:inline-block;line-height:1.4}
+
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:120px 24px 80px;background:radial-gradient(120% 90% at 50% 0%,rgba(208,188,213,.55) 0%,rgba(255,253,254,0) 62%);overflow:hidden}
+.heromark{width:124px;height:124px;margin:0 auto 6px;display:block}
+.hero h1{font-size:clamp(40px,7vw,76px);font-weight:800}
+.hero .tag{font-size:clamp(22px,3vw,30px);color:var(--grape);margin-top:16px}
+.hero .sub{font-size:clamp(18px,2.4vw,22px);color:var(--ink-soft);margin:18px auto 0;max-width:580px}
+.hero .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.hero .meta{margin-top:18px;font-size:14px;color:var(--ink-soft)}
+.scrollcue{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:2;color:var(--grape);font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.8}
+.scrollcue .arrow{width:22px;height:22px;animation:bob 1.8s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+
+.shead{text-align:center;max-width:640px;margin:0 auto 54px}
+.shead .kicker{font-size:14px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lilac)}
+.shead h2{font-size:clamp(30px,4.4vw,46px);margin-top:12px}
+.shead p{color:var(--ink-soft);font-size:18px;margin-top:14px}
+.pad{padding:100px 0}
+.pad-tint{background:rgba(208,188,213,.28)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px}
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px;transition:transform .3s ease,box-shadow .3s ease}
+.card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg)}
+.card .ic{width:46px;height:46px;border-radius:13px;background:var(--tint);color:var(--grape);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.card .ic svg{width:24px;height:24px}
+.card h3{font-size:20px}
+.card p{color:var(--ink-soft);font-size:15.5px;margin-top:8px}
+
+.step{display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;margin-bottom:120px}
+.step:last-child{margin-bottom:0}
+.step.rev .copy{order:2}
+.stepnum{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:var(--grape);color:#fff;font-weight:700;font-size:18px;margin-bottom:18px}
+.step h3{font-size:clamp(26px,3.4vw,36px)}
+.step p{color:var(--ink-soft);font-size:17px;margin-top:14px;max-width:440px}
+.step .demo{display:flex;align-items:center;justify-content:center;min-height:300px}
+
+.macwin{width:100%;max-width:400px;background:#fff;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-lg);overflow:hidden}
+.macbar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#f1ecf2;border-bottom:1px solid var(--line)}
+.dotmac{width:11px;height:11px;border-radius:50%}
+.dotmac.r{background:#ff5f57}.dotmac.y{background:#febc2e}.dotmac.g{background:#28c840}
+.macbar .ttl{margin-left:8px;font-size:12.5px;color:var(--ink-soft)}
+.caprow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);font-size:13.5px;opacity:0;transform:translateX(14px);transition:all .45s ease}
+.in .caprow{opacity:1;transform:translateX(0)}
+.caprow:last-child{border-bottom:none}
+.caprow .k{margin-left:auto;color:var(--ink-soft);font-size:11.5px}
+.caprow svg{width:17px;height:17px;color:var(--grape)}
+
+/* editor mock with toolbar */
+.editor{width:100%;max-width:420px;background:#fff;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-lg);overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:4px;padding:8px 10px;background:var(--shadow);flex-wrap:wrap}
+.tool{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#cfc8d6;transition:.2s}
+.tool svg{width:17px;height:17px}
+.tool.on{background:var(--grape);color:#fff}
+.tool:hover{background:rgba(255,255,255,.1)}
+.sw{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.25)}
+.canvas{position:relative;height:200px;background:linear-gradient(135deg,#e9e3ee,#dce6e7);display:flex;align-items:center;justify-content:center}
+.canvas .shot{position:absolute;inset:18px;border-radius:8px;background:#fff;border:1px solid var(--line);overflow:hidden}
+.canvas .shot .barline{height:10px;background:#ece7ef;margin:14px 16px;border-radius:5px}
+.canvas .anno{position:absolute;color:var(--grape);stroke:var(--grape)}
+.annoarrow{top:54px;left:60px;width:120px;height:70px}
+.annobox{position:absolute;left:62%;top:46%;width:90px;height:46px;border:3px solid #c9476b;border-radius:6px}
+
+.capband{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.chip{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-weight:600;font-size:15px;transition:transform .3s}
+.chip:hover{transform:translateY(-4px)}
+.chip svg{width:18px;height:18px;color:var(--grape)}
+
+.callout{max-width:760px;margin:54px auto 0;background:#fff;border:1px solid var(--line);border-left:4px solid var(--lilac);border-radius:12px;padding:22px 26px}
+.callout h4{font-size:17px;display:flex;align-items:center;gap:9px}
+.callout h4 svg{width:18px;height:18px;color:var(--grape)}
+.callout p{color:var(--ink-soft);font-size:15px;margin-top:8px}
+.callout code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--tint);padding:2px 7px;border-radius:6px}
+
+#download{background:radial-gradient(120% 100% at 50% 100%,rgba(208,188,213,.42),rgba(255,253,254,0))}
+.dlcard{max-width:620px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow-lg);padding:48px 40px;text-align:center}
+.dlcard .dlmark{width:84px;height:84px;margin:0 auto 18px}
+.dlcard h2{font-size:clamp(30px,4vw,42px)}
+.dlcard p.lead{color:var(--ink-soft);font-size:18px;margin-top:12px}
+.pricepill{display:inline-block;background:var(--tint);color:var(--grape);font-weight:700;padding:7px 18px;border-radius:999px;margin-top:18px;font-size:15px}
+.terms{text-align:left;background:var(--tint);border-radius:14px;margin:28px 0 8px;overflow:hidden}
+.terms summary{cursor:pointer;padding:14px 20px;font-weight:600;font-size:15px;list-style:none;display:flex;align-items:center;justify-content:space-between}
+.terms summary::-webkit-details-marker{display:none}
+.terms summary .chev{transition:transform .3s}
+.terms[open] summary .chev{transform:rotate(180deg)}
+.terms .tbody{padding:0 20px 18px;font-size:13.5px;color:var(--ink-soft);line-height:1.65}
+.terms .tbody ul{margin:8px 0 0 18px}.terms .tbody li{margin:4px 0}
+.tlink{color:var(--grape);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.tlink:hover{color:var(--ink)}
+.agree{display:flex;align-items:flex-start;gap:12px;text-align:left;margin:18px 4px 24px;cursor:pointer;user-select:none}
+.agree input{margin-top:3px;width:20px;height:20px;accent-color:var(--grape);cursor:pointer;flex-shrink:0}
+.agree label{font-size:14.5px;color:var(--ink);cursor:pointer}
+.dlbtn{font-size:18px;padding:16px 40px}
+.dlnote{font-size:13px;color:var(--ink-soft);margin-top:16px;min-height:18px}
+.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+
+footer{background:var(--shadow);color:#d8cfe0;padding:54px 0 40px}
+footer .frow{display:flex;flex-wrap:wrap;gap:26px;justify-content:space-between;align-items:center}
+footer .fbrand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:19px;color:#fff}
+footer .fbrand svg{width:34px;height:34px}
+footer .flinks{display:flex;gap:24px;flex-wrap:wrap;font-size:14.5px}
+footer .flinks a{color:#ccbfd6;text-decoration:none;transition:color .2s}
+footer .flinks a:hover{color:#fff}
+footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,255,.12);font-size:13px;color:#a99cb6}
+
+.reveal{opacity:0;transform:translateY(34px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+@media (max-width:760px){.step{grid-template-columns:1fr;gap:30px;margin-bottom:80px}.step.rev .copy{order:0}.step .demo{min-height:auto}nav .brand span{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="bgfx" aria-hidden="true">
+  <span class="blob b1" data-speed="0.05"></span>
+  <span class="blob b2" data-speed="0.11"></span>
+  <span class="blob b3" data-speed="0.07"></span>
+  <svg class="bgclip c1" data-speed="0.14" viewBox="0 0 512 512"><use href="#cnmark"/></svg>
+  <svg class="bgclip c2" data-speed="-0.10" viewBox="0 0 512 512"><use href="#cnmark"/></svg>
+  <svg class="bgclip c3" data-speed="0.12" viewBox="0 0 512 512"><use href="#cnmark"/></svg>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="cnmark" viewBox="0 0 512 512">
+    <path fill="#a29ab1" d="M203.5,129v133.8c0,25.7-20.8,46.5-46.5,46.5s-46.5-20.8-46.5-46.5V117.3c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s29.1-13,29.1-29.1v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s64-28.6,64-64v-133.8h-17.5Z"/>
+    <path fill="#524c61" d="M246.6,360.5c-25.7,0-46.5-20.8-46.5-46.5v-145.5c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s3.6-.2,5.4-.5c2.1-13.1,11.4-23.8,23.7-27.9,0-.2,0-.4,0-.6v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s3.3,0,4.9-.2v-17.5c-1.6.2-3.3.3-4.9.3Z"/>
+    <rect fill="#524c61" x="293.1" y="180.2" width="17.5" height="109.3"/>
+    <circle fill="#524c61" cx="311" cy="347" r="13"/><rect fill="#524c61" x="334" y="340" width="48" height="16"/>
+    <circle fill="#524c61" cx="311" cy="380" r="13"/><rect fill="#524c61" x="334" y="373" width="48" height="16"/>
+    <circle fill="#524c61" cx="311" cy="413" r="13"/><rect fill="#524c61" x="334" y="406" width="48" height="16"/>
+    <path fill="#524c61" d="M395.7,455.3h-105.8c-12.8,0-23.1-10.4-23.1-23.1v-103.4c0-12.8,10.4-23.1,23.1-23.1h105.8c12.8,0,23.1,10.4,23.1,23.1v103.4c0,12.8-10.4,23.1-23.1,23.1ZM289.9,320.6c-4.5,0-8.1,3.6-8.1,8.1v103.4c0,4.5,3.6,8.1,8.1,8.1h105.8c4.5,0,8.1-3.6,8.1-8.1v-103.4c0-4.5-3.6-8.1-8.1-8.1h-105.8Z"/>
+  </symbol>
+</svg>
+
+<a class="poweredby" id="poweredby" href="https://www.toyrobotmedia.com" target="_blank" rel="noopener" aria-label="Powered by Toy Robot Media">
+  <span>powered by</span><img src="img/trmlogo.svg" alt="Toy Robot Media">
+</a>
+
+<nav id="nav" aria-label="Primary">
+  <div class="brand"><svg viewBox="0 0 512 512" aria-hidden="true"><use href="#cnmark"/></svg><span>clipandnote</span></div>
+  <a href="#download" class="btn">Download</a>
+</nav>
+
+<header class="hero">
+  <div class="hero-inner">
+    <svg class="heromark" data-speed="0.07" viewBox="0 0 512 512" role="img" aria-label="clipandnote logo"><use href="#cnmark"/></svg>
+    <h1>clipandnote</h1>
+    <p class="tag serif">capture it, mark it up, move on.</p>
+    <p class="sub">A fast, native macOS <strong>screenshot-markup</strong> app — a modern, open take on Skitch. Snap from the menu bar, annotate with movable objects, and keep every markup a search away.</p>
+    <div class="cta-row">
+      <a href="#download" class="btn">Download for macOS</a>
+      <a href="#how" class="btn ghost">See how it works</a>
+    </div>
+    <p class="meta">macOS 14+ · free for personal use · CC BY-NC 4.0 · 100% on-device</p>
+  </div>
+  <a href="#what" class="scrollcue" aria-label="Scroll down">scroll
+    <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  </a>
+</header>
+
+<section id="what" class="pad">
+  <div class="wrap">
+    <div class="shead reveal">
+      <div class="kicker">what it does</div>
+      <h2>Screenshots, actually worth keeping.</h2>
+      <p>Grab a shot, draw on it, and find it again later — without ever opening a heavyweight editor.</p>
+    </div>
+    <div class="cards">
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/></svg></div><h3>Capture from the menu bar</h3><p>Crosshair, previous area, timed, fullscreen, window, or a menu — one click from the bar.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.586 7.586"/></svg></div><h3>Annotate with real objects</h3><p>Arrows, boxes, text, highlighter, blur — every mark is selectable and movable, not baked in.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><h3>Searchable history</h3><p>Every markup is logged and searchable, with your recent shots one tap away in the menu.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M7 3h8l5 5v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 13h6M9 17h4"/></svg></div><h3>Export real layered files</h3><p>Save an editable document, or export layered PDF, PNG, and SVG — nothing flattened by surprise.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="pad pad-tint">
+  <div class="wrap">
+    <div class="shead reveal"><div class="kicker">how it works</div><h2>Three steps, no friction</h2><p>It lives in your menu bar and stays out of the way until you need to grab something.</p></div>
+
+    <div class="step reveal">
+      <div class="copy"><div class="stepnum">1</div><h3>Capture from the bar</h3><p>Pick a capture mode from the menu bar — crosshair for a region, or grab a whole window. Your shot opens straight in a zoomable editor.</p></div>
+      <div class="demo">
+        <div class="macwin" id="capdemo">
+          <div class="macbar"><span class="dotmac r"></span><span class="dotmac y"></span><span class="dotmac g"></span><span class="ttl">clipandnote</span></div>
+          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/></svg> Crosshair<span class="k">⇧⌘4</span></div>
+          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Previous area<span class="k">⌥⌘4</span></div>
+          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 19l18 0"/></svg> Window</div>
+          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/></svg> Fullscreen</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step rev reveal">
+      <div class="copy"><div class="stepnum">2</div><h3>Mark it up</h3><p>Drop arrows, boxes, text and highlights — each one stays a live object you can move, restyle, or delete. Blur the bits that shouldn't be public.</p></div>
+      <div class="demo">
+        <div class="editor">
+          <div class="toolbar">
+            <span class="tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l15 9-7 1.5L9 21z"/></svg></span>
+            <span class="tool on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l14-14M14 5h5v5"/></svg></span>
+            <span class="tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="2"/></svg></span>
+            <span class="tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg></span>
+            <span class="tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg></span>
+            <span class="tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M14 19h7"/></svg></span>
+            <span class="tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></span>
+            <span style="flex:1"></span>
+            <span class="sw" style="background:#c9476b"></span><span class="sw" style="background:#2c6e9e"></span><span class="sw" style="background:#e0fbfc"></span>
+          </div>
+          <div class="canvas">
+            <div class="shot"><div class="barline" style="width:50%"></div><div class="barline" style="width:70%"></div><div class="barline" style="width:40%"></div></div>
+            <svg class="anno annoarrow" viewBox="0 0 120 70" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 62 Q40 20 104 14"/><path d="M80 8 L110 12 L102 40"/></svg>
+            <div class="annobox"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step reveal">
+      <div class="copy"><div class="stepnum">3</div><h3>Copy, save, or export</h3><p>Send it straight to the clipboard for a quick paste, save an editable document, or export a layered file. It hands off to <strong>clipandcue</strong> as your latest copy — without flooding its history.</p></div>
+      <div class="demo">
+        <div class="macwin" style="max-width:360px">
+          <div class="macbar"><span class="dotmac r"></span><span class="dotmac y"></span><span class="dotmac g"></span><span class="ttl">Export</span></div>
+          <div style="padding:18px">
+            <div class="caprow" style="opacity:1;transform:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg> Layered PDF</div>
+            <div class="caprow" style="opacity:1;transform:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4"/></svg> PNG · SVG</div>
+            <div class="caprow" style="opacity:1;transform:none;border:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg> Copy to clipboard<span class="k">⌘C</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pad">
+  <div class="wrap">
+    <div class="shead reveal"><div class="kicker">the toolkit</div><h2>Every markup tool you reach for</h2><p>And a capture mode for whatever's on screen.</p></div>
+    <div class="capband reveal">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l14-14M14 5h5v5"/></svg> Arrow</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="2"/></svg> Box</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg> Ellipse</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c4 0 4-10 8-10s4 10 8 10"/></svg> Freehand</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg> Text</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M14 19h7"/></svg> Highlighter</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="M13 5h6M5 13v6"/></svg> Blur / pixelate</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/></svg> Crop</span>
+    </div>
+    <div class="callout reveal">
+      <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Private by design</h4>
+      <p>The smart stuff — subject select, outline, OCR, and AI erase — runs <strong>100% on your Mac</strong>. Nothing is uploaded. Your markups sync only through your own private iCloud container at <code>iCloud.com.clipandnote.shared</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="pad">
+  <div class="wrap">
+    <div class="dlcard reveal">
+      <svg class="dlmark" viewBox="0 0 512 512" role="img" aria-label="clipandnote"><use href="#cnmark"/></svg>
+      <h2>Get clipandnote</h2>
+      <p class="lead">Free for personal use, on-device, and light on your Mac.</p>
+      <div class="pricepill">Free for personal use · CC BY-NC 4.0 · macOS 14+</div>
+      <details class="terms">
+        <summary>License &amp; what you're agreeing to
+          <svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="tbody">
+          clipandnote is © 2026 Michael Moore, licensed under
+          <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener" class="tlink">Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)</a>. By downloading you acknowledge:
+          <ul>
+            <li>You're free to <strong>use, share and adapt</strong> it for <strong>non-commercial</strong> purposes, with attribution.</li>
+            <li><strong>Commercial use is not permitted</strong> without permission.</li>
+            <li>The software is provided <strong>“as is”</strong>, with no warranty, and the author is not liable for any damages or data loss.</li>
+            <li>This is an <strong>unsigned (ad-hoc) build</strong>; macOS Gatekeeper may warn on first launch — right-click the app and choose Open.</li>
+          </ul>
+          <p style="margin-top:12px"><a href="LICENSE" target="_blank" rel="noopener" class="tlink">Read the full license text &#8599;</a></p>
+        </div>
+      </details>
+      <label class="agree" for="agree"><input type="checkbox" id="agree"><span>I agree to the <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener" class="tlink">CC BY-NC 4.0 license</a> terms above, and understand the app is provided as-is.</span></label>
+      <div class="dlbtn-wrap" id="dlwrap">
+        <a href="#" id="dlbtn" class="btn dlbtn" aria-disabled="true" disabled data-href="https://github.com/mrmichaelmoorecom-sys/clipandnote/releases/latest/download/clipandnote.dmg" download>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg> Download clipandnote.app
+        </a>
+      </div>
+      <p class="dlnote" id="dlnote">Tick the box to enable the download.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="frow">
+      <div class="fbrand"><svg viewBox="0 0 512 512" aria-hidden="true"><use href="#cnmark"/></svg> clipandnote</div>
+      <div class="flinks">
+        <a href="#what">Features</a><a href="#how">How it works</a><a href="#download">Download</a>
+        <a href="https://clipandcue.com" target="_blank" rel="noopener">clipandcue</a>
+        <a href="LICENSE" target="_blank" rel="noopener">License</a>
+        <a href="https://github.com/mrmichaelmoorecom-sys/clipandnote/" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+    <div class="fine">© <span id="yr"></span> Michael Moore · clipandnote · Licensed under <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener" style="color:#d8cfe0;text-decoration:underline">CC BY-NC 4.0</a> · Requires macOS 14 or later.<br>A native macOS screenshot-markup app, in the clip… family.</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var nav=document.getElementById('nav'),prog=document.getElementById('progress'),pb=document.getElementById('poweredby');
+  function onScroll(){var h=document.documentElement;var sc=h.scrollTop,max=h.scrollHeight-h.clientHeight;
+    prog.style.width=(max>0?(sc/max*100):0)+'%';var past=sc>window.innerHeight*0.6;
+    nav.classList.toggle('show',past); if(pb) pb.classList.toggle('hide',past);}
+  window.addEventListener('scroll',onScroll,{passive:true}); onScroll();
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.18});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+  var drop=document.getElementById('capdemo');
+  if(drop){var io2=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');e.target.querySelectorAll('.caprow').forEach(function(r,i){r.style.transitionDelay=(0.08*i)+'s';});io2.unobserve(e.target);}});},{threshold:0.4});io2.observe(drop);}
+  var px=[].slice.call(document.querySelectorAll('[data-speed]'));
+  if(!reduce&&px.length){var t=false;window.addEventListener('scroll',function(){if(!t){t=true;requestAnimationFrame(function(){var y=window.pageYOffset;for(var i=0;i<px.length;i++){px[i].style.transform='translate3d(0,'+(y*parseFloat(px[i].getAttribute('data-speed'))).toFixed(2)+'px,0)';}t=false;});}},{passive:true});}
+  var agree=document.getElementById('agree'),btn=document.getElementById('dlbtn'),note=document.getElementById('dlnote'),wrap=document.getElementById('dlwrap');
+  function setEnabled(on){if(on){btn.removeAttribute('disabled');btn.setAttribute('aria-disabled','false');btn.href=btn.dataset.href;note.textContent='Thanks! Your download will begin — drag clipandnote.app into Applications.';}else{btn.setAttribute('disabled','');btn.setAttribute('aria-disabled','true');btn.removeAttribute('href');note.textContent='Tick the box to enable the download.';}}
+  agree.addEventListener('change',function(){setEnabled(agree.checked);});
+  btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}});
+  setEnabled(false);
+  document.getElementById('yr').textContent=new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
