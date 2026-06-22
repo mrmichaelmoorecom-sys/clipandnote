@@ -33,7 +33,7 @@ final class StatusItemController {
     }
 
     /// How many recents sit inline before the rest move into a scrolling submenu.
-    private let inlineRecents = 8
+    private let inlineRecents = 10
 
     /// Rebuild the menu (e.g. after shortcuts change in Preferences).
     func rebuild() { rebuildMenu() }
@@ -56,13 +56,17 @@ final class StatusItemController {
             empty.isEnabled = false
             menu.addItem(empty)
         } else {
-            // The most recent few inline; the rest in a scrolling "Earlier" submenu.
+            // The most recent inline; the rest as a compact text list in an
+            // 'Earlier Markups' submenu (no thumbnails — keeps it dense). The
+            // submenu scrolls automatically when it would run past the screen.
             for i in 0..<min(inlineRecents, recents.count) { menu.addItem(recentItem(i)) }
             if recents.count > inlineRecents {
                 menu.addItem(.separator())
-                let more = NSMenuItem(title: "Earlier Markups", action: nil, keyEquivalent: "")
+                let count = recents.count - inlineRecents
+                let more = NSMenuItem(title: "Earlier Markups  (\(count))",
+                                      action: nil, keyEquivalent: "")
                 let sub = NSMenu()
-                for i in inlineRecents..<recents.count { sub.addItem(recentItem(i)) }
+                for i in inlineRecents..<recents.count { sub.addItem(recentItem(i, withThumb: false)) }
                 more.submenu = sub
                 menu.addItem(more)
             }
@@ -93,12 +97,12 @@ final class StatusItemController {
         statusItem.menu = menu
     }
 
-    private func recentItem(_ i: Int) -> NSMenuItem {
+    private func recentItem(_ i: Int, withThumb: Bool = true) -> NSMenuItem {
         let item = recents[i]
         let mi = NSMenuItem(title: item.title, action: #selector(pickRecent(_:)), keyEquivalent: "")
         mi.target = self
         mi.tag = i
-        if let thumb = item.thumbnail {
+        if withThumb, let thumb = item.thumbnail {
             let t = thumb.copy() as! NSImage
             t.size = NSSize(width: 32, height: 20)
             mi.image = t
