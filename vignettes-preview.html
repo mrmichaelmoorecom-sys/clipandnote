@@ -134,6 +134,59 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .b2{animation:box2 7s ease-in-out infinite}
 .b3{animation:box3 7s ease-in-out infinite}
 
+/* ---------- 5. GRADING → PDF EXPORT (wide) ---------- */
+.vig.wide{margin-top:34px}
+.vig.wide .macwin{max-width:760px}
+.vig.wide .stage{height:300px}
+.app5{position:absolute;inset:0;background:linear-gradient(160deg,#f1eef6,#e7eaf1);display:grid;grid-template-columns:1.05fr .95fr;gap:0}
+.app5 .left{position:relative;padding:20px 18px;display:flex;align-items:center;justify-content:center}
+.app5 .right{position:relative;border-left:1px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+/* the paper being marked */
+.paper{position:relative;width:208px;height:260px;background:#fff;border-radius:8px;border:1px solid var(--line);box-shadow:0 12px 30px -16px rgba(40,40,60,.5);padding:18px 18px 14px}
+.paper .pt{font-size:11px;font-weight:700;color:var(--ink)}
+.paper .pmeta{font-size:8.5px;color:var(--ink-soft);margin-top:2px}
+.paper .pl{height:6px;background:#edeaf1;border-radius:3px;margin-top:9px}
+.gradeStamp{position:absolute;right:12px;top:10px;display:flex;align-items:baseline;gap:5px;
+  border:2.5px solid var(--red);color:var(--red);border-radius:9px;padding:3px 9px;font-weight:800;
+  transform:rotate(-9deg) scale(.3);opacity:0;background:rgba(255,255,255,.85)}
+.gradeStamp .g{font-size:17px}.gradeStamp .s{font-size:9px;font-weight:700}
+.circ{stroke:var(--red);stroke-width:2.5;fill:none;stroke-linecap:round}
+.check{stroke:#2f9e6e;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mnote{position:absolute;left:6px;display:flex;align-items:center;gap:5px;background:#fff;border:1.5px solid var(--blue);color:var(--blue);
+  font-size:9px;font-weight:700;padding:3px 7px;border-radius:7px;box-shadow:0 5px 14px -7px rgba(44,110,158,.55);opacity:0;transform:translateX(-6px)}
+.mnote.m1{top:96px}.mnote.m2{top:150px;border-color:#2f9e6e;color:#2f9e6e}
+/* export stack on the right */
+.expwrap{position:relative;width:160px;height:178px}
+.pg{position:absolute;width:118px;height:150px;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:0 10px 24px -14px rgba(40,40,60,.45);left:21px;top:8px}
+.pg .pgl{height:5px;background:#eceaf0;border-radius:3px;margin:11px 12px 0}
+.pg .pgmark{position:absolute;width:20px;height:20px;border:2px solid var(--red);border-radius:50%;right:14px;top:18px}
+.pg3{transform:translate(0,0) rotate(0deg);opacity:0}
+.pg2{transform:translate(0,0) rotate(0deg);opacity:0}
+.pg1{z-index:3}
+.pdfbadge{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) translateY(10px);opacity:0;
+  display:flex;align-items:center;gap:8px;background:var(--grape);color:#fff;font-size:12px;font-weight:700;
+  padding:8px 15px;border-radius:11px;box-shadow:0 12px 26px -10px rgba(82,76,97,.6);white-space:nowrap}
+.pdfbadge .ct{background:rgba(255,255,255,.22);border-radius:6px;padding:1px 7px;font-size:10.5px}
+.expcap{position:absolute;top:16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--lilac)}
+
+@keyframes g-circ{0%,14%{stroke-dashoffset:170}26%,82%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:170}}
+@keyframes g-check{0%,24%{stroke-dashoffset:60}34%,82%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:60}}
+@keyframes g-note1{0%,20%{opacity:0;transform:translateX(-6px)}30%,82%{opacity:1;transform:translateX(0)}92%,100%{opacity:0;transform:translateX(-6px)}}
+@keyframes g-note2{0%,30%{opacity:0;transform:translateX(-6px)}40%,82%{opacity:1;transform:translateX(0)}92%,100%{opacity:0;transform:translateX(-6px)}}
+@keyframes g-stamp{0%,40%{opacity:0;transform:rotate(-9deg) scale(.3)}48%{opacity:1;transform:rotate(-9deg) scale(1.18)}54%,82%{opacity:1;transform:rotate(-9deg) scale(1)}92%,100%{opacity:0;transform:rotate(-9deg) scale(.3)}}
+@keyframes g-pg2{0%,56%{opacity:0;transform:translate(0,0) rotate(0)}66%,86%{opacity:1;transform:translate(-26px,-12px) rotate(-7deg)}96%,100%{opacity:0;transform:translate(0,0) rotate(0)}}
+@keyframes g-pg3{0%,56%{opacity:0;transform:translate(0,0) rotate(0)}66%,86%{opacity:1;transform:translate(26px,-6px) rotate(7deg)}96%,100%{opacity:0;transform:translate(0,0) rotate(0)}}
+@keyframes g-pdf{0%,66%{opacity:0;transform:translateX(-50%) translateY(10px)}76%,88%{opacity:1;transform:translateX(-50%) translateY(0)}96%,100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
+.circ{stroke-dasharray:170;animation:g-circ 7s ease-in-out infinite}
+.check{stroke-dasharray:60;animation:g-check 7s ease-in-out infinite}
+.mnote.m1{animation:g-note1 7s ease-in-out infinite}
+.mnote.m2{animation:g-note2 7s ease-in-out infinite}
+.gradeStamp{animation:g-stamp 7s ease-in-out infinite}
+.pg2{animation:g-pg2 7s ease-in-out infinite}
+.pg3{animation:g-pg3 7s ease-in-out infinite}
+.pdfbadge{animation:g-pdf 7s ease-in-out infinite}
+@media (max-width:760px){.app5{grid-template-columns:1fr}.app5 .right{display:none}}
+
 .footer{text-align:center;margin-top:48px;color:var(--ink-soft);font-size:13px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
@@ -142,8 +195,8 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 <div class="wrap">
   <div class="lead">
     <div class="kicker">preview · in-context vignettes</div>
-    <h1 class="serif" style="font-style:normal">Four scenes, looping.</h1>
-    <p>The clipandcue-style band for clipandnote — a real screen, a capture, and the markup snapping into place. These loop on a shared 7-second cycle.</p>
+    <h1 class="serif" style="font-style:normal">Five scenes, looping.</h1>
+    <p>The clipandcue-style band for clipandnote — a real screen, a capture, and the markup snapping into place. The wide one spotlights marking up a whole paper and exporting it as one layered PDF. These loop on a shared 7-second cycle.</p>
   </div>
   <p class="note">Draft mockups for review — colors, timing, and captions are all adjustable. Tell me what to tune.</p>
 
@@ -232,6 +285,49 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       <p class="cap">Number the steps, send the <b>walkthrough</b>.<span class="sub">Numbered badges + boxes</span></p>
     </div>
 
+  </div>
+
+  <!-- 5. GRADING → PDF (wide spotlight) -->
+  <div class="vig wide">
+    <div class="macwin">
+      <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">Paper 3 of 24 — Othello essay</span><span class="badge">grade &amp; export</span></div>
+      <div class="stage">
+        <div class="app5">
+          <div class="left">
+            <div class="paper">
+              <div class="pt">The Tragedy of Jealousy</div>
+              <div class="pmeta">A. Rivera · English 11 · Period 4</div>
+              <div class="pl" style="width:92%"></div>
+              <div class="pl" style="width:98%"></div>
+              <div class="pl" style="width:74%"></div>
+              <div class="pl" style="width:95%;margin-top:18px"></div>
+              <div class="pl" style="width:88%"></div>
+              <div class="pl" style="width:60%"></div>
+              <div class="pl" style="width:90%;margin-top:18px"></div>
+              <div class="pl" style="width:50%"></div>
+              <!-- markups -->
+              <svg class="layer" viewBox="0 0 208 260">
+                <ellipse class="circ" cx="70" cy="92" rx="34" ry="11"/>
+                <path class="check" d="M150 150 l7 8 14 -18"/>
+              </svg>
+              <div class="mnote m1">↗ run-on</div>
+              <div class="mnote m2">✓ strong thesis</div>
+              <div class="gradeStamp"><span class="g">A−</span><span class="s">92/100</span></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="expcap">export</div>
+            <div class="expwrap">
+              <div class="pg pg3"><div class="pgmark"></div><div class="pgl" style="width:70%"></div><div class="pgl" style="width:84%"></div><div class="pgl" style="width:55%"></div></div>
+              <div class="pg pg2"><div class="pgmark"></div><div class="pgl" style="width:80%"></div><div class="pgl" style="width:60%"></div><div class="pgl" style="width:74%"></div></div>
+              <div class="pg pg1"><div class="pgmark"></div><div class="pgl" style="width:75%"></div><div class="pgl" style="width:88%"></div><div class="pgl" style="width:50%"></div><div class="pgl" style="width:66%"></div></div>
+              <div class="pdfbadge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg> Marked-essays.pdf <span class="ct">24 pp</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">Mark every page, export <b>one PDF</b>.<span class="sub">Circle · check · margin notes · grade stamp → layered multi-page PDF</span></p>
   </div>
 
   <p class="footer">clipandnote · vignette preview — not yet wired into the live page</p>

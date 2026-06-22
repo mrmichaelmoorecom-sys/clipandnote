@@ -609,24 +609,34 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// Press-and-hold the rectangle / ellipse buttons: pick outline or filled
-    /// for the *next* shape drawn. (Existing marks aren't retroactively changed.)
+    /// for the *next* shape drawn. (Existing marks aren't retroactively
+    /// changed.) The two options are presented as pictograms — the same SVG
+    /// rendered in both styles — so you pick the shape that matches the look
+    /// you want.
     private func showShapeStyleMenu(for tool: Tool, from button: ToolButton) {
         let isFilled = (tool == .rectangle) ? canvas.rectFilled : canvas.ellipseFilled
+        guard let svgName = Self.svgIconName(for: tool) else { return }
+
+        let outlineImg = SVGToolIcon.render(svgName, fill: .labelColor, outline: nil,
+                                            filled: false, size: 22)
+        let filledImg  = SVGToolIcon.render(svgName, fill: .labelColor, outline: nil,
+                                            filled: true,  size: 22)
+
         let menu = NSMenu()
         let outline = NSMenuItem(title: "Outline",
                                  action: #selector(setShapeStyle(_:)), keyEquivalent: "")
-        outline.target = self
-        outline.tag = 0
-        outline.representedObject = tool
+        outline.target = self; outline.tag = 0; outline.representedObject = tool
+        outline.image = outlineImg
         outline.state = isFilled ? .off : .on
         menu.addItem(outline)
+
         let filled = NSMenuItem(title: "Filled",
                                 action: #selector(setShapeStyle(_:)), keyEquivalent: "")
-        filled.target = self
-        filled.tag = 1
-        filled.representedObject = tool
+        filled.target = self; filled.tag = 1; filled.representedObject = tool
+        filled.image = filledImg
         filled.state = isFilled ? .on : .off
         menu.addItem(filled)
+
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
     }
 

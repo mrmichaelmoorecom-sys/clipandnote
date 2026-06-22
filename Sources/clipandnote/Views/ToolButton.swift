@@ -7,6 +7,11 @@ final class IconButton: NSView {
     private let symbol: NSImage?
     private var pressed = false { didSet { needsDisplay = true } }
 
+    // The window uses isMovableByWindowBackground for its unified toolbar look.
+    // Without this override, a mouseDown on the button counts as "background"
+    // and the window drags away under your cursor while you wait for a click.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     init(symbolName: String, tooltip: String) {
         self.symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: tooltip)
         super.init(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
@@ -46,6 +51,10 @@ final class ToolButton: NSView {
     var onLongPress: (() -> Void)?     // nil = no long-press behavior
 
     var isSelected = false { didSet { needsDisplay = true } }
+
+    // Without this the toolbar's window-movable-by-background takes over
+    // during a long-press wait and the whole window slides under the cursor.
+    override var mouseDownCanMoveWindow: Bool { false }
 
     /// When set, this closure produces the icon image (passed the current
     /// "selected" state so it can flip its tint). Replaces the SF Symbol path.
