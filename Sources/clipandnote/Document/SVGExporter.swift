@@ -84,16 +84,21 @@ enum SVGExporter {
     private static func text(_ o: MarkupObject) -> String {
         let font = o.resolvedFont()
         let family = font.familyName ?? "sans-serif"
-        let color = hex(o.stroke.nsColor), contrast = hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor))
+        let color = hex(o.stroke.nsColor)
+        let contrast = hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor))
         let x = num(o.frame.minX)
         let lines = o.text.components(separatedBy: "\n")
         let tspans = lines.enumerated().map { i, line in
             "<tspan x=\"\(x)\" dy=\"\(i == 0 ? "0" : num(o.fontSize * 1.2))\">\(escape(line))</tspan>"
         }.joined()
-        _ = contrast   // no longer used (dropshadow halo removed)
+        // paint-order="stroke" draws the contrast outline UNDER the fill,
+        // matching the NSAttributedString negative-strokeWidth look on canvas.
+        // Stroke width = 3 % of font size to mirror strokeWidth=-3.
+        let strokeWidth = num(o.fontSize * 0.06)
         return "<text x=\"\(x)\" y=\"\(num(o.frame.minY + o.fontSize * 0.82))\" "
             + "font-family=\"\(escape(family))\" font-size=\"\(num(o.fontSize))\" font-weight=\"600\" "
-            + "fill=\"\(color)\">\(tspans)</text>\n"
+            + "fill=\"\(color)\" stroke=\"\(contrast)\" stroke-width=\"\(strokeWidth)\" "
+            + "stroke-linejoin=\"round\" paint-order=\"stroke\">\(tspans)</text>\n"
     }
 
     private static func image(_ png: Data, _ frame: CGRect, pixelated: Bool) -> String {

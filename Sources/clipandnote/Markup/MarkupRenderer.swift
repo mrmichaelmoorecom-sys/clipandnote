@@ -122,9 +122,12 @@ enum MarkupRenderer {
 
     /// The tapered-shaft + swept-back-head outline as one polygon, following
     /// the quadratic bezier between points[0] and points[2] via points[1].
-    /// Symmetric: thin in the middle (tailHalf), thicker at the head bases
-    /// (baseHalf), with the same swept-back arrowhead at each tip. Shared by
-    /// the canvas/PDF renderer and the SVG exporter.
+    /// Every key point (head base, swept shoulder, shaft samples) sits ON the
+    /// bezier with its perpendicular derived from the bezier tangent at that
+    /// t-value, so adjacent vertices align cleanly — no notches at the heads.
+    /// Symmetric: thin tailHalf in the middle, thicker baseHalf at each head
+    /// base; the same swept-back arrowhead at each tip. Shared by the canvas
+    /// renderer and the SVG exporter.
     static func doubleArrowPolygon(_ o: MarkupObject) -> [CGPoint] {
         guard o.points.count >= 3 else { return [] }
         let p0 = o.points[0], cp = o.points[1], p2 = o.points[2]
@@ -133,67 +136,61 @@ enum MarkupRenderer {
         let baseHalf = lw * 0.72
         let headHalf = max(lw * 2.1, 9)
 
-        // Total bezier arc length (numerical), so we can keep heads in
-        // proportion and clamp them for very short connectors.
+        // Bezier arc length (numerical) so head proportions read right at any
+        // curve scale, and we can clamp to leave room for the shaft.
         let curveLen = bezierLength(p0, cp, p2, samples: 24)
         guard curveLen > 4 else { return [] }
-        let headLen = min(max(lw * 4.2, 18), curveLen * 0.4)
+        // Cap headLen so the two shoulders (each at headLen + sweep along the
+        // curve) sit well inside their own half — keeps heads from overlapping
+        // on very short connectors.
+        let headLen = min(max(lw * 4.2, 18), curveLen * 0.35)
         let sweep = headLen * 0.28
-        let tHead = headLen / curveLen   // approx. bezier-t of each head base
+        let tHead     = headLen           / curveLen   // bezier-t of head base
+        let tShoulder = (headLen + sweep) / curveLen   // bezier-t of swept shoulder
 
-        // Unit tangent at each endpoint, pointing INTO the curve (toward cp).
-        let d01 = CGPoint(x: cp.x - p0.x, y: cp.y - p0.y)
-        let d21 = CGPoint(x: cp.x - p2.x, y: cp.y - p2.y)
-        let l01 = max(0.5, hypot(d01.x, d01.y))
-        let l21 = max(0.5, hypot(d21.x, d21.y))
-        let ux0 = d01.x / l01, uy0 = d01.y / l01
-        let ux2 = d21.x / l21, uy2 = d21.y / l21
-        let px0 = -uy0, py0 = ux0
-        let px2 = -uy2, py2 = ux2
+        // Position + perpendicular (unit, rotated 90° CCW from tangent) at any t.
+        func ptAndPerp(_ t: CGFloat) -> (pt: CGPoint, px: CGFloat, py: CGFloat) {
+            let p = bezierPoint(p0, cp, p2, t)
+            let tan = bezierTangent(p0, cp, p2, t)
+            let tl = max(0.5, hypot(tan.x, tan.y))
+            return (p, -tan.y / tl, tan.x / tl)
+        }
+        let h1Shoulder = ptAndPerp(tShoulder)
+        let h2Shoulder = ptAndPerp(1 - tShoulder)
 
-        // Head base + swept shoulder centres (along the inward tangent).
-        let b0 = CGPoint(x: p0.x + ux0 * headLen, y: p0.y + uy0 * headLen)
-        let s0 = CGPoint(x: b0.x + ux0 * sweep,   y: b0.y + uy0 * sweep)
-        let b2 = CGPoint(x: p2.x + ux2 * headLen, y: p2.y + uy2 * headLen)
-        let s2 = CGPoint(x: b2.x + ux2 * sweep,   y: b2.y + uy2 * sweep)
-
-        // Sample the shaft along the bezier between the two head bases (in
-        // bezier-t space). For each sample compute the perpendicular and the
-        // current half-width (linear taper: baseHalf → tailHalf → baseHalf).
+        // Sample the shaft INCLUDING the endpoints (head bases). Width tapers
+        // baseHalf at f=0/1 → tailHalf at f=0.5, so the first/last shaft point
+        // line up exactly with where each head base would land separately —
+        // means no separate base vertex, no discontinuity.
         let N = 24
         var topShaft: [CGPoint] = []
         var bottomShaft: [CGPoint] = []
-        for i in 1..<N {
+        for i in 0...N {
             let f = CGFloat(i) / CGFloat(N)
             let t = tHead + f * (1 - 2 * tHead)
-            let pt = bezierPoint(p0, cp, p2, t)
-            let tan = bezierTangent(p0, cp, p2, t)
-            let tl = max(0.5, hypot(tan.x, tan.y))
-            let nx = -tan.y / tl, ny = tan.x / tl
+            let s = ptAndPerp(t)
             let half = tailHalf + (baseHalf - tailHalf) * abs(2 * f - 1)
-            topShaft.append(CGPoint(x: pt.x + nx * half, y: pt.y + ny * half))
-            bottomShaft.append(CGPoint(x: pt.x - nx * half, y: pt.y - ny * half))
+            topShaft.append(CGPoint(x: s.pt.x + s.px * half, y: s.pt.y + s.py * half))
+            bottomShaft.append(CGPoint(x: s.pt.x - s.px * half, y: s.pt.y - s.py * half))
         }
 
+        // Walk the polygon: tip → swept shoulder → shaft top → swept shoulder
+        // → tip → mirror back. Shoulder sits FURTHER into the curve than the
+        // head base (per the single-arrow style: swept-back), so the fold from
+        // shoulder to base produces the same swallowtail silhouette.
         var poly: [CGPoint] = []
-        // Head 1 (tip → swept shoulder → base, on the "top" perpendicular)
         poly.append(p0)
-        poly.append(CGPoint(x: s0.x + px0 * headHalf, y: s0.y + py0 * headHalf))
-        poly.append(CGPoint(x: b0.x + px0 * baseHalf, y: b0.y + py0 * baseHalf))
-        // Top of shaft, head1 → head2
-        poly.append(contentsOf: topShaft)
-        // Head 2 base, swept shoulder, tip (top side)
-        poly.append(CGPoint(x: b2.x + px2 * baseHalf, y: b2.y + py2 * baseHalf))
-        poly.append(CGPoint(x: s2.x + px2 * headHalf, y: s2.y + py2 * headHalf))
+        poly.append(CGPoint(x: h1Shoulder.pt.x + h1Shoulder.px * headHalf,
+                            y: h1Shoulder.pt.y + h1Shoulder.py * headHalf))
+        poly.append(contentsOf: topShaft)   // first = base1 top, last = base2 top
+        poly.append(CGPoint(x: h2Shoulder.pt.x + h2Shoulder.px * headHalf,
+                            y: h2Shoulder.pt.y + h2Shoulder.py * headHalf))
         poly.append(p2)
-        // Bottom of head 2 (swept shoulder, base)
-        poly.append(CGPoint(x: s2.x - px2 * headHalf, y: s2.y - py2 * headHalf))
-        poly.append(CGPoint(x: b2.x - px2 * baseHalf, y: b2.y - py2 * baseHalf))
-        // Bottom of shaft, head2 → head1 (reverse)
+        poly.append(CGPoint(x: h2Shoulder.pt.x - h2Shoulder.px * headHalf,
+                            y: h2Shoulder.pt.y - h2Shoulder.py * headHalf))
         poly.append(contentsOf: bottomShaft.reversed())
-        // Bottom of head 1 (base, swept shoulder) → back to tip
-        poly.append(CGPoint(x: b0.x - px0 * baseHalf, y: b0.y - py0 * baseHalf))
-        poly.append(CGPoint(x: s0.x - px0 * headHalf, y: s0.y - py0 * headHalf))
+        poly.append(CGPoint(x: h1Shoulder.pt.x - h1Shoulder.px * headHalf,
+                            y: h1Shoulder.pt.y - h1Shoulder.py * headHalf))
         return poly
     }
 
@@ -258,9 +255,15 @@ enum MarkupRenderer {
         guard !o.text.isEmpty else { return }
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
+        // Negative strokeWidth = "fill *and* stroke the glyphs," with the width
+        // expressed as a percentage of the font size. -3 reads as a clean 3 %
+        // contour around each glyph, keeping the label legible on any
+        // background — same contrast-color rule as the other tools.
         let attrs: [NSAttributedString.Key: Any] = [
             .font: o.resolvedFont(),
             .foregroundColor: o.stroke.nsColor,
+            .strokeColor: contrastColor(for: o.stroke.nsColor),
+            .strokeWidth: -3.0,
             .paragraphStyle: style,
         ]
         NSAttributedString(string: o.text, attributes: attrs).draw(in: o.frame)
