@@ -43,7 +43,7 @@ final class StatusItemController {
         // Target: 12pt tall in the menu bar (matches clipandcue's visual size);
         // width preserves the source's aspect. @2x because every modern Mac is
         // Retina; the rep is built at the matching device-pixel size.
-        let pointHeight: CGFloat = 12
+        let pointHeight: CGFloat = 16
         let aspect = src.size.width / max(src.size.height, 1)
         let pointWidth = (pointHeight * aspect).rounded()
         let scale: CGFloat = 2
