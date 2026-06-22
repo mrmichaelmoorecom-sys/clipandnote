@@ -255,18 +255,36 @@ enum MarkupRenderer {
         guard !o.text.isEmpty else { return }
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
-        // Negative strokeWidth = "fill *and* stroke the glyphs," with the width
-        // expressed as a percentage of the font size. -3 reads as a clean 3 %
-        // contour around each glyph, keeping the label legible on any
-        // background — same contrast-color rule as the other tools.
-        let attrs: [NSAttributedString.Key: Any] = [
+        let fill = o.stroke.nsColor
+        let outline = contrastColor(for: fill)
+
+        // Outline radius: a sensible % of font size, clamped so tiny text still
+        // gets a readable contour and giant text doesn't get cartoonish.
+        let r = max(1.5, min(o.fontSize * 0.05, 6))
+
+        // Multi-direction offset render: stamp the contrast-coloured text at
+        // 8 positions around the centre, then fill on top. Unlike a per-glyph
+        // strokeWidth, only the OUTER edge of the halo is exposed — the inner
+        // edge gets fully covered by the fill, so there's no fringe ringing
+        // the glyph interior.
+        let outlineAttrs: [NSAttributedString.Key: Any] = [
             .font: o.resolvedFont(),
-            .foregroundColor: o.stroke.nsColor,
-            .strokeColor: contrastColor(for: o.stroke.nsColor),
-            .strokeWidth: -3.0,
+            .foregroundColor: outline,
             .paragraphStyle: style,
         ]
-        NSAttributedString(string: o.text, attributes: attrs).draw(in: o.frame)
+        let outlineString = NSAttributedString(string: o.text, attributes: outlineAttrs)
+        let angles: [CGFloat] = [0, 45, 90, 135, 180, 225, 270, 315]
+        for deg in angles {
+            let rad = deg * .pi / 180
+            outlineString.draw(in: o.frame.offsetBy(dx: cos(rad) * r, dy: sin(rad) * r))
+        }
+
+        let fillAttrs: [NSAttributedString.Key: Any] = [
+            .font: o.resolvedFont(),
+            .foregroundColor: fill,
+            .paragraphStyle: style,
+        ]
+        NSAttributedString(string: o.text, attributes: fillAttrs).draw(in: o.frame)
     }
 
     private static func drawImage(_ o: MarkupObject) {
