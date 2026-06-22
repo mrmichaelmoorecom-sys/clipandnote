@@ -44,16 +44,20 @@ final class IconButton: NSView {
 }
 
 /// A single tool in the palette. A custom view (not NSButton) so it can support
-/// press-and-hold (the text tool opens a font menu) and clean selected styling.
+/// a split menu (tap the icon = select tool, tap the small ▼ at the bottom =
+/// open a tool-specific menu) and clean selected styling.
 final class ToolButton: NSView {
     let tool: Tool
     var onClick: (() -> Void)?
-    var onLongPress: (() -> Void)?     // nil = no long-press behavior
+    /// Set on tools with a fill/outline (or font) menu; tapping the small ▼
+    /// at the bottom of the button invokes it. Existence of this closure also
+    /// draws the indicator triangle.
+    var onShowMenu: (() -> Void)?
 
     var isSelected = false { didSet { needsDisplay = true } }
 
-    // Without this the toolbar's window-movable-by-background takes over
-    // during a long-press wait and the whole window slides under the cursor.
+    // Without this the toolbar's window-movable-by-background takes over and
+    // the whole window slides under the cursor while you're clicking buttons.
     override var mouseDownCanMoveWindow: Bool { false }
 
     /// When set, this closure produces the icon image (passed the current
@@ -69,13 +73,18 @@ final class ToolButton: NSView {
     }
 
     private let symbol: NSImage?
-    private var longPressWork: DispatchWorkItem?
-    private var longFired = false
+    private var hasMenu: Bool { onShowMenu != nil }
+    /// Hit area for the ▼ indicator — bottom-center, slightly wider than the
+    /// visible triangle so it's easy to tap. Anywhere else inside `bounds`
+    /// counts as the main icon tap.
+    private var menuTapRect: NSRect {
+        NSRect(x: bounds.midX - 7, y: 0, width: 14, height: 8)
+    }
 
     init(tool: Tool, symbolName: String, tooltip: String) {
         self.tool = tool
         self.symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: tooltip)
-        super.init(frame: NSRect(x: 0, y: 0, width: 30, height: 28))
+        super.init(frame: NSRect(x: 0, y: 0, width: 30, height: 30))
         wantsLayer = true
         toolTip = tooltip
     }
@@ -85,7 +94,7 @@ final class ToolButton: NSView {
     func refreshIcon() { needsDisplay = true }
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
 
-    override var intrinsicContentSize: NSSize { NSSize(width: 30, height: 28) }
+    override var intrinsicContentSize: NSSize { NSSize(width: 30, height: 30) }
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelected {
@@ -136,30 +145,48 @@ final class ToolButton: NSView {
             return
         }
 
-        guard let symbol else { return }
-        let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
-            .applying(.init(paletteColors: [tint]))
-        let img = symbol.withSymbolConfiguration(conf) ?? symbol
-        let s = img.size
-        img.draw(in: NSRect(x: (bounds.width - s.width) / 2,
-                            y: (bounds.height - s.height) / 2,
-                            width: s.width, height: s.height))
+        if let symbol {
+            let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+                .applying(.init(paletteColors: [tint]))
+            let img = symbol.withSymbolConfiguration(conf) ?? symbol
+            let s = img.size
+            // Shift the icon up by half the indicator's height so it stays
+            // visually centred above the ▼.
+            let yOffset: CGFloat = hasMenu ? 3 : 0
+            img.draw(in: NSRect(x: (bounds.width - s.width) / 2,
+                                y: (bounds.height - s.height) / 2 + yOffset,
+                                width: s.width, height: s.height))
+        }
+
+        // The ▼ indicator at the bottom-center of the button when this tool
+        // has a menu (rectangle, ellipse, text). Click it to open the menu.
+        if hasMenu {
+            drawMenuIndicator()
+        }
     }
 
-    override func mouseDown(with event: NSEvent) {
-        longFired = false
-        guard onLongPress != nil else { return }
-        let work = DispatchWorkItem { [weak self] in
-            self?.longFired = true
-            self?.onLongPress?()
-        }
-        longPressWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    /// Small downward triangle centred at the bottom of the button.
+    private func drawMenuIndicator() {
+        let cx = bounds.midX
+        let halfW: CGFloat = 3
+        let h: CGFloat = 3
+        let topY: CGFloat = 5
+        let tri = NSBezierPath()
+        tri.move(to: NSPoint(x: cx - halfW, y: topY))
+        tri.line(to: NSPoint(x: cx + halfW, y: topY))
+        tri.line(to: NSPoint(x: cx,         y: topY - h))
+        tri.close()
+        NSColor.secondaryLabelColor.setFill()
+        tri.fill()
     }
 
     override func mouseUp(with event: NSEvent) {
-        longPressWork?.cancel(); longPressWork = nil
-        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
-        if !longFired && inside { onClick?() }
+        let p = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(p) else { return }
+        if hasMenu && menuTapRect.contains(p) {
+            onShowMenu?()
+        } else {
+            onClick?()
+        }
     }
 }

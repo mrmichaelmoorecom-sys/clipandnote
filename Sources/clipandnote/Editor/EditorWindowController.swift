@@ -134,13 +134,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             b.isSelected = (t.tool == .select)
             b.onClick = { [weak self] in self?.pickTool(t.tool) }
             if t.tool == .text {
-                b.onLongPress = { [weak self, weak b] in if let b { self?.showFontMenu(from: b) } }
+                b.onShowMenu = { [weak self, weak b] in if let b { self?.showFontMenu(from: b) } }
             }
-            // Long-press the rectangle / ellipse buttons to switch between
+            // Tap the ▼ on the rectangle / ellipse buttons to switch between
             // outline and filled style for the *next* shape drawn.
             if t.tool == .rectangle || t.tool == .ellipse {
                 let tool = t.tool
-                b.onLongPress = { [weak self, weak b] in
+                b.onShowMenu = { [weak self, weak b] in
                     if let b { self?.showShapeStyleMenu(for: tool, from: b) }
                 }
             }
