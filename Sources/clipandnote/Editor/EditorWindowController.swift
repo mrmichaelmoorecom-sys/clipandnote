@@ -26,6 +26,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
         (.select, "cursorarrow", "Select", "V"),
         (.crop, "crop", "Crop", "C"),
+        (.pixelate, "mosaic", "Pixelate", "X"),
         (.arrow, "arrow.up.left", "Arrow", "A"),
         (.line, "line.diagonal", "Line", "L"),
         (.rectangle, "rectangle", "Rectangle", "R"),
@@ -33,7 +34,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         (.freehand, "scribble", "Pen", "P"),
         (.text, "textformat", "Text", "T"),
         (.highlighter, "highlighter", "Highlighter", "H"),
-        (.pixelate, "mosaic", "Pixelate", "X"),
     ]
     private var toolButtons: [ToolButton] = []
     private var colors: ColorPaletteView!

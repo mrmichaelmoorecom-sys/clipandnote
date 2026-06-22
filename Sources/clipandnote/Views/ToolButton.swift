@@ -80,10 +80,13 @@ final class ToolButton: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelected {
-            NSColor.controlAccentColor.setFill()
+            // A neutral grey highlight that reads in both light + dark mode
+            // (system fill colors automatically pick a tone with enough contrast
+            // against the toolbar background).
+            NSColor.tertiarySystemFill.setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
         }
-        let tint = isSelected ? NSColor.white : NSColor.labelColor
+        let tint = NSColor.labelColor
 
         // Custom SVG render takes precedence so the toolbar can show colored
         // previews that match the tool's actual output.

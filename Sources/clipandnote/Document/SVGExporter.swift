@@ -83,16 +83,10 @@ enum SVGExporter {
         let tspans = lines.enumerated().map { i, line in
             "<tspan x=\"\(x)\" dy=\"\(i == 0 ? "0" : num(o.fontSize * 1.2))\">\(escape(line))</tspan>"
         }.joined()
-        // A soft contrast halo (blurred drop shadow, no offset) keeps the label
-        // legible on any background while reading as clean text — matching the
-        // canvas's NSShadow halo rather than a hard glyph outline.
-        let fid = "halo-\(o.id.uuidString.prefix(8))"
-        let filter = "<filter id=\"\(fid)\" x=\"-30%\" y=\"-30%\" width=\"160%\" height=\"160%\">"
-            + "<feDropShadow dx=\"0\" dy=\"0\" stdDeviation=\"1.6\" flood-color=\"\(contrast)\" flood-opacity=\"0.8\"/></filter>"
-        return filter
-            + "<text x=\"\(x)\" y=\"\(num(o.frame.minY + o.fontSize * 0.82))\" "
+        _ = contrast   // no longer used (dropshadow halo removed)
+        return "<text x=\"\(x)\" y=\"\(num(o.frame.minY + o.fontSize * 0.82))\" "
             + "font-family=\"\(escape(family))\" font-size=\"\(num(o.fontSize))\" font-weight=\"600\" "
-            + "fill=\"\(color)\" filter=\"url(#\(fid))\">\(tspans)</text>\n"
+            + "fill=\"\(color)\">\(tspans)</text>\n"
     }
 
     private static func image(_ png: Data, _ frame: CGRect, pixelated: Bool) -> String {
