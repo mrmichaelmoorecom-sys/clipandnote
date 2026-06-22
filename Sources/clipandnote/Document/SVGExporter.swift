@@ -43,6 +43,8 @@ enum SVGExporter {
             return "<polygon points=\"\(pts)\" fill=\"\(hex(o.stroke.nsColor))\" "
                 + "stroke=\"\(hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor)))\" "
                 + "stroke-width=\"3\" stroke-linejoin=\"round\"/>\n"
+        case .doubleArrow:
+            return doubleArrow(o)
         case .highlighter:
             let fill = o.fill ?? .highlighter
             return "<rect x=\"\(num(o.frame.minX))\" y=\"\(num(o.frame.minY))\" "
@@ -87,6 +89,41 @@ enum SVGExporter {
         return "<text x=\"\(x)\" y=\"\(num(o.frame.minY + o.fontSize * 0.82))\" "
             + "font-family=\"\(escape(family))\" font-size=\"\(num(o.fontSize))\" font-weight=\"600\" "
             + "fill=\"\(color)\">\(tspans)</text>\n"
+    }
+
+    /// Curved double-arrow: quadratic-bezier between two inset endpoints plus
+    /// filled triangular arrowheads at each end. Mirrors MarkupRenderer.
+    private static func doubleArrow(_ o: MarkupObject) -> String {
+        guard o.points.count >= 3 else { return "" }
+        let p0 = o.points[0], cp = o.points[1], p2 = o.points[2]
+        let lw = max(o.lineWidth, 2)
+        let headLen = max(lw * 3.5, 14)
+        let headHalf = max(lw * 2.0, 7)
+        func tangent(end: CGPoint, towards target: CGPoint, dist: CGFloat) -> (inset: CGPoint, tail: CGPoint, ux: CGFloat, uy: CGFloat) {
+            let dx = target.x - end.x, dy = target.y - end.y
+            let len = max(0.5, hypot(dx, dy))
+            let ux = dx / len, uy = dy / len
+            return (CGPoint(x: end.x + ux*dist, y: end.y + uy*dist),
+                    CGPoint(x: end.x + ux*dist*1.5, y: end.y + uy*dist*1.5),
+                    ux, uy)
+        }
+        let s0 = tangent(end: p0, towards: cp, dist: headLen)
+        let s2 = tangent(end: p2, towards: cp, dist: headLen)
+
+        let stroke = hex(o.stroke.nsColor)
+        let edge   = hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor))
+        let curve = "<path d=\"M\(num(s0.inset.x)) \(num(s0.inset.y)) Q\(num(cp.x)) \(num(cp.y)) \(num(s2.inset.x)) \(num(s2.inset.y))\" "
+            + "fill=\"none\" stroke=\"\(stroke)\" stroke-width=\"\(num(o.lineWidth))\" stroke-linecap=\"round\"/>\n"
+
+        func head(tip: CGPoint, ux: CGFloat, uy: CGFloat) -> String {
+            let px = -uy, py = ux
+            let bx = tip.x - ux * headLen, by = tip.y - uy * headLen
+            let a = CGPoint(x: bx + px*headHalf, y: by + py*headHalf)
+            let b = CGPoint(x: bx - px*headHalf, y: by - py*headHalf)
+            let pts = "\(num(tip.x)),\(num(tip.y)) \(num(a.x)),\(num(a.y)) \(num(b.x)),\(num(b.y))"
+            return "<polygon points=\"\(pts)\" fill=\"\(stroke)\" stroke=\"\(edge)\" stroke-width=\"3\" stroke-linejoin=\"round\"/>\n"
+        }
+        return curve + head(tip: p0, ux: -s0.ux, uy: -s0.uy) + head(tip: p2, ux: -s2.ux, uy: -s2.uy)
     }
 
     private static func image(_ png: Data, _ frame: CGRect, pixelated: Bool) -> String {

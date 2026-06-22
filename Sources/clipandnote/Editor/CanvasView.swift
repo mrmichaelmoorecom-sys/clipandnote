@@ -3,12 +3,13 @@ import AppKit
 /// The active drawing tool. `.select` manipulates existing objects; the rest
 /// create new objects of the corresponding kind.
 enum Tool: Equatable {
-    case select, crop, arrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
+    case select, crop, arrow, doubleArrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
 
     var markupKind: MarkupKind? {
         switch self {
         case .select, .crop: return nil
         case .arrow:       return .arrow
+        case .doubleArrow: return .doubleArrow
         case .line:        return .line
         case .rectangle:   return .rectangle
         case .ellipse:     return .ellipse
@@ -56,7 +57,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Single-key tool shortcuts.
     static let toolShortcuts: [String: Tool] = [
-        "v": .select, "c": .crop, "a": .arrow, "l": .line, "r": .rectangle, "o": .ellipse,
+        "v": .select, "c": .crop, "a": .arrow, "d": .doubleArrow,
+        "l": .line, "r": .rectangle, "o": .ellipse,
         "p": .freehand, "t": .text, "h": .highlighter, "x": .pixelate,
     ]
 
@@ -250,8 +252,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
         func r(_ c: CGPoint) -> CGRect { CGRect(x: c.x - s/2, y: c.y - s/2, width: s, height: s) }
 
         if obj.isPathBased {
-            // Line/arrow expose two endpoint handles; freehand exposes none.
+            // Freehand exposes none. The curved double-arrow exposes 3 handles
+            // (start, bezier control, end) so the user can shape the curve.
+            // Line/arrow expose two endpoint handles.
             guard obj.kind != .freehand, obj.points.count >= 2 else { return [:] }
+            if obj.kind == .doubleArrow, obj.points.count >= 3 {
+                return [.topLeft: r(obj.points[0]),
+                        .top: r(obj.points[1]),
+                        .bottomRight: r(obj.points[2])]
+            }
             return [.topLeft: r(obj.points[0]), .bottomRight: r(obj.points[1])]
         }
         let f = obj.frame
@@ -307,7 +316,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 for (h, r) in handleRects(sel) where r.contains(p) {
                     preDrag = sel
                     if sel.isPathBased {
-                        drag = .endpoint(h == .topLeft ? 0 : 1)
+                        // doubleArrow exposes 3 handles via topLeft/top/bottomRight.
+                        let idx = (h == .topLeft ? 0 : (h == .top ? 1 : 2))
+                        drag = .endpoint(idx)
                     } else {
                         drag = .resize(h)
                     }
@@ -373,7 +384,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
         if kind == .pixelate { obj.fill = nil }
         if obj.isPathBased {
-            obj.points = [p, p]
+            if obj.kind == .doubleArrow {
+                // Start, control (at start until drag computes a midpoint with
+                // a default perpendicular bend), end. Drag tunes 1 & 2.
+                obj.points = [p, p, p]
+            } else {
+                obj.points = [p, p]
+            }
         } else {
             obj.frame = CGRect(origin: p, size: .zero)
         }
@@ -421,6 +438,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
         case .create:
             if document.objects[idx].kind == .freehand {
                 document.objects[idx].points.append(p)
+                document.objects[idx].recomputeBounds()
+            } else if document.objects[idx].kind == .doubleArrow {
+                let control = Self.defaultCurveControl(from: dragStart, to: p)
+                document.objects[idx].points = [dragStart, control, p]
                 document.objects[idx].recomputeBounds()
             } else if document.objects[idx].isPathBased {
                 document.objects[idx].points = [dragStart, p]
@@ -475,6 +496,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             if document.objects[idx].kind == .freehand {
                 document.objects[idx].points.append(p)
                 document.objects[idx].recomputeBounds()
+            } else if document.objects[idx].kind == .doubleArrow {
+                let control = Self.defaultCurveControl(from: dragStart, to: p)
+                document.objects[idx].points = [dragStart, control, p]
+                document.objects[idx].recomputeBounds()
             } else if document.objects[idx].isPathBased {
                 document.objects[idx].points = [dragStart, p]
                 document.objects[idx].recomputeBounds()
@@ -491,6 +516,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
             case .line, .arrow:
                 degenerate = o.points.count < 2 ||
                     hypot(o.points[0].x - o.points[1].x, o.points[0].y - o.points[1].y) < 3
+            case .doubleArrow:
+                degenerate = o.points.count < 3 ||
+                    hypot(o.points[0].x - o.points[2].x, o.points[0].y - o.points[2].y) < 3
             default:
                 degenerate = o.frame.width < 3 && o.frame.height < 3
             }
@@ -512,6 +540,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
         expandCanvasIfNeeded()   // grow if this edit pushed past the snapshot edges
         commitUndo()
         needsDisplay = true
+    }
+
+    /// Default quadratic-bezier control point for a brand-new doubleArrow:
+    /// midpoint of (a, b), offset perpendicular by ~15 % of the length so the
+    /// connector is visibly curved as soon as the user releases the drag.
+    static func defaultCurveControl(from a: CGPoint, to b: CGPoint) -> CGPoint {
+        let mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+        let dx = b.x - a.x, dy = b.y - a.y
+        let len = hypot(dx, dy)
+        guard len > 1 else { return CGPoint(x: mx, y: my) }
+        // Perpendicular unit vector (bend always to one consistent side).
+        let px = -dy / len, py = dx / len
+        let bend = max(len * 0.15, 10)
+        return CGPoint(x: mx + px * bend, y: my + py * bend)
     }
 
     private func rect(from a: CGPoint, to b: CGPoint) -> CGRect {

@@ -12,6 +12,7 @@ enum MarkupRenderer {
         case .ellipse:     drawEllipse(obj)
         case .line:        drawLine(obj)
         case .arrow:       drawArrow(obj)
+        case .doubleArrow: drawDoubleArrow(obj)
         case .freehand:    drawFreehand(obj)
         case .text:        drawText(obj)
         case .highlighter: drawHighlighter(obj)   // translucent — no contrast edge
@@ -98,6 +99,77 @@ enum MarkupRenderer {
             p(bx - px * baseHalf, by - py * baseHalf),
             p(s.x - px * tailHalf, s.y - py * tailHalf),
         ]
+    }
+
+    /// A curved connector with arrowheads on both ends. points = [start, control, end].
+    /// The bezier is a quadratic; we convert to cubic so NSBezierPath can render it.
+    private static func drawDoubleArrow(_ o: MarkupObject) {
+        guard o.points.count >= 3 else { return }
+        let p0 = o.points[0], p1 = o.points[1], p2 = o.points[2]
+
+        // Inset the curve endpoints by ~headLen along the tangent so the curve
+        // ends inside the base of each arrowhead (no visible stem poking out).
+        let lw = max(o.lineWidth, 2)
+        let headLen = max(lw * 3.5, 14)
+        let (s0, t0) = tangentInto(end: p0, controlPoint: p1, by: headLen)
+        let (s2, t2) = tangentInto(end: p2, controlPoint: p1, by: headLen)
+
+        // Convert quadratic (s0, p1, s2) → cubic for NSBezierPath. The control
+        // points get nudged toward the endpoints to match the inset.
+        let c1 = CGPoint(x: s0.x + (2.0 / 3.0) * (p1.x - s0.x),
+                         y: s0.y + (2.0 / 3.0) * (p1.y - s0.y))
+        let c2 = CGPoint(x: s2.x + (2.0 / 3.0) * (p1.x - s2.x),
+                         y: s2.y + (2.0 / 3.0) * (p1.y - s2.y))
+
+        let curve = NSBezierPath()
+        curve.move(to: s0)
+        curve.curve(to: s2, controlPoint1: c1, controlPoint2: c2)
+        curve.lineCapStyle = .round
+        strokeWithContrast(curve, o)
+
+        // Arrowhead at each endpoint, pointed outward along the curve's tangent
+        // (the same tangent we used for the inset, but pointing the other way).
+        drawArrowhead(tip: p0, tail: t0, o: o)
+        drawArrowhead(tip: p2, tail: t2, o: o)
+    }
+
+    /// Return a point `dist` from `end` along the line `end → controlPoint`,
+    /// and a "tail" point one head-length past `end` (the outward direction).
+    private static func tangentInto(end: CGPoint, controlPoint cp: CGPoint, by dist: CGFloat)
+        -> (insetEnd: CGPoint, tail: CGPoint)
+    {
+        let dx = cp.x - end.x, dy = cp.y - end.y
+        let len = hypot(dx, dy)
+        guard len > 0.5 else { return (end, CGPoint(x: end.x + 1, y: end.y)) }
+        let ux = dx / len, uy = dy / len
+        return (CGPoint(x: end.x + ux * dist, y: end.y + uy * dist),
+                CGPoint(x: end.x + ux * dist * 1.5, y: end.y + uy * dist * 1.5))
+    }
+
+    /// Filled triangular arrowhead with a contrasting hairline outline, sized
+    /// off the object's lineWidth and pointing outward (tip → tail direction).
+    private static func drawArrowhead(tip: CGPoint, tail: CGPoint, o: MarkupObject) {
+        let dx = tip.x - tail.x, dy = tip.y - tail.y
+        let len = hypot(dx, dy)
+        guard len > 0.5 else { return }
+        let ux = dx / len, uy = dy / len
+        let px = -uy, py = ux
+        let lw = max(o.lineWidth, 2)
+        let headLen = max(lw * 3.5, 14)
+        let headHalf = max(lw * 2.0, 7)
+        let bx = tip.x - ux * headLen, by = tip.y - uy * headLen
+        let path = NSBezierPath()
+        path.move(to: tip)
+        path.line(to: CGPoint(x: bx + px * headHalf, y: by + py * headHalf))
+        path.line(to: CGPoint(x: bx - px * headHalf, y: by - py * headHalf))
+        path.close()
+        path.lineJoinStyle = .round
+
+        contrastColor(for: o.stroke.nsColor).setStroke()
+        path.lineWidth = 3
+        path.stroke()
+        o.stroke.nsColor.setFill()
+        path.fill()
     }
 
     private static func drawArrow(_ o: MarkupObject) {

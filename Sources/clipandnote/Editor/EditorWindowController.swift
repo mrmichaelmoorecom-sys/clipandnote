@@ -28,6 +28,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         (.crop, "crop", "Crop", "C"),
         (.pixelate, "mosaic", "Pixelate", "X"),
         (.arrow, "arrow.up.left", "Arrow", "A"),
+        (.doubleArrow, "arrow.left.and.right", "Curved Double Arrow", "D"),
         (.line, "line.diagonal", "Line", "L"),
         (.rectangle, "rectangle", "Rectangle", "R"),
         (.ellipse, "circle", "Ellipse", "O"),
@@ -86,7 +87,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     /// Tools whose icon previews the colored mark they'll draw on the canvas.
     private static let coloredTools: Set<Tool> = [
-        .arrow, .line, .rectangle, .ellipse, .freehand, .text, .highlighter,
+        .arrow, .doubleArrow, .line, .rectangle, .ellipse, .freehand, .text, .highlighter,
     ]
 
     /// Bundle resource name for the tool's vector icon (under `toolicons/`).
@@ -99,6 +100,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case .text: return "text"
         case .highlighter: return "highlighter"
         case .pixelate: return "pixelate"
+        case .doubleArrow: return "doublearrow"
         case .select, .crop, .arrow: return nil   // keep their built-in glyphs
         }
     }

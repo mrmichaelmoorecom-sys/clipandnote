@@ -26,6 +26,10 @@ struct RGBAColor: Codable, Equatable {
 /// over Skitch (paste *adds* an object instead of replacing your work).
 enum MarkupKind: String, Codable {
     case arrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate, image
+    /// A curved connector with arrowheads on both ends. Geometry: points[0] =
+    /// start, points[1] = control (quadratic bezier control point — drag it to
+    /// shape the curve), points[2] = end.
+    case doubleArrow
 }
 
 /// A single markup object. A deliberately flat, fully-Codable struct: a few
@@ -97,12 +101,20 @@ struct MarkupObject: Identifiable, Codable, Equatable {
             minX = min(minX, p.x); minY = min(minY, p.y)
             maxX = max(maxX, p.x); maxY = max(maxY, p.y)
         }
-        let pad = max(lineWidth, 8)
+        // Pad enough for arrowheads on the double-arrow (its head extends a
+        // few lineWidths past the endpoint along the tangent — no clean way to
+        // know the exact direction here, so we conservatively add headLen).
+        let basePad = max(lineWidth, 8)
+        let pad = (kind == .doubleArrow || kind == .arrow)
+            ? max(basePad, max(lineWidth * 4, 18))
+            : basePad
         frame = CGRect(x: minX - pad, y: minY - pad,
                        width: (maxX - minX) + pad * 2, height: (maxY - minY) + pad * 2)
     }
 
-    var isPathBased: Bool { kind == .line || kind == .arrow || kind == .freehand }
+    var isPathBased: Bool {
+        kind == .line || kind == .arrow || kind == .freehand || kind == .doubleArrow
+    }
 
     /// A copy with a fresh id, shifted by a delta (for paste/duplicate).
     func duplicated(offsetBy d: CGSize) -> MarkupObject {
