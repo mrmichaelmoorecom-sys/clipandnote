@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="82 167 362 205" width="362" height="205" fill="currentColor" color="#524c61" role="img" aria-label="clipandnote">
+  <defs>
+    <mask id="cnCut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect x="0" y="0" width="512" height="512" fill="#fff"/>
+      <rect x="286" y="214" width="172" height="172" rx="52.4" fill="#000"/>
+    </mask>
+  </defs>
+  <g mask="url(#cnCut)">
+    <g transform="rotate(90 223 250)">
+      <path d="M293.1,180.2v133.8c0,25.7-20.8,46.5-46.5,46.5s-46.5-20.8-46.5-46.5v-145.5c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s29.1-13,29.1-29.1v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s64-28.6,64-64v-133.8h-17.5Z"
+            stroke="currentColor" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+    </g>
+  </g>
+  <rect x="312" y="240" width="120" height="120" rx="26.4" fill="none" stroke="currentColor" stroke-width="16"/>
+  <line x1="345.6" y1="280.8" x2="398.4" y2="280.8" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <line x1="345.6" y1="319.2" x2="398.4" y2="319.2" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+</svg>

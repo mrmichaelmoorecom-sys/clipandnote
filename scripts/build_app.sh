@@ -32,6 +32,15 @@ else
   echo "    Generate it with scripts/export_mobileclip.py (see README)."
 fi
 
+# Bundle the menu-bar template icon (incl. @2x retina) and the app icon.
+[ -f "Resources/menubarTemplate.png" ]    && cp "Resources/menubarTemplate.png"    "$APP/Contents/Resources/"
+[ -f "Resources/menubarTemplate@2x.png" ] && cp "Resources/menubarTemplate@2x.png" "$APP/Contents/Resources/"
+if [ -f "Resources/AppIcon.icns" ]; then
+  cp "Resources/AppIcon.icns" "$APP/Contents/Resources/"
+  /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP/Contents/Info.plist" 2>/dev/null || true
+  echo "  ✓ bundled app icon + menu-bar icon"
+fi
+
 if [ -n "$IDENTITY" ]; then
   codesign --force --options runtime --entitlements entitlements.plist --sign "$IDENTITY" "$APP"
   echo "  signed: $IDENTITY (entitlements applied)"

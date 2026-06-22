@@ -19,9 +19,15 @@ final class StatusItemController {
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "pencil.tip.crop.circle",
-                                   accessibilityDescription: "clipandnote")
-            button.image?.isTemplate = true
+            if let url = Bundle.main.url(forResource: "menubarTemplate", withExtension: "png"),
+               let img = NSImage(contentsOf: url) {
+                img.isTemplate = true   // monochrome; auto-inverts for light/dark menu bar
+                button.image = img
+            } else {
+                button.image = NSImage(systemSymbolName: "pencil.tip.crop.circle",
+                                       accessibilityDescription: "clipandnote")
+                button.image?.isTemplate = true
+            }
         }
         rebuildMenu()
     }
