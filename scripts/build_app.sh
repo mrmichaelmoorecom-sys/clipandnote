@@ -41,6 +41,13 @@ if [ -f "Resources/AppIcon.icns" ]; then
   echo "  ✓ bundled app icon + menu-bar icon"
 fi
 
+# Bundle the per-tool SVG icons (the toolbar reads currentColor at runtime to
+# render line/rect/ellipse/freehand/text/highlighter in the active color).
+if [ -d "Resources/toolicons" ]; then
+  cp -R "Resources/toolicons" "$APP/Contents/Resources/"
+  echo "  ✓ bundled tool icons"
+fi
+
 if [ -n "$IDENTITY" ]; then
   codesign --force --options runtime --entitlements entitlements.plist --sign "$IDENTITY" "$APP"
   echo "  signed: $IDENTITY (entitlements applied)"

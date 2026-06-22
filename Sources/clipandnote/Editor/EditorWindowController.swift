@@ -84,6 +84,30 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         buildUI(document: document)
     }
 
+    /// Tools whose icon previews the colored mark they'll draw on the canvas.
+    private static let coloredTools: Set<Tool> = [
+        .arrow, .line, .rectangle, .ellipse, .freehand, .text, .highlighter,
+    ]
+
+    /// Bundle resource name for the tool's vector icon (under `toolicons/`).
+    private static func svgIconName(for tool: Tool) -> String? {
+        switch tool {
+        case .line: return "line"
+        case .rectangle: return "rectangle"
+        case .ellipse: return "ellipse"
+        case .freehand: return "freehand"
+        case .text: return "text"
+        case .highlighter: return "highlighter"
+        case .pixelate: return "pixelate"
+        case .select, .crop, .arrow: return nil   // keep their built-in glyphs
+        }
+    }
+
+    /// Re-draw every colored tool icon — call after the active color changes.
+    private func refreshColoredToolIcons() {
+        for b in toolButtons where Self.coloredTools.contains(b.tool) { b.refreshIcon() }
+    }
+
     /// A hairline vertical divider between toolbar groups.
     private func toolbarDivider() -> NSView {
         let line = NSView()
@@ -109,6 +133,30 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             b.onClick = { [weak self] in self?.pickTool(t.tool) }
             if t.tool == .text {
                 b.onLongPress = { [weak self, weak b] in if let b { self?.showFontMenu(from: b) } }
+            }
+            // The arrow tool previews the actual rendered shape (handled in
+            // ToolButton.draw) — give it the active color through a closure.
+            if t.tool == .arrow {
+                b.fillProvider = { [weak self] in self?.canvas?.strokeColor ?? .labelColor }
+            }
+            // For the SVG-driven tools whose output is a colored mark, the tool
+            // icon previews that mark in the active color (with a thin contrast
+            // outline that stays visible whether selected or not).
+            if let svgName = Self.svgIconName(for: t.tool) {
+                let colored = Self.coloredTools.contains(t.tool)
+                b.customRender = { [weak self] _ in
+                    guard let self else { return nil }
+                    let fill: NSColor = colored
+                        ? (t.tool == .highlighter
+                           ? CanvasView.highlighterFill(self.canvas.strokeColor).nsColor
+                           : self.canvas.strokeColor)
+                        : .labelColor
+                    // .labelColor adapts to light/dark mode, so the outline is
+                    // visible against the toolbar in either theme regardless of
+                    // which color the user has picked.
+                    let outline: NSColor? = colored ? .labelColor : nil
+                    return SVGToolIcon.render(svgName, fill: fill, outline: outline, size: 22)
+                }
             }
             toolButtons.append(b)
             toolStack.addArrangedSubview(b)
@@ -194,7 +242,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         // --- Canvas ---
         let canvas = CanvasView(document: document)
         self.canvas = canvas
-        colors.onPick = { [weak canvas] c in canvas?.setActiveColor(c) }
+        colors.onPick = { [weak self, weak canvas] c in
+            canvas?.setActiveColor(c)
+            self?.refreshColoredToolIcons()
+        }
         canvas.onSelectionChanged = { [weak self] obj in
             guard let self, let obj else { return }
             let c = obj.kind == .highlighter
@@ -202,6 +253,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 : obj.stroke.nsColor
             self.colors.reflect(c)
             self.widthSlider.doubleValue = Double(obj.kind == .text ? obj.fontSize / 5 : obj.lineWidth)
+            self.refreshColoredToolIcons()
         }
         canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
         canvas.onMutated = { [weak self] in

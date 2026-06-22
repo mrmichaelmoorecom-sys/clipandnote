@@ -47,6 +47,18 @@ final class ToolButton: NSView {
 
     var isSelected = false { didSet { needsDisplay = true } }
 
+    /// When set, this closure produces the icon image (passed the current
+    /// "selected" state so it can flip its tint). Replaces the SF Symbol path.
+    var customRender: ((_ selected: Bool) -> NSImage?)? {
+        didSet { needsDisplay = true }
+    }
+
+    /// Optional override for the arrow tool's fill (used by the toolbar to
+    /// preview the active color). nil = default label tint.
+    var fillProvider: (() -> NSColor)? {
+        didSet { needsDisplay = true }
+    }
+
     private let symbol: NSImage?
     private var longPressWork: DispatchWorkItem?
     private var longFired = false
@@ -58,6 +70,10 @@ final class ToolButton: NSView {
         wantsLayer = true
         toolTip = tooltip
     }
+
+    /// Force a re-draw (e.g. after the active color changes — colored tool
+    /// icons re-render through their customRender closure on the next draw).
+    func refreshIcon() { needsDisplay = true }
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
 
     override var intrinsicContentSize: NSSize { NSSize(width: 30, height: 28) }
@@ -69,13 +85,24 @@ final class ToolButton: NSView {
         }
         let tint = isSelected ? NSColor.white : NSColor.labelColor
 
+        // Custom SVG render takes precedence so the toolbar can show colored
+        // previews that match the tool's actual output.
+        if let make = customRender, let img = make(isSelected) {
+            let s = img.size
+            img.draw(in: NSRect(x: (bounds.width - s.width) / 2,
+                                y: (bounds.height - s.height) / 2,
+                                width: s.width, height: s.height))
+            return
+        }
+
         // The arrow tool previews the *actual* rendered arrow shape (tapered
-        // shaft, swept-back head) rather than a generic line-arrow glyph.
+        // shaft, swept-back head). Tip points upper-right; the toolbar feeds
+        // the active color in so the icon matches what the tool draws.
         if tool == .arrow {
             let inset: CGFloat = 7
             let obj = MarkupObject(kind: .arrow,
-                                   points: [CGPoint(x: bounds.maxX - inset, y: inset + 1),
-                                            CGPoint(x: inset, y: bounds.maxY - inset)],
+                                   points: [CGPoint(x: inset, y: bounds.maxY - inset),
+                                            CGPoint(x: bounds.maxX - inset, y: inset + 1)],
                                    lineWidth: 4.5)
             let pts = MarkupRenderer.arrowPolygon(obj)
             guard pts.count >= 3 else { return }
@@ -84,7 +111,14 @@ final class ToolButton: NSView {
             for p in pts.dropFirst() { path.line(to: p) }
             path.close()
             path.lineJoinStyle = .round
-            tint.setFill()
+
+            // Outline first (contrast color of the toolbar, so it's visible
+            // whether the tool is selected or not), then colored fill on top.
+            let fillColor = fillProvider?() ?? tint
+            NSColor.labelColor.setStroke()
+            path.lineWidth = 1.4
+            path.stroke()
+            fillColor.setFill()
             path.fill()
             return
         }
