@@ -159,9 +159,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseMoved(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        // Over a modify-handle on the current selection (any tool) → the
+        // regular arrow cursor so the user knows the next click will tweak
+        // the existing object rather than start a new one.
+        if let sel = selectedObject,
+           handleRects(sel).values.contains(where: { $0.contains(p) }) {
+            NSCursor.arrow.set()
+            return
+        }
         let hit = hitTestObject(at: p)
         if tool == .select {
-            (hit != nil ? NSCursor.openHand : NSCursor.arrow).set()
+            NSCursor.arrow.set()        // plain system arrow (no openHand)
         } else if let k = tool.markupKind, hit?.kind == k {
             NSCursor.arrow.set()        // hovering same-kind object → will grab it
         } else {
@@ -317,8 +325,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
             for (h, r) in handleRects(sel) where r.contains(p) {
                 preDrag = sel
                 if sel.isPathBased {
-                    // doubleArrow exposes 3 handles via topLeft/top/bottomRight.
-                    let idx = (h == .topLeft ? 0 : (h == .top ? 1 : 2))
+                    // handleRects emits the matching set per kind: doubleArrow
+                    // gets 3 dots (topLeft / top / bottomRight); line + arrow
+                    // get 2 (topLeft / bottomRight). Map accordingly so a
+                    // 2-point object never resolves to an out-of-bounds index.
+                    let idx: Int
+                    if sel.kind == .doubleArrow {
+                        idx = (h == .topLeft ? 0 : (h == .top ? 1 : 2))
+                    } else {
+                        idx = (h == .topLeft ? 0 : 1)
+                    }
                     drag = .endpoint(idx)
                 } else {
                     drag = .resize(h)
