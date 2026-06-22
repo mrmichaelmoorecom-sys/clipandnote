@@ -310,22 +310,25 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
 
-        if tool == .select {
-            // 1. Handle drag on the current selection (single-selection only)?
-            if let sel = selectedObject {
-                for (h, r) in handleRects(sel) where r.contains(p) {
-                    preDrag = sel
-                    if sel.isPathBased {
-                        // doubleArrow exposes 3 handles via topLeft/top/bottomRight.
-                        let idx = (h == .topLeft ? 0 : (h == .top ? 1 : 2))
-                        drag = .endpoint(idx)
-                    } else {
-                        drag = .resize(h)
-                    }
-                    return
+        // Handles on the current selection are reachable in *any* tool — so
+        // you can tweak an existing object's endpoints / size without first
+        // switching back to Select.
+        if let sel = selectedObject {
+            for (h, r) in handleRects(sel) where r.contains(p) {
+                preDrag = sel
+                if sel.isPathBased {
+                    // doubleArrow exposes 3 handles via topLeft/top/bottomRight.
+                    let idx = (h == .topLeft ? 0 : (h == .top ? 1 : 2))
+                    drag = .endpoint(idx)
+                } else {
+                    drag = .resize(h)
                 }
+                return
             }
-            // 2. Select / move an object, or start a marquee on empty canvas.
+        }
+
+        if tool == .select {
+            // Select / move an object, or start a marquee on empty canvas.
             if let hit = hitTestObject(at: p) {
                 // Click inside the existing multi-selection → move the whole group.
                 if !selectedIDs.contains(hit.id) {
