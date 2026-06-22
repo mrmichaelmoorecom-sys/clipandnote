@@ -457,6 +457,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
         panel.nameFieldStringValue = "clipandnote markups.pdf"
+        if let dir = AppSettings.shared.saveDirectory { panel.directoryURL = dir }
         panel.begin { resp in
             if resp == .OK, let url = panel.url { try? pdf.write(to: url) }
         }
@@ -477,6 +478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.prompt = "Export Here"
+        if let dir = AppSettings.shared.saveDirectory { panel.directoryURL = dir }
         panel.begin { resp in
             guard resp == .OK, let dir = panel.url else { return }
             for (i, entry) in entries.enumerated() {

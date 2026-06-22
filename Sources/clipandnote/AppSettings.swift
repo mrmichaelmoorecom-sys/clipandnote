@@ -11,6 +11,7 @@ final class AppSettings {
         static let historyLimit = "localHistoryLimit"
         static let copyAfterCapture = "copyAfterCapture"
         static let syncEnabled = "syncEnabled"
+        static let saveDirectoryBookmark = "saveDirectoryBookmark"
     }
 
     private init() {
@@ -43,6 +44,30 @@ final class AppSettings {
     var syncEnabled: Bool {
         get { defaults.bool(forKey: Key.syncEnabled) }
         set { defaults.set(newValue, forKey: Key.syncEnabled) }
+    }
+
+    /// User-chosen folder where Save / Save As / Export panels open by default.
+    /// Stored as a security-scoped bookmark so the choice survives launches even
+    /// for folders outside the app sandbox. nil = system default (Documents).
+    var saveDirectory: URL? {
+        get {
+            guard let data = defaults.data(forKey: Key.saveDirectoryBookmark) else { return nil }
+            var stale = false
+            let url = try? URL(resolvingBookmarkData: data,
+                               options: [.withSecurityScope],
+                               relativeTo: nil,
+                               bookmarkDataIsStale: &stale)
+            return url
+        }
+        set {
+            guard let newValue else {
+                defaults.removeObject(forKey: Key.saveDirectoryBookmark); return
+            }
+            let bookmark = try? newValue.bookmarkData(options: [.withSecurityScope],
+                                                     includingResourceValuesForKeys: nil,
+                                                     relativeTo: nil)
+            defaults.set(bookmark, forKey: Key.saveDirectoryBookmark)
+        }
     }
 
     // MARK: Capture shortcuts

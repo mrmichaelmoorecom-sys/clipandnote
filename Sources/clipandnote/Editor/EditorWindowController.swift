@@ -605,10 +605,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         panel.allowedContentTypes = [.canDocument]
         panel.nameFieldStringValue = (fileURL?.deletingPathExtension().lastPathComponent
             ?? snapshotTitle) + ".\(CanFile.ext)"
+        applySaveDirectory(to: panel)
         panel.beginSheetModal(for: window!) { [weak self] resp in
             guard resp == .OK, let url = panel.url else { return }
             self?.write(to: url)
         }
+    }
+
+    /// Open the panel in the user's chosen save folder, if any (Preferences ▸
+    /// Save markups to). Falls back to the system default when unset/invalid.
+    private func applySaveDirectory(to panel: NSSavePanel) {
+        if let dir = AppSettings.shared.saveDirectory { panel.directoryURL = dir }
     }
 
     private func write(to url: URL) {
@@ -637,6 +644,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         panel.allowedContentTypes = [type]
         panel.nameFieldStringValue =
             (fileURL?.deletingPathExtension().lastPathComponent ?? snapshotTitle) + ".\(ext)"
+        applySaveDirectory(to: panel)
         panel.beginSheetModal(for: window!) { resp in
             guard resp == .OK, let url = panel.url, let data = make() else { return }
             try? data.write(to: url)

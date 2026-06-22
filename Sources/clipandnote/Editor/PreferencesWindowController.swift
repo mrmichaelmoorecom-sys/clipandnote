@@ -9,7 +9,7 @@ final class PreferencesWindowController: NSWindowController {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 430),
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 470),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Preferences"
         window.isReleasedWhenClosed = false
@@ -29,6 +29,7 @@ final class PreferencesWindowController: NSWindowController {
         autosaveHeader.font = .boldSystemFont(ofSize: 13)
         rows.addArrangedSubview(autosaveHeader)
         rows.addArrangedSubview(autosaveRow())
+        rows.addArrangedSubview(saveDirectoryRow())
 
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
@@ -118,6 +119,61 @@ final class PreferencesWindowController: NSWindowController {
 
     @objc private func autosaveFieldChanged(_ sender: NSTextField) { setAutosaveLimit(sender.integerValue) }
     @objc private func autosaveStepperChanged(_ sender: NSStepper) { setAutosaveLimit(sender.integerValue) }
+
+    private var saveDirLabel: NSTextField!
+
+    /// "Save markups to:" — default folder for Save / Save As / Export panels.
+    private func saveDirectoryRow() -> NSView {
+        let title = NSTextField(labelWithString: "Save markups to:")
+        title.font = .systemFont(ofSize: 12)
+
+        let pathLabel = NSTextField(labelWithString: Self.displayPath(AppSettings.shared.saveDirectory))
+        pathLabel.font = .systemFont(ofSize: 12)
+        pathLabel.textColor = .secondaryLabelColor
+        pathLabel.lineBreakMode = .byTruncatingMiddle
+        pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        self.saveDirLabel = pathLabel
+
+        let choose = NSButton(title: "Choose…", target: self, action: #selector(chooseSaveDirectory))
+        choose.bezelStyle = .rounded
+        choose.controlSize = .small
+
+        let reset = NSButton(title: "Default", target: self, action: #selector(resetSaveDirectory))
+        reset.bezelStyle = .rounded
+        reset.controlSize = .small
+
+        let row = NSStackView(views: [title, pathLabel, choose, reset])
+        row.orientation = .horizontal
+        row.spacing = 8
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.widthAnchor.constraint(equalToConstant: 420).isActive = true
+        return row
+    }
+
+    private static func displayPath(_ url: URL?) -> String {
+        guard let url else { return "System default (Documents)" }
+        return url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    @objc private func chooseSaveDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Pick a folder for clipandnote saves and exports."
+        if let cur = AppSettings.shared.saveDirectory { panel.directoryURL = cur }
+        panel.begin { [weak self] resp in
+            guard resp == .OK, let url = panel.url else { return }
+            AppSettings.shared.saveDirectory = url
+            self?.saveDirLabel.stringValue = Self.displayPath(url)
+        }
+    }
+
+    @objc private func resetSaveDirectory() {
+        AppSettings.shared.saveDirectory = nil
+        saveDirLabel.stringValue = Self.displayPath(nil)
+    }
 
     private var delayField: NSTextField!
     private var delayStepper: NSStepper!
