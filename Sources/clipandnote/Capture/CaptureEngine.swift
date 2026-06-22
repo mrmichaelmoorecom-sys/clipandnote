@@ -32,31 +32,47 @@ final class CaptureEngine {
         case .window:
             shoot(["-x", "-i", "-W"], completion: completion)
         case .menu:
-            // A countdown gives you time to open the menu; at zero we find the
-            // open menu's window(s) and grab exactly those — no click, so the
-            // menu is never dismissed (clicking would close it).
+            // Snapshot the window list *before* the HUD appears; anything that
+            // opens during the countdown is the menu / popover / panel the user
+            // is targeting. This works for plain NSMenu, NSPopover, and the
+            // borderless panels apps like clipandcue and Dropbox use — none of
+            // them share a single window level, so a level-based filter misses
+            // them. A diff is implementation-agnostic.
+            let baseline = onScreenWindowIDs()
             CountdownHUD.run(seconds: AppSettings.shared.timedDelaySeconds,
                              hint: "open the menu (and any submenu)") { [weak self] in
-                self?.shootOpenMenus(completion: completion)
+                self?.shootNewlyOpened(since: baseline, completion: completion)
             }
         }
     }
 
-    // MARK: Auto-grab the open menu
+    // MARK: Auto-grab the open menu / popover / panel
 
-    /// Capture whatever menu(s) are open right now, by window. All cascading
-    /// menu windows (a menu plus any open submenus) sit at the pop-up-menu
-    /// window level, so we union their bounds and grab that one rectangle. No
-    /// interactive click is involved, so the menu stays open through the grab.
-    private func shootOpenMenus(completion: @escaping (NSImage?) -> Void) {
+    private func onScreenWindowIDs() -> Set<Int> {
         let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
                                               kCGNullWindowID) as? [[String: Any]] ?? []
-        // Menus/submenus render at the pop-up-menu window level (101); status
-        // items live below (≤25) and our countdown HUD above (screen-saver,
-        // 1000). Accept the menu level up to — but not including — the HUD's.
-        let menuLevel = Int(CGWindowLevelForKey(.popUpMenuWindow))
-        let hudLevel = Int(CGWindowLevelForKey(.screenSaverWindow))
+        return Set(info.compactMap { $0[kCGWindowNumber as String] as? Int })
+    }
 
+    /// Find every window that appeared *during* the countdown (i.e. wasn't in
+    /// `baseline`), union their bounds, and capture that rectangle. Captures
+    /// menus, popovers, dropdowns and custom panels alike — whatever the user
+    /// opened — without a click that would dismiss them. Falls back to the
+    /// pop-up-menu window level if nothing new was detected (rare).
+    private func shootNewlyOpened(since baseline: Set<Int>,
+                                  completion: @escaping (NSImage?) -> Void) {
+        let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                              kCGNullWindowID) as? [[String: Any]] ?? []
+        let hudLevel = Int(CGWindowLevelForKey(.screenSaverWindow))
+        let mainMenuLevel = Int(CGWindowLevelForKey(.mainMenuWindow))   // 24
+
+        // System chrome owners we don't want to capture even if they animate in.
+        let chromeOwners: Set<String> = [
+            "Window Server", "Dock", "Control Center", "NotificationCenter",
+            "WindowManager", "Spotlight", "TextInputMenuAgent",
+        ]
+
+        func id(_ w: [String: Any]) -> Int? { w[kCGWindowNumber as String] as? Int }
         func bounds(_ w: [String: Any]) -> CGRect? {
             guard let dict = w[kCGWindowBounds as String] as? NSDictionary,
                   let r = CGRect(dictionaryRepresentation: dict) else { return nil }
@@ -65,22 +81,33 @@ final class CaptureEngine {
         func owner(_ w: [String: Any]) -> String { w[kCGWindowOwnerName as String] as? String ?? "" }
         func layer(_ w: [String: Any]) -> Int { w[kCGWindowLayer as String] as? Int ?? 0 }
 
-        // Every open menu / submenu window.
-        let menus = info.filter { layer($0) >= menuLevel && layer($0) < hudLevel }
-            .compactMap { bounds($0) }
-            .filter { $0.width >= 8 && $0.height >= 8 }
+        let newRects: [CGRect] = info.compactMap { w in
+            guard let wid = id(w), !baseline.contains(wid) else { return nil }
+            let l = layer(w), o = owner(w)
+            // Exclude clipandnote's own HUD, the system menu bar itself, anything
+            // above the HUD, and known chrome owners.
+            guard o != "clipandnote",
+                  l < hudLevel,
+                  l != mainMenuLevel,
+                  !chromeOwners.contains(o) else { return nil }
+            guard let r = bounds(w), r.width >= 8, r.height >= 8 else { return nil }
+            return r
+        }
 
-        if let union = menus.dropFirst().reduce(menus.first, { $0?.union($1) }) {
+        if let union = newRects.dropFirst().reduce(newRects.first, { $0?.union($1) }) {
             shootRect(union, completion: completion)
             return
         }
 
-        // Nothing open — fall back to the frontmost real window (not fullscreen).
-        if let front = info.first(where: {
-            layer($0) == 0 && owner($0) != "clipandnote"
-                && (bounds($0)?.width ?? 0) >= 40 && (bounds($0)?.height ?? 0) >= 40
-        }), let id = front[kCGWindowNumber as String] as? Int {
-            shoot(["-x", "-l", String(id)], completion: completion)
+        // Nothing new appeared — try the legacy pop-up-menu level (in case a
+        // menu was already open before triggering). No frontmost-window
+        // fallback: capturing the wrong window is worse than no capture.
+        let menuLevel = Int(CGWindowLevelForKey(.popUpMenuWindow))
+        let menus = info.filter { layer($0) >= menuLevel && layer($0) < hudLevel }
+            .compactMap { bounds($0) }
+            .filter { $0.width >= 8 && $0.height >= 8 }
+        if let union = menus.dropFirst().reduce(menus.first, { $0?.union($1) }) {
+            shootRect(union, completion: completion)
             return
         }
         completion(nil)
