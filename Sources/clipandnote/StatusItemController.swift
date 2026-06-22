@@ -32,9 +32,6 @@ final class StatusItemController {
         rebuildMenu()
     }
 
-    /// How many recents sit inline before the rest move into a scrolling submenu.
-    private let inlineRecents = 10
-
     /// Rebuild the menu (e.g. after shortcuts change in Preferences).
     func rebuild() { rebuildMenu() }
 
@@ -56,20 +53,14 @@ final class StatusItemController {
             empty.isEnabled = false
             menu.addItem(empty)
         } else {
-            // The most recent inline; the rest as a compact text list in an
-            // 'Earlier Markups' submenu (no thumbnails — keeps it dense). The
-            // submenu scrolls automatically when it would run past the screen.
-            for i in 0..<min(inlineRecents, recents.count) { menu.addItem(recentItem(i)) }
-            if recents.count > inlineRecents {
-                menu.addItem(.separator())
-                let count = recents.count - inlineRecents
-                let more = NSMenuItem(title: "Earlier Markups  (\(count))",
-                                      action: nil, keyEquivalent: "")
-                let sub = NSMenu()
-                for i in inlineRecents..<recents.count { sub.addItem(recentItem(i, withThumb: false)) }
-                more.submenu = sub
-                menu.addItem(more)
-            }
+            // All recents in a single scrolling list (NSMenu has no scrollbar
+            // of its own — we host an NSScrollView inside a custom item view).
+            let listItem = NSMenuItem()
+            let list = RecentsMenuView()
+            list.setRecents(recents)
+            list.onPick = { [weak self] i in self?.onPickRecent?(i) }
+            listItem.view = list
+            menu.addItem(listItem)
         }
 
         menu.addItem(.separator())
@@ -97,19 +88,6 @@ final class StatusItemController {
         statusItem.menu = menu
     }
 
-    private func recentItem(_ i: Int, withThumb: Bool = true) -> NSMenuItem {
-        let item = recents[i]
-        let mi = NSMenuItem(title: item.title, action: #selector(pickRecent(_:)), keyEquivalent: "")
-        mi.target = self
-        mi.tag = i
-        if withThumb, let thumb = item.thumbnail {
-            let t = thumb.copy() as! NSImage
-            t.size = NSSize(width: 32, height: 20)
-            mi.image = t
-        }
-        return mi
-    }
-
     private func addCapture(_ menu: NSMenu, _ command: CaptureCommand) {
         let sc = AppSettings.shared.shortcut(for: command)
         let item = NSMenuItem(title: command.title, action: #selector(capture(_:)),
@@ -125,10 +103,6 @@ final class StatusItemController {
     @objc private func capture(_ sender: NSMenuItem) {
         guard let kind = sender.representedObject as? CaptureKind else { return }
         onCapture?(kind)
-    }
-
-    @objc private func pickRecent(_ sender: NSMenuItem) {
-        onPickRecent?(sender.tag)
     }
 
     @objc private func openGallery() {
