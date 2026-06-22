@@ -5,7 +5,8 @@ import AppKit
 // sub-pixel strokes that look blurred, and a hard threshold gives jaggies;
 // this middle path is what well-made menu-bar icons look like.
 //   swift scripts/render_menubar_icon.swift <png-out> <width> <height>
-// Used to produce Resources/menubarTemplate.png (28×16) and @2x.png (56×32).
+// Used to produce Resources/menubarTemplate.png (36×20) and @2x.png (72×40)
+// — the size where the SVG's thinnest stroke lands at ~2px so AA stays clean.
 let svg = URL(fileURLWithPath: "Resources/menubar-icon.svg")
 let out = URL(fileURLWithPath: CommandLine.arguments[1])
 let w = Int(CommandLine.arguments[2])!
