@@ -8,7 +8,7 @@
   <g mask="url(#cnCut)">
     <g transform="rotate(90 223 250)">
       <path d="M293.1,180.2v133.8c0,25.7-20.8,46.5-46.5,46.5s-46.5-20.8-46.5-46.5v-145.5c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s29.1-13,29.1-29.1v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s64-28.6,64-64v-133.8h-17.5Z"
-            stroke="currentColor" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+            stroke="currentColor" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
     </g>
   </g>
   <rect x="312" y="240" width="120" height="120" rx="26.4" fill="none" stroke="currentColor" stroke-width="16"/>
