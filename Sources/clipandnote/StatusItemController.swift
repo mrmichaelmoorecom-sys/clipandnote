@@ -16,7 +16,6 @@ final class StatusItemController: NSObject {
     private let statusItem: NSStatusItem
     private let panel = StatusDropdownPanel()
     private var recents: [RecentRowItem] = []
-    private var outsideClickMonitor: Any?
 
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -40,7 +39,7 @@ final class StatusItemController: NSObject {
         panel.content.onPreferences   = { [weak self]      in self?.onPreferences?() }
         panel.content.onExport        = { [weak self] is_  in self?.onExportSelected?(is_) }
         panel.content.onQuit          = {                     NSApp.terminate(nil) }
-        panel.content.onClose         = { [weak self]      in self?.hidePanel() }
+        panel.content.onClose         = { [weak self]      in self?.panel.close() }
 
         rebuildCaptureCommands()
         panel.content.setRecents(recents)
@@ -66,45 +65,16 @@ final class StatusItemController: NSObject {
         panel.content.setCaptureCommands(commands)
     }
 
-    // MARK: Toggle / position the panel
+    // MARK: Toggle the popover
 
     @objc private func toggle() {
-        if panel.isVisible { hidePanel() } else { showPanel() }
-    }
-
-    private func showPanel() {
-        guard let button = statusItem.button, let buttonWindow = button.window else { return }
-        let buttonScreenFrame = buttonWindow.convertToScreen(button.frame)
-        var panelFrame = panel.frame
-        panelFrame.size.width  = max(panel.frame.width,  340)
-        panelFrame.size.height = max(panel.frame.height, 520)
-        // Centre under the status icon, then clamp inside the visible screen.
-        panelFrame.origin.x = buttonScreenFrame.midX - panelFrame.width / 2
-        panelFrame.origin.y = buttonScreenFrame.minY - panelFrame.height - 6
-        if let screen = button.window?.screen ?? NSScreen.main {
-            let vis = screen.visibleFrame
-            if panelFrame.maxX > vis.maxX - 6 { panelFrame.origin.x = vis.maxX - panelFrame.width - 6 }
-            if panelFrame.minX < vis.minX + 6 { panelFrame.origin.x = vis.minX + 6 }
-        }
-        panel.setFrame(panelFrame, display: false)
-        panel.orderFront(nil)
-        panel.makeKey()
-
-        // Dismiss on click anywhere outside the panel (global monitor catches
-        // mouse-downs in any other window or empty desktop).
-        if outsideClickMonitor == nil {
-            outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
-                matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-                self?.hidePanel()
-            }
-        }
-    }
-
-    private func hidePanel() {
-        panel.orderOut(nil)
-        if let m = outsideClickMonitor {
-            NSEvent.removeMonitor(m)
-            outsideClickMonitor = nil
+        if panel.isShown {
+            panel.close()
+        } else if let button = statusItem.button {
+            // NSPopover handles positioning, the arrow tail, outside-click
+            // dismissal, and Esc for us — much simpler than the old NSPanel +
+            // global-monitor dance.
+            panel.show(relativeTo: button)
         }
     }
 

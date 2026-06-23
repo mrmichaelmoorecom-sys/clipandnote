@@ -8,62 +8,47 @@ struct RecentRowItem {
 }
 
 /// A floating dropdown for the menu-bar status item — clipandnote's equivalent
-/// of clipandcue's clipboard panel. Replaces the previous NSMenu so we can
-/// host real checkboxes (so the user can multi-select recents and export them
-/// in one go), a horizontal action bar at the bottom, and a scrolling list.
-final class StatusDropdownPanel: NSPanel {
+/// of clipandcue's clipboard panel. Wraps an NSPopover so we get translucent
+/// vibrancy, the little arrow tail pointing at the status icon, outside-click
+/// dismissal, and Esc handling all for free.
+final class StatusDropdownPanel: NSObject {
     let content = StatusDropdownContent()
+    private let popover = NSPopover()
+    private let hostController = NSViewController()
 
-    init() {
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 340, height: 520),
-                   styleMask: [.borderless, .nonactivatingPanel],
-                   backing: .buffered, defer: false)
-        isFloatingPanel = true
-        becomesKeyOnlyIfNeeded = false
-        hidesOnDeactivate = false
-        animationBehavior = .utilityWindow
-        level = .popUpMenu
-        backgroundColor = .clear
-        isOpaque = false
-        hasShadow = true
+    /// Match clipandcue's footprint roughly; the popover sizes its content to
+    /// these dimensions and inherits the system's popover chrome.
+    private static let dropdownSize = NSSize(width: 320, height: 500)
 
-        let bg = RoundedPanelBackground()
-        bg.addSubview(content)
+    override init() {
+        super.init()
+        // NSPopover needs a view-controller whose .view fills the popover.
+        // We hand it a sized container that hosts our content edge-to-edge.
+        let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
+        host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: bg.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: bg.trailingAnchor),
-            content.topAnchor.constraint(equalTo: bg.topAnchor),
-            content.bottomAnchor.constraint(equalTo: bg.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            content.topAnchor.constraint(equalTo: host.topAnchor),
+            content.bottomAnchor.constraint(equalTo: host.bottomAnchor),
         ])
-        contentView = bg
+        hostController.view = host
+        popover.contentViewController = hostController
+        popover.contentSize = Self.dropdownSize
+        popover.behavior = .transient        // outside-click dismisses
     }
 
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
+    var isShown: Bool { popover.isShown }
 
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 {            // Esc
-            content.onClose?()
-        } else {
-            super.keyDown(with: event)
-        }
+    /// Show below the status item button — `.minY` makes the tail point up at
+    /// the icon, matching clipandcue.
+    func show(relativeTo button: NSView) {
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
-}
 
-private final class RoundedPanelBackground: NSView {
-    override var isOpaque: Bool { false }
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 12, yRadius: 12)
-        NSColor.windowBackgroundColor.setFill()
-        path.fill()
-        NSColor.separatorColor.setStroke()
-        path.lineWidth = 0.5
-        path.stroke()
-    }
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
+    func close() {
+        popover.performClose(nil)
     }
 }
 
@@ -229,23 +214,23 @@ final class StatusDropdownContent: NSView {
             actionBar,
         ])
         outer.orientation = .vertical
-        outer.spacing = 6
+        outer.spacing = 4
         outer.alignment = .leading
         outer.distribution = .fill
-        outer.edgeInsets = NSEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
+        outer.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         outer.setCustomSpacing(2, after: captureHeader)
-        outer.setCustomSpacing(10, after: captureColumn)
-        outer.setCustomSpacing(10, after: separator1)
+        outer.setCustomSpacing(8, after: captureColumn)
+        outer.setCustomSpacing(8, after: separator1)
         outer.setCustomSpacing(2, after: recentsHeader)
-        outer.setCustomSpacing(10, after: recentsScroll)
-        outer.setCustomSpacing(10, after: separator2)
+        outer.setCustomSpacing(8, after: recentsScroll)
+        outer.setCustomSpacing(8, after: separator2)
         outer.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(outer)
-        // outer's 12pt horizontal edgeInsets — pin every child width to the
+        // outer's 10pt horizontal edgeInsets — pin every child width to the
         // available content area so rows actually fill the panel (otherwise
         // .leading alignment leaves them hugging their intrinsic width).
-        let contentInset: CGFloat = -24       // 12 left + 12 right
+        let contentInset: CGFloat = -20       // 10 left + 10 right
         NSLayoutConstraint.activate([
             outer.leadingAnchor.constraint(equalTo: leadingAnchor),
             outer.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -253,7 +238,7 @@ final class StatusDropdownContent: NSView {
             outer.bottomAnchor.constraint(equalTo: bottomAnchor),
             captureColumn.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             recentsScroll.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
-            recentsScroll.heightAnchor.constraint(equalToConstant: 320),
+            recentsScroll.heightAnchor.constraint(equalToConstant: 260),
             actionBar.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             separator1.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             separator2.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
@@ -330,10 +315,10 @@ private final class CaptureCommandRow: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: 28).isActive = true
+        heightAnchor.constraint(equalToConstant: 24).isActive = true
 
         let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 13)
+        label.font = .systemFont(ofSize: 12)
         label.translatesAutoresizingMaskIntoConstraints = false
 
         let kb = NSTextField(labelWithString: equiv)
@@ -344,9 +329,9 @@ private final class CaptureCommandRow: NSView {
         addSubview(label)
         addSubview(kb)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            kb.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            kb.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             kb.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
@@ -389,7 +374,7 @@ private final class RecentRow: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: 36).isActive = true
+        heightAnchor.constraint(equalToConstant: 32).isActive = true
 
         checkbox.setButtonType(.switch)
         checkbox.title = ""
@@ -397,6 +382,12 @@ private final class RecentRow: NSView {
         checkbox.target = self
         checkbox.action = #selector(checkboxToggled)
         checkbox.translatesAutoresizingMaskIntoConstraints = false
+        // NSButton with .switch + empty title still reserves room for a title,
+        // expanding to fill the row. Pin the width to just the visible
+        // checkmark and stop it from stretching.
+        checkbox.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        checkbox.setContentHuggingPriority(.required, for: .horizontal)
+        checkbox.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         let thumb = NSImageView()
         thumb.imageScaling = .scaleProportionallyUpOrDown
@@ -419,12 +410,12 @@ private final class RecentRow: NSView {
         addSubview(thumb)
         addSubview(title)
         NSLayoutConstraint.activate([
-            checkbox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            checkbox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
             checkbox.centerYAnchor.constraint(equalTo: centerYAnchor),
-            thumb.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 4),
+            thumb.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 6),
             thumb.centerYAnchor.constraint(equalTo: centerYAnchor),
-            thumb.widthAnchor.constraint(equalToConstant: 38),
-            thumb.heightAnchor.constraint(equalToConstant: 26),
+            thumb.widthAnchor.constraint(equalToConstant: 34),
+            thumb.heightAnchor.constraint(equalToConstant: 24),
             title.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 8),
             title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             title.centerYAnchor.constraint(equalTo: centerYAnchor),
