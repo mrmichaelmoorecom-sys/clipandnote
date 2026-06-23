@@ -11,7 +11,7 @@ struct RecentRowItem {
 /// of clipandcue's clipboard panel. Wraps an NSPopover so we get translucent
 /// vibrancy, the little arrow tail pointing at the status icon, outside-click
 /// dismissal, and Esc handling all for free.
-final class StatusDropdownPanel: NSObject {
+final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
     let content = StatusDropdownContent()
     private let popover = NSPopover()
     private let hostController = NSViewController()
@@ -20,11 +20,15 @@ final class StatusDropdownPanel: NSObject {
 
     override init() {
         super.init()
-        // Plain NSViewController hosting our AppKit content — no custom
-        // NSVisualEffectView, no SwiftUI hosting bridge, no appearance
-        // override. NSPopover draws its own chrome (body + arrow tail in
-        // the same colour) and inherits the system theme — matching
-        // clipandcue, which also relies on the system theme.
+        // NSPopover defaults to the .popover NSVisualEffectMaterial — a
+        // deliberately light, very-translucent vibrancy. Pinning the
+        // appearance to .vibrantDark makes the chrome (including the arrow
+        // tail) render in dark mode in either system theme, but the body
+        // still uses .popover, which on a dark theme is only mildly dark.
+        // To get a genuinely dark menu-style backdrop we also walk the
+        // popover's window once it shows and force every NSVisualEffectView
+        // inside to .menu material (see popoverDidShow). That's the only
+        // entry point AppKit gives us into NSPopover's private chrome view.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -39,6 +43,8 @@ final class StatusDropdownPanel: NSObject {
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient
         popover.animates = true
+        popover.appearance = NSAppearance(named: .vibrantDark)
+        popover.delegate = self
     }
 
     var isShown: Bool { popover.isShown }
@@ -51,6 +57,33 @@ final class StatusDropdownPanel: NSObject {
 
     func close() {
         popover.performClose(nil)
+    }
+
+    // MARK: NSPopoverDelegate — darken the body to match the dark chrome
+
+    func popoverDidShow(_ notification: Notification) {
+        guard let window = popover.contentViewController?.view.window else { return }
+        // The popover's window's contentView has a private NSVisualEffectView
+        // (the chrome) that AppKit doesn't otherwise let us touch. Walking
+        // the hierarchy and forcing material = .menu gives us the saturated
+        // dark menu look (clipandcue's screenshot vibe) instead of the
+        // washed-out .popover default. Run it after the next runloop tick
+        // too, because the visual-effect view's material can be re-applied
+        // during the popover's own setup pass.
+        applyDarkMaterial(to: window.contentView)
+        DispatchQueue.main.async { [weak self] in
+            self?.applyDarkMaterial(to: self?.popover.contentViewController?.view.window?.contentView)
+        }
+    }
+
+    private func applyDarkMaterial(to view: NSView?) {
+        guard let view else { return }
+        if let vfx = view as? NSVisualEffectView {
+            vfx.material = .menu
+            vfx.state = .active
+            vfx.blendingMode = .behindWindow
+        }
+        for sub in view.subviews { applyDarkMaterial(to: sub) }
     }
 }
 
