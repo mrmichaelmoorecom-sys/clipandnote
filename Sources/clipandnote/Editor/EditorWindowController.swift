@@ -171,16 +171,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         toolStack.spacing = 4
 
         // Crosshair screen-grab — an action (not a drawing mode): drag-select a
-        // region of the screen and drop it onto the current canvas. Sits at the
-        // very start of the palette, before the drawing tools, with a divider.
+        // region of the screen and drop it onto the current canvas. Sits right
+        // after the Select tool, as the second item in the palette.
         let grabButton = IconButton(symbolName: "camera.viewfinder",
                                     tooltip: "Crosshair Grab — capture a screen region into the canvas")
         grabButton.onClick = { [weak self] in
             guard let self else { return }
             self.onCrosshairGrab?(self)
         }
-        toolStack.addArrangedSubview(grabButton)
-        toolStack.addArrangedSubview(toolbarDivider())
 
         for t in tools {
             let b = ToolButton(tool: t.tool, symbolName: t.symbol, tooltip: "\(t.label)  (\(t.key))")
@@ -240,8 +238,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             }
             toolButtons.append(b)
             toolStack.addArrangedSubview(b)
-            // Visual divider between the "image-editing" tools (select / OCR
-            // / crop / pixelate) and the "marker" tools (arrow → text).
+            // Crosshair grab sits immediately after Select.
+            if t.tool == .select {
+                toolStack.addArrangedSubview(grabButton)
+            }
+            // Visual divider between the "image-editing" tools (select / grab /
+            // OCR / crop / pixelate) and the "marker" tools (arrow → text).
             if t.tool == .pixelate {
                 toolStack.addArrangedSubview(toolbarDivider())
             }
