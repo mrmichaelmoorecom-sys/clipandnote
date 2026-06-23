@@ -22,16 +22,30 @@ final class StatusDropdownPanel: NSObject {
 
     override init() {
         super.init()
-        // Use the popover's own native chrome with no custom backdrop. clipandcue
-        // does the same — its content view is just SwiftUI inside an
-        // NSHostingController with no NSVisualEffectView wrapper — and the result
-        // is a lighter, more transparent dropdown that matches macOS popover
-        // styling out of the box. Stacking our own .menu visual-effect view on
-        // top of NSPopover's chrome gave a darker, blue-tinted look that didn't.
+        // Force a consistent translucent dark backdrop regardless of what's
+        // behind the popover. clipandcue's blue cast comes from sampling its
+        // current backdrop window through the popover's chrome — we can't
+        // rely on that, so we layer our own NSVisualEffectView with
+        // .hudWindow material (the saturated dark-blue translucent look the
+        // system HUD uses) at .active state. .vibrantDark appearance is
+        // pinned so label colours stay legible against the dark wash on any
+        // system theme.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
+
+        let blur = NSVisualEffectView()
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(blur)
+
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            blur.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            blur.topAnchor.constraint(equalTo: host.topAnchor),
+            blur.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
@@ -41,6 +55,7 @@ final class StatusDropdownPanel: NSObject {
         popover.contentViewController = hostController
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient        // outside-click dismisses
+        popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
     var isShown: Bool { popover.isShown }
