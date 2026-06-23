@@ -31,24 +31,20 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         // entry point AppKit gives us into NSPopover's private chrome view.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
 
-        // Dark NSVisualEffectView backdrop INSIDE our content. NSPopover's
-        // chrome in modern macOS doesn't expose an NSVisualEffectView we can
-        // override from the outside (popoverDidShow finds nothing), so we
-        // make the body dark ourselves by stacking .menu material at .active
-        // state inside the popover's content.
-        let backdrop = NSVisualEffectView()
-        backdrop.material = .menu
-        backdrop.blendingMode = .behindWindow
-        backdrop.state = .active
+        // SOLID opaque dark backdrop — not NSVisualEffectView. Vibrancy
+        // samples whatever's behind the window, so when the user's desktop
+        // wallpaper is bright the popover reads light no matter which
+        // material we pick. A flat fill ignores everything behind it and
+        // guarantees a dark menu in any environment. (#1c1c1e is the same
+        // tone macOS uses for menu-bar context menus in Dark Mode.)
+        let backdrop = NSView()
+        backdrop.wantsLayer = true
+        backdrop.layer?.backgroundColor = NSColor(srgbRed: 28/255,
+                                                   green: 28/255,
+                                                   blue: 30/255,
+                                                   alpha: 0.96).cgColor
         backdrop.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(backdrop)
-        // Tint over the vibrancy — pushes the dark from "Apple's dark .menu"
-        // toward the saturated dark-blue look in your clipandcue reference.
-        let tint = NSView()
-        tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.18).cgColor
-        tint.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(tint)
 
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -57,10 +53,6 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
             backdrop.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             backdrop.topAnchor.constraint(equalTo: host.topAnchor),
             backdrop.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-            tint.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            tint.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            tint.topAnchor.constraint(equalTo: host.topAnchor),
-            tint.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
