@@ -9,6 +9,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     static let canvasMargin: CGFloat = 36
 
     private var canvas: CanvasView!
+    /// NSEvent monitor that watches mouseDown anywhere in our window. Lets us
+    /// catch clicks landing in the grey backdrop around the canvas (where the
+    /// scroll view + clip view normally swallow the event) and grow the canvas
+    /// out to that point.
+    private var outsideClickMonitor: Any?
     /// The `.can` file backing this window, once saved/opened.
     private(set) var fileURL: URL?
     /// The library entry this window autosaves to (every capture has one).
@@ -293,13 +298,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
-        // Custom clip view so clicks in the empty grey backdrop (with a drawing
-        // tool active) auto-expand the canvas to that point. Bounds aren't
-        // touched — just mouseDown handling — so the previous "shifted bounds
-        // origin broke event mapping" issue doesn't apply.
-        let clip = ExpandingClipView()
-        clip.canvas = canvas
-        scroll.contentView = clip
         scroll.documentView = canvas
         // Padded backdrop around the canvas card. Dynamic so light mode reads
         // as a light grey instead of the dark surround we use in dark mode.
@@ -363,6 +361,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = container
         window.makeFirstResponder(canvas)
         window.delegate = self
+        installOutsideClickMonitor()
 
         if document.baseImage == nil && document.objects.isEmpty {
             installEmptyState(in: container, below: bar)
@@ -492,7 +491,43 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         picker.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
     }
 
-    func windowWillClose(_ notification: Notification) { autosaveNow() }
+    func windowWillClose(_ notification: Notification) {
+        autosaveNow()
+        if let m = outsideClickMonitor {
+            NSEvent.removeMonitor(m)
+            outsideClickMonitor = nil
+        }
+    }
+
+    /// Watch every left-mouseDown in this window. If it lands inside the scroll
+    /// view but outside the canvas card, and a drawing tool is active, grow the
+    /// canvas to include that point — the next click can then draw normally.
+    /// Inside-canvas clicks are forwarded untouched (return event) so normal
+    /// drawing still works.
+    private func installOutsideClickMonitor() {
+        outsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) {
+            [weak self] event in
+            guard let self,
+                  let win = self.window,
+                  event.window === win,
+                  let scroll = self.scrollView,
+                  let canvas = self.canvas
+            else { return event }
+            // Only intercept if the click is over the scroll view's content.
+            let winPoint = event.locationInWindow
+            let scrollRectInWin = scroll.convert(scroll.bounds, to: nil)
+            guard scrollRectInWin.contains(winPoint) else { return event }
+            // Inside the canvas card — let AppKit deliver to the canvas.
+            let canvasPoint = canvas.convert(winPoint, from: nil)
+            let canvasRect = CGRect(origin: .zero, size: canvas.document.canvasSize)
+            if canvasRect.contains(canvasPoint) { return event }
+            // Select tool: don't auto-expand on stray clicks — leaves the
+            // empty-canvas marquee-deselect behaviour intact.
+            if canvas.tool == .select { return event }
+            canvas.expandToInclude(point: canvasPoint)
+            return nil   // consume; the click was on empty backdrop anyway
+        }
+    }
 
     // MARK: - Empty state (blank home window)
 
