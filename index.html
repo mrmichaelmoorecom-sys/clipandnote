@@ -177,6 +177,12 @@ nav .brand svg{width:30px;height:30px}
 .caprow:last-child{border-bottom:none}
 .caprow .k{margin-left:auto;color:var(--ink-soft);font-size:11.5px}
 .caprow svg{width:17px;height:17px;color:var(--grape)}
+/* step-1 demo styled as the real dark menu-bar dropdown (not a window) */
+#capdemo{background:#262129;border:1px solid rgba(255,255,255,.08)}
+#capdemo .ddhead{padding:13px 16px 11px;font-weight:600;font-size:13px;color:var(--lilac);border-bottom:1px solid rgba(255,255,255,.10)}
+#capdemo .caprow{border-bottom-color:rgba(255,255,255,.07);color:#ece8f0}
+#capdemo .caprow svg{color:var(--lilac)}
+#capdemo .caprow .k{color:rgba(236,232,240,.5)}
 
 /* editor mock with toolbar */
 .editor{width:100%;max-width:420px;background:#fff;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-lg);overflow:hidden}
@@ -317,11 +323,12 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
       <div class="copy"><div class="stepnum">1</div><h3>Capture from the bar</h3><p>Pick a capture mode from the menu bar (Crosshair Clip is <span class="kbd">⌥⌘4</span>), or grab a whole window. Your shot opens straight in a zoomable editor.</p></div>
       <div class="demo">
         <div class="macwin" id="capdemo">
-          <div class="macbar"><span class="dotmac r"></span><span class="dotmac y"></span><span class="dotmac g"></span><span class="ttl">clipandnote</span></div>
+          <div class="ddhead">clipandnote</div>
           <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/></svg> Crosshair Clip<span class="k">⌥⌘4</span></div>
           <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Previous Clip Area<span class="k">⌥⌘6</span></div>
-          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 19l18 0"/></svg> Window Clip<span class="k">⌥⌘5</span></div>
           <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/></svg> Fullscreen Clip<span class="k">⌥⌘3</span></div>
+          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 19l18 0"/></svg> Window Clip<span class="k">⌥⌘5</span></div>
+          <div class="caprow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg> New clipandnote</div>
         </div>
       </div>
     </div>
