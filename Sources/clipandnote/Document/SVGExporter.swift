@@ -129,14 +129,6 @@ enum SVGExporter {
             out += line(CGPoint(x: pt.x + nx*capHalf, y: pt.y + ny*capHalf),
                         CGPoint(x: pt.x - nx*capHalf, y: pt.y - ny*capHalf), lw)
         }
-        let tickHalf = capHalf * 0.45
-        let segments = max(2, min(20, Int(length / 16)))
-        for i in 1..<segments {
-            let t = CGFloat(i) / CGFloat(segments)
-            let m = CGPoint(x: a.x + dx*t, y: a.y + dy*t)
-            out += line(CGPoint(x: m.x + nx*tickHalf, y: m.y + ny*tickHalf),
-                        CGPoint(x: m.x - nx*tickHalf, y: m.y - ny*tickHalf), max(1, lw*0.7))
-        }
         // Arrowhead.
         let headLen = max(12, lw*3.5), headHalf = max(7, lw*2)
         let tip = CGPoint(x: b.x + ux*headLen, y: b.y + uy*headLen)

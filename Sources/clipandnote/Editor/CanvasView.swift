@@ -593,7 +593,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 document.objects[idx].points = [dragStart, control, p]
                 document.objects[idx].recomputeBounds()
             } else if document.objects[idx].isPathBased {
-                document.objects[idx].points = [dragStart, p]
+                // Hold Shift to lock a straight path (ruler / line / arrow) to
+                // the nearest 45° angle.
+                let end = event.modifierFlags.contains(.shift)
+                    ? Self.constrained45(p, from: dragStart) : p
+                document.objects[idx].points = [dragStart, end]
                 document.objects[idx].recomputeBounds()
             } else {
                 document.objects[idx].frame = rect(from: dragStart, to: p)
@@ -657,7 +661,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 document.objects[idx].points = [dragStart, control, p]
                 document.objects[idx].recomputeBounds()
             } else if document.objects[idx].isPathBased {
-                document.objects[idx].points = [dragStart, p]
+                // Hold Shift to lock a straight path (ruler / line / arrow) to
+                // the nearest 45° angle.
+                let end = event.modifierFlags.contains(.shift)
+                    ? Self.constrained45(p, from: dragStart) : p
+                document.objects[idx].points = [dragStart, end]
                 document.objects[idx].recomputeBounds()
             } else {
                 document.objects[idx].frame = rect(from: dragStart, to: p)
@@ -701,6 +709,18 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// Default quadratic-bezier control point for a brand-new doubleArrow:
     /// midpoint of (a, b), offset perpendicular by ~15 % of the length so the
     /// connector is visibly curved as soon as the user releases the drag.
+    /// Snap `p` to the nearest 45° ray from `anchor`, keeping the cursor's
+    /// distance — used for Shift-constrained straight paths.
+    static func constrained45(_ p: CGPoint, from anchor: CGPoint) -> CGPoint {
+        let dx = p.x - anchor.x, dy = p.y - anchor.y
+        let dist = hypot(dx, dy)
+        guard dist > 0.5 else { return p }
+        let step = CGFloat.pi / 4
+        let snapped = (atan2(dy, dx) / step).rounded() * step
+        return CGPoint(x: anchor.x + cos(snapped) * dist,
+                       y: anchor.y + sin(snapped) * dist)
+    }
+
     static func defaultCurveControl(from a: CGPoint, to b: CGPoint) -> CGPoint {
         let mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
         let dx = b.x - a.x, dy = b.y - a.y
@@ -1042,6 +1062,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
         tv.font = obj.resolvedFont()
         tv.textColor = obj.stroke.nsColor
         tv.isRichText = false
+        // System text assistance: live spell-check with red underlines,
+        // autocorrect suggestions, and the inline completion list (Esc to
+        // summon). Matches typing in any native macOS text field.
+        tv.isContinuousSpellCheckingEnabled = true
+        tv.isAutomaticSpellingCorrectionEnabled = true
+        tv.isAutomaticTextReplacementEnabled = true
+        tv.isGrammarCheckingEnabled = true
         tv.isVerticallyResizable = true
         tv.isHorizontallyResizable = true
         tv.textContainer?.widthTracksTextView = false

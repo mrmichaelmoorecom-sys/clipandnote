@@ -48,6 +48,7 @@ final class ColorPaletteView: NSView {
 
     private var swatches: [SwatchView] = []        // presets first, then customs
     private let well = NSColorWell()
+    private let hexField = NSTextField()
     private var selected: NSColor?
 
     override init(frame frameRect: NSRect) {
@@ -100,14 +101,35 @@ final class ColorPaletteView: NSView {
         dropper.widthAnchor.constraint(equalToConstant: 13).isActive = true
         dropper.heightAnchor.constraint(equalToConstant: 13).isActive = true
 
-        // Picker + eyedropper sit side-by-side as a single row (not stacked) so
-        // they read as two peer controls instead of a tall pill. Moderate gap
-        // — close enough to read as a paired "custom colour" tool group, far
-        // enough that the well doesn't visually swallow the eyedropper.
-        let sideCol = NSStackView(views: [well, dropper])
-        sideCol.orientation = .horizontal
-        sideCol.spacing = 10
-        sideCol.alignment = .centerY
+        // Picker + eyedropper sit side-by-side as a row at the TOP of the side
+        // column; an editable hex field sits directly below them.
+        let pickerRow = NSStackView(views: [well, dropper])
+        pickerRow.orientation = .horizontal
+        pickerRow.spacing = 10
+        pickerRow.alignment = .centerY
+        pickerRow.translatesAutoresizingMaskIntoConstraints = false
+
+        // Editable hex value — type "#RRGGBB" (or "RRGGBB") and press Return to
+        // set the active colour precisely. Reflects the selected colour live.
+        hexField.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        hexField.placeholderString = "#000000"
+        hexField.alignment = .left
+        hexField.isBezeled = true
+        hexField.bezelStyle = .roundedBezel
+        hexField.focusRingType = .none
+        hexField.target = self
+        hexField.action = #selector(hexEntered(_:))
+        hexField.translatesAutoresizingMaskIntoConstraints = false
+        hexField.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        hexField.toolTip = "Hex colour — type #RRGGBB and press Return"
+
+        // Side column: picker row on top, hex field below; top-aligned so the
+        // controls sit at the top of the palette (level with the first swatch
+        // row) rather than vertically centred.
+        let sideCol = NSStackView(views: [pickerRow, hexField])
+        sideCol.orientation = .vertical
+        sideCol.spacing = 4
+        sideCol.alignment = .leading
         sideCol.translatesAutoresizingMaskIntoConstraints = false
 
         // Wider gap between the preset grid and the custom-colour tools so the
@@ -116,7 +138,7 @@ final class ColorPaletteView: NSView {
         let outer = NSStackView(views: [grid, sideCol])
         outer.orientation = .horizontal
         outer.spacing = 18
-        outer.alignment = .centerY
+        outer.alignment = .top
         outer.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(outer)
@@ -174,6 +196,19 @@ final class ColorPaletteView: NSView {
         refresh()
     }
 
+    @objc private func hexEntered(_ sender: NSTextField) {
+        guard let c = Self.color(fromHex: sender.stringValue) else {
+            // Invalid input — restore the field to the current selection.
+            if let sel = selected { sender.stringValue = Self.hexString(sel) }
+            return
+        }
+        addCustom(c)
+        selected = c
+        well.color = c
+        refresh()
+        onPick?(c)
+    }
+
     private func refresh() {
         let all = allColors
         for (i, s) in swatches.enumerated() {
@@ -181,6 +216,31 @@ final class ColorPaletteView: NSView {
             let isSel = c != nil && selected != nil && colorsEqual(c!, selected!)
             s.update(color: c, selected: isSel)
         }
+        // Keep the hex field showing the selected colour (unless it's being
+        // edited, so we don't yank the text out from under the cursor).
+        if let sel = selected, window?.firstResponder !== hexField.currentEditor() {
+            hexField.stringValue = Self.hexString(sel)
+        }
+    }
+
+    /// "#RRGGBB" for a colour (sRGB).
+    static func hexString(_ color: NSColor) -> String {
+        let c = color.usingColorSpace(.sRGB) ?? color
+        let r = Int((c.redComponent * 255).rounded())
+        let g = Int((c.greenComponent * 255).rounded())
+        let b = Int((c.blueComponent * 255).rounded())
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
+
+    /// Parse "#RRGGBB" / "RRGGBB" / "#RGB" → NSColor; nil if malformed.
+    static func color(fromHex raw: String) -> NSColor? {
+        var s = raw.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        if s.count == 3 { s = s.map { "\($0)\($0)" }.joined() }   // #RGB → #RRGGBB
+        guard s.count == 6, let v = UInt32(s, radix: 16) else { return nil }
+        return NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
+                       green: CGFloat((v >> 8) & 0xFF) / 255,
+                       blue: CGFloat(v & 0xFF) / 255, alpha: 1)
     }
 
     private func colorsEqual(_ a: NSColor, _ b: NSColor) -> Bool {

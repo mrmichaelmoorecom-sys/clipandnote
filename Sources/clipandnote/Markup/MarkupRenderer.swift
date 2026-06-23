@@ -111,23 +111,13 @@ enum MarkupRenderer {
         // Baseline.
         stroked(width: lw) { $0.move(to: a); $0.line(to: b) }
 
-        // Perpendicular end caps at both ends.
+        // Perpendicular end caps at both ends — a clean dimension line (no
+        // minor ruler ticks; they read as arbitrary clutter at this scale).
         let capHalf = max(8, lw * 2.5)
         for pt in [a, b] {
             let c0 = CGPoint(x: pt.x + nx * capHalf, y: pt.y + ny * capHalf)
             let c1 = CGPoint(x: pt.x - nx * capHalf, y: pt.y - ny * capHalf)
             stroked(width: lw) { $0.move(to: c0); $0.line(to: c1) }
-        }
-
-        // Minor ticks ~every 16px, capped, skipping the very ends.
-        let tickHalf = capHalf * 0.45
-        let segments = max(2, min(20, Int(length / 16)))
-        for i in 1..<segments {
-            let t = CGFloat(i) / CGFloat(segments)
-            let m = CGPoint(x: a.x + dx * t, y: a.y + dy * t)
-            let t0 = CGPoint(x: m.x + nx * tickHalf, y: m.y + ny * tickHalf)
-            let t1 = CGPoint(x: m.x - nx * tickHalf, y: m.y - ny * tickHalf)
-            stroked(width: max(1, lw * 0.7)) { $0.move(to: t0); $0.line(to: t1) }
         }
 
         // Arrowhead just past the end, pointing along the measure direction.
