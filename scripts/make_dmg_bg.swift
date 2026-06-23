@@ -95,7 +95,7 @@ let para = NSMutableParagraphStyle(); para.alignment = .center
 let glow = NSShadow(); glow.shadowColor = NSColor.white.withAlphaComponent(0.7)
 glow.shadowBlurRadius = 5; glow.shadowOffset = .zero
 
-let head = NSAttributedString(string: "Snap. Mark. Share.", attributes: [
+let head = NSAttributedString(string: "Clip. Note. Share.", attributes: [
     .font: NSFont.systemFont(ofSize: 36, weight: .heavy),
     .foregroundColor: rgb(0x2e, 0x2a, 0x33),
     .paragraphStyle: para,
