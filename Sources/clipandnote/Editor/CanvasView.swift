@@ -748,6 +748,24 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
     }
 
+    /// Add `image` to the canvas as a new, movable image object — centered,
+    /// scaled to fit, and selected. Used by paste and by the toolbar crosshair
+    /// grab. Never replaces the base image or existing markup.
+    func addImageObject(_ image: NSImage) {
+        guard let png = image.pngData() else { return }
+        let size = fitted(image.size, into: document.canvasSize)
+        let origin = CGPoint(x: (document.canvasSize.width - size.width) / 2,
+                             y: (document.canvasSize.height - size.height) / 2)
+        let obj = MarkupObject(kind: .image,
+                               frame: CGRect(origin: origin, size: size),
+                               imageData: png)
+        document.objects.append(obj)
+        selectedID = obj.id
+        tool = .select
+        commitUndo()
+        needsDisplay = true
+    }
+
     /// Clear the current selection (single or multi) without changing the
     /// active tool — used when the user clicks the grey backdrop around the
     /// canvas to "drop" the selection so they can copy/share the whole
@@ -836,20 +854,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             needsDisplay = true
             return
         }
-        if let img = NSImage(pasteboard: pb), let png = img.pngData() {
+        if let img = NSImage(pasteboard: pb) {
             // THE core Skitch fix: paste arrives as a new, movable object —
             // it never replaces the canvas or your existing markup.
-            let size = fitted(img.size, into: document.canvasSize)
-            let origin = CGPoint(x: (document.canvasSize.width - size.width) / 2,
-                                 y: (document.canvasSize.height - size.height) / 2)
-            let obj = MarkupObject(kind: .image,
-                                   frame: CGRect(origin: origin, size: size),
-                                   imageData: png)
-            document.objects.append(obj)
-            selectedID = obj.id
-            tool = .select
-            commitUndo()
-            needsDisplay = true
+            addImageObject(img)
         } else if let str = pb.string(forType: .string), !str.isEmpty {
             var obj = MarkupObject(kind: .text,
                                    frame: CGRect(x: 40, y: 40, width: 300, height: 60),

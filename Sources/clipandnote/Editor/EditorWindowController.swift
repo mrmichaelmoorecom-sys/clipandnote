@@ -32,6 +32,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     var onRequestCapture: (() -> Void)?
     var onCaptureImage: ((NSImage) -> Void)?
     var onOpenCanURL: ((URL) -> Void)?
+    /// Toolbar crosshair-grab: capture a screen region into THIS editor.
+    /// Wired by AppDelegate (which owns the CaptureEngine) for every editor.
+    var onCrosshairGrab: ((EditorWindowController) -> Void)?
     private var emptyState: NSView?
 
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
@@ -69,12 +72,23 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// A blank "home" window — toolbar + an empty drop/open/capture area.
+    /// Default canvas is intentionally compact (the toolbar's min width drives
+    /// the window, not the canvas); tightened from 900 → 720 wide.
     convenience init() {
         self.init(document: MarkupDocument(baseImage: nil, objects: [],
-                                           canvasSize: CGSize(width: 900, height: 560)))
+                                           canvasSize: CGSize(width: 720, height: 560)))
     }
 
-    private var isBlank: Bool { canvas.document.baseImage == nil && canvas.document.objects.isEmpty }
+    var isBlank: Bool { canvas.document.baseImage == nil && canvas.document.objects.isEmpty }
+
+    /// Add a captured/dropped image to this editor as a movable object (used by
+    /// the toolbar crosshair grab when the canvas already has content).
+    func addCanvasImage(_ image: NSImage) {
+        dismissEmptyState()
+        canvas.addImageObject(image)
+        window?.isDocumentEdited = true
+        scheduleAutosave()
+    }
 
     convenience init(document: MarkupDocument) {
         self.init(document: document, revertableSnapshot: document)
@@ -155,6 +169,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let toolStack = NSStackView()
         toolStack.orientation = .horizontal
         toolStack.spacing = 4
+
+        // Crosshair screen-grab — an action (not a drawing mode): drag-select a
+        // region of the screen and drop it onto the current canvas. Sits at the
+        // very start of the palette, before the drawing tools, with a divider.
+        let grabButton = IconButton(symbolName: "camera.viewfinder",
+                                    tooltip: "Crosshair Grab — capture a screen region into the canvas")
+        grabButton.onClick = { [weak self] in
+            guard let self else { return }
+            self.onCrosshairGrab?(self)
+        }
+        toolStack.addArrangedSubview(grabButton)
+        toolStack.addArrangedSubview(toolbarDivider())
+
         for t in tools {
             let b = ToolButton(tool: t.tool, symbolName: t.symbol, tooltip: "\(t.label)  (\(t.key))")
             b.isSelected = (t.tool == .select)
@@ -301,6 +328,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         // Groups separated by hairline vertical dividers, in the order:
         // window buttons │ tools │ layer │ colors │ size │ canvas color.
+        // The dimensions readout (sizeLabel) lives in the footer now.
         let palette = NSStackView(views: [
             trafficSpacer,
             toolbarDivider(), toolStack,
@@ -308,7 +336,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             toolbarDivider(), colors,
             toolbarDivider(), sliderColumn,
             toolbarDivider(), bgGroup,
-            NSView(), sizeLabel, copyButton,
+            NSView(), copyButton,
         ])
         palette.orientation = .horizontal
         palette.alignment = .centerY
@@ -471,7 +499,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         shareButton.imageScaling = .scaleProportionallyDown
         shareButton.toolTip = "Share…"
 
+        // Dimensions readout — moved here from the toolbar. sizeLabel is
+        // created during the toolbar build (which runs before makeFooter), so
+        // it already exists; we just reparent it into the footer row.
         let stack = NSStackView(views: [brand, notchDivider(), nameLabel, notchDivider(),
+                                        sizeLabel, notchDivider(),
                                         exportButton, shareButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY

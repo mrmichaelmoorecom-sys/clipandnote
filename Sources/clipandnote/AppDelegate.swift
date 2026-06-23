@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Dev-only: open an editor seeded with the given demo document.
     private func openDemo(_ document: MarkupDocument) {
         let editor = EditorWindowController(document: document)
-        editors.append(editor)
+        registerEditor(editor)
         editor.show()
     }
 
@@ -308,14 +308,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let document = try CanFile.read(url)
                 let editor = EditorWindowController(document: document)
                 editor.setFileURL(url)
-                editors.append(editor)
+                registerEditor(editor)
                 editor.show()
             } catch {
                 NSAlert(error: error).runModal()
             }
         } else if let image = NSImage(contentsOf: url) {
             let editor = EditorWindowController(image: image)
-            editors.append(editor)
+            registerEditor(editor)
             editor.show()
             finishCapture(image, in: editor, replacingBlank: false)
         } else {
@@ -334,9 +334,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         capture.capture(kind) { [weak self] image in
             guard let self, let image else { return }   // nil = user cancelled
             let editor = EditorWindowController(image: image)
-            self.editors.append(editor)
+            self.registerEditor(editor)
             editor.show()
             self.finishCapture(image, in: editor, replacingBlank: false)
+        }
+    }
+
+    /// Toolbar crosshair grab: hide the editor so it's not in the shot, capture
+    /// a region, then drop it onto the canvas — as the base image if the canvas
+    /// is blank, otherwise as a movable image object.
+    private func grabCrosshairInto(_ editor: EditorWindowController) {
+        let wasBlank = editor.isBlank
+        editor.window?.orderOut(nil)
+        capture.capture(.crosshair) { [weak self] image in
+            editor.window?.makeKeyAndOrderFront(nil)
+            guard let image else { return }   // cancelled
+            if wasBlank {
+                self?.finishCapture(image, in: editor, replacingBlank: true)
+            } else {
+                editor.addCanvasImage(image)
+            }
         }
     }
 
@@ -373,8 +390,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let editor, let doc = try? CanFile.read(url) else { return }
             editor.loadCan(doc, url: url)
         }
-        editors.append(editor)
+        registerEditor(editor)
         editor.show()
+    }
+
+    /// Common per-editor wiring + tracking. Every editor goes through here so
+    /// the toolbar crosshair grab works regardless of how the editor was made.
+    private func registerEditor(_ editor: EditorWindowController) {
+        editor.onCrosshairGrab = { [weak self] ed in self?.grabCrosshairInto(ed) }
+        editors.append(editor)
     }
 
     private func openInto(_ editor: EditorWindowController) {
@@ -567,7 +591,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             editor.setSnapshotTitle(name)
         }
         editor.bindToLibrary(id)
-        editors.append(editor)
+        registerEditor(editor)
         editor.show()
     }
 
