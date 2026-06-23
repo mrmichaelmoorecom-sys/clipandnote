@@ -29,7 +29,9 @@ if [ ! -d "$APP" ]; then
 fi
 
 # Refuse to submit an ad-hoc signed build — Apple rejects those instantly.
-auth=$(codesign -dvv "$APP" 2>&1 | awk -F= '/^Authority=Developer ID/ {print; exit}')
+# (Don't use `awk {exit}` here — it closes the pipe early and SIGPIPEs
+# codesign, which pipefail then turns into a script-killing non-zero exit.)
+auth=$(codesign -dvv "$APP" 2>&1 | grep -m1 '^Authority=Developer ID' || true)
 if [ -z "$auth" ]; then
   echo "✘ $APP isn't signed with a Developer ID cert. Re-build with:"
   echo "   scripts/build_app.sh release 'Developer ID Application: Michael Moore (HA5AB7JS87)'"
