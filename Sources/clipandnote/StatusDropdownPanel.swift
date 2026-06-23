@@ -45,7 +45,10 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .vibrantDark)
+        // No forced appearance and no material override — the popover follows
+        // the system appearance (light/dark) and uses AppKit's default
+        // `.popover` vibrancy material, exactly like clipandcue. This keeps the
+        // dropdown background identical between the two apps in both modes.
         popover.delegate = self
     }
 
@@ -59,33 +62,6 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
 
     func close() {
         popover.performClose(nil)
-    }
-
-    // MARK: NSPopoverDelegate — darken the body to match the dark chrome
-
-    func popoverDidShow(_ notification: Notification) {
-        guard let window = popover.contentViewController?.view.window else { return }
-        // The popover's window's contentView has a private NSVisualEffectView
-        // (the chrome) that AppKit doesn't otherwise let us touch. Walking
-        // the hierarchy and forcing material = .menu gives us the saturated
-        // dark menu look (clipandcue's screenshot vibe) instead of the
-        // washed-out .popover default. Run it after the next runloop tick
-        // too, because the visual-effect view's material can be re-applied
-        // during the popover's own setup pass.
-        applyDarkMaterial(to: window.contentView)
-        DispatchQueue.main.async { [weak self] in
-            self?.applyDarkMaterial(to: self?.popover.contentViewController?.view.window?.contentView)
-        }
-    }
-
-    private func applyDarkMaterial(to view: NSView?) {
-        guard let view else { return }
-        if let vfx = view as? NSVisualEffectView {
-            vfx.material = .menu
-            vfx.state = .active
-            vfx.blendingMode = .behindWindow
-        }
-        for sub in view.subviews { applyDarkMaterial(to: sub) }
     }
 }
 
