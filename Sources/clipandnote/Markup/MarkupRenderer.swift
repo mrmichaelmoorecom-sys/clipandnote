@@ -39,6 +39,7 @@ enum MarkupRenderer {
         case .image:       drawImage(obj)
         case .pixelate:    drawPixelate(obj, baseImage: baseImage, baseFrame: baseFrame)
         case .ruler:       drawRuler(obj)
+        case .angle:       drawAngle(obj)
         }
         if needsLayer, let ctx {
             ctx.endTransparencyLayer()
@@ -186,6 +187,72 @@ enum MarkupRenderer {
                     withAttributes: haloAttrs)
         }
         ns.draw(at: origin, withAttributes: [.font: font, .foregroundColor: fill])
+    }
+
+    /// Screen-aligned label centered at `center`, with the same 8-direction
+    /// contrast halo (used by the angle tool).
+    private static func drawHaloLabel(_ text: String, center: CGPoint, o: MarkupObject) {
+        let font = NSFont.systemFont(ofSize: max(13, o.lineWidth * 3.5), weight: .bold)
+        let fill = o.stroke.opaqueColor
+        let outline = contrastColor(for: o.stroke.nsColor)
+        let ns = text as NSString
+        let size = ns.size(withAttributes: [.font: font])
+        let origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
+        let r: CGFloat = 2.5
+        let halo: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: outline]
+        for ang in stride(from: 0.0, to: 2 * Double.pi, by: Double.pi / 4) {
+            ns.draw(at: CGPoint(x: origin.x + CGFloat(cos(ang)) * r,
+                                y: origin.y + CGFloat(sin(ang)) * r), withAttributes: halo)
+        }
+        ns.draw(at: origin, withAttributes: [.font: font, .foregroundColor: fill])
+    }
+
+    /// An angle measurement: two legs from the vertex (points[1]), an arc
+    /// spanning the interior angle, and a "<N>°" label on the bisector.
+    private static func drawAngle(_ o: MarkupObject) {
+        guard o.points.count >= 3 else { return }
+        let a = o.points[0], v = o.points[1], b = o.points[2]
+        let lw = o.lineWidth
+        let color = o.stroke.opaqueColor
+        let contrast = contrastColor(for: o.stroke.nsColor)
+
+        func stroked(width: CGFloat, _ build: (NSBezierPath) -> Void) {
+            let p = NSBezierPath(); p.lineCapStyle = .round; build(p)
+            p.lineWidth = width + max(width * 0.9, 3); contrast.setStroke(); p.stroke()
+            p.lineWidth = width; color.setStroke(); p.stroke()
+        }
+
+        // Two legs from the vertex.
+        stroked(width: lw) { $0.move(to: v); $0.line(to: a) }
+        stroked(width: lw) { $0.move(to: v); $0.line(to: b) }
+
+        // Interior angle between the two rays.
+        let ang1 = atan2(a.y - v.y, a.x - v.x)
+        let ang2 = atan2(b.y - v.y, b.x - v.x)
+        var diff = ang2 - ang1
+        while diff <= -.pi { diff += 2 * .pi }
+        while diff > .pi { diff -= 2 * .pi }
+        let deg = abs(diff) * 180 / .pi
+
+        // Arc at the vertex, drawn as a sampled polyline (avoids flipped-coord
+        // arc-direction ambiguity).
+        let legLen = min(hypot(a.x - v.x, a.y - v.y), hypot(b.x - v.x, b.y - v.y))
+        let radius = max(14, min(legLen * 0.4, 44))
+        if legLen > 4 {
+            stroked(width: max(1, lw * 0.8)) { p in
+                let steps = 40
+                for i in 0...steps {
+                    let ang = ang1 + diff * CGFloat(i) / CGFloat(steps)
+                    let pt = CGPoint(x: v.x + cos(ang) * radius, y: v.y + sin(ang) * radius)
+                    if i == 0 { p.move(to: pt) } else { p.line(to: pt) }
+                }
+            }
+            // Degree label just beyond the arc, on the bisector.
+            let bis = ang1 + diff / 2
+            let lr = radius + 16
+            drawHaloLabel("\(Int(deg.rounded()))°",
+                          center: CGPoint(x: v.x + cos(bis) * lr, y: v.y + sin(bis) * lr), o: o)
+        }
     }
 
     private static func drawFreehand(_ o: MarkupObject) {

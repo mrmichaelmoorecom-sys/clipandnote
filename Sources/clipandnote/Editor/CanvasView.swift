@@ -45,6 +45,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var tool: Tool = .select {
         didSet {
             if tool != .select { selectedID = nil }
+            if oldValue == .ruler && tool != .ruler { cancelAngleInProgress() }
             if tool == .ocr {
                 ensureOCRRegions()      // scan the screenshot once on entry
             } else {
@@ -72,6 +73,21 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// only the next one drawn.
     var rectFilled: Bool = false
     var ellipseFilled: Bool = false
+
+    /// The ruler tool draws either a dimension ruler or an angle, chosen from
+    /// its ▼ dropdown.
+    enum RulerMode { case ruler, angle }
+    var rulerMode: RulerMode = .ruler {
+        didSet { if rulerMode != oldValue { cancelAngleInProgress() } }
+    }
+    /// Angle-tool interaction is multi-stage: drag the first leg, release, move
+    /// to sweep the second leg, click to finalize.
+    private enum AnglePhase { case idle, draggingFirstLeg, awaitingSecondLeg }
+    private var anglePhase: AnglePhase = .idle
+    private var angleInProgressID: UUID?
+    /// Document state from before the angle began, so finalize undoes the
+    /// whole angle (not just the second leg).
+    private var angleUndoSnapshot: DocSnapshot?
 
     /// Fired whenever the selection changes, so the toolbar can reflect the
     /// selected object's color and width.
@@ -211,6 +227,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseMoved(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        // Angle tool sweeping its second leg consumes the move.
+        if angleMouseMoved(p) { return }
         // Grab-Text tool: I-beam over recognised text regions, otherwise
         // crosshair (you can still rubber-band-select multiple lines on
         // empty canvas between them).
@@ -361,7 +379,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             // (start, bezier control, end) so the user can shape the curve.
             // Line/arrow expose two endpoint handles.
             guard obj.kind != .freehand, obj.points.count >= 2 else { return [:] }
-            if obj.kind == .doubleArrow, obj.points.count >= 3 {
+            if (obj.kind == .doubleArrow || obj.kind == .angle), obj.points.count >= 3 {
                 return [.topLeft: r(obj.points[0]),
                         .top: r(obj.points[1]),
                         .bottomRight: r(obj.points[2])]
@@ -401,11 +419,83 @@ final class CanvasView: NSView, NSTextViewDelegate {
         dragStart = p
     }
 
+    // MARK: Angle tool (drag first leg → release → sweep → click)
+
+    private func angleMouseDown(_ p: CGPoint) {
+        // Awaiting second leg → this click finalizes the angle.
+        if anglePhase == .awaitingSecondLeg, let id = angleInProgressID, let idx = indexOf(id) {
+            document.objects[idx].points[2] = p
+            document.objects[idx].recomputeBounds()
+            anglePhase = .idle
+            angleInProgressID = nil
+            selectedID = id
+            // Undo back to before the angle started (the whole thing).
+            undoSnapshot = angleUndoSnapshot
+            angleUndoSnapshot = nil
+            commitUndo()
+            needsDisplay = true
+            return
+        }
+        // Idle → start the first leg. Vertex = p (points[1]); A = points[0].
+        angleUndoSnapshot = snapshot()   // before the angle exists
+        var stroke = RGBAColor(strokeColor); stroke.a *= strokeOpacity
+        var obj = MarkupObject(kind: .angle, stroke: stroke, lineWidth: lineWidth)
+        obj.points = [p, p, p]
+        document.objects.append(obj)
+        selectedID = obj.id
+        angleInProgressID = obj.id
+        anglePhase = .draggingFirstLeg
+        dragStart = p
+        needsDisplay = true
+    }
+
+    private func angleMouseDragged(_ p: CGPoint) {
+        guard anglePhase == .draggingFirstLeg,
+              let id = angleInProgressID, let idx = indexOf(id) else { return }
+        document.objects[idx].points[0] = NSEvent.modifierFlags.contains(.shift)
+            ? Self.constrained45(p, from: dragStart) : p
+        document.objects[idx].recomputeBounds()
+        needsDisplay = true
+    }
+
+    private func angleMouseUp() {
+        guard anglePhase == .draggingFirstLeg else { return }
+        anglePhase = .awaitingSecondLeg
+        needsDisplay = true
+    }
+
+    /// Returns true if the move was consumed (sweeping the second leg).
+    private func angleMouseMoved(_ p: CGPoint) -> Bool {
+        guard anglePhase == .awaitingSecondLeg,
+              let id = angleInProgressID, let idx = indexOf(id) else { return false }
+        let vertex = document.objects[idx].points[1]
+        document.objects[idx].points[2] = NSEvent.modifierFlags.contains(.shift)
+            ? Self.constrained45(p, from: vertex) : p
+        document.objects[idx].recomputeBounds()
+        needsDisplay = true
+        NSCursor.crosshair.set()
+        return true
+    }
+
+    /// Drop an unfinished angle (tool switch, Esc, mode change).
+    func cancelAngleInProgress() {
+        defer { anglePhase = .idle; angleInProgressID = nil; angleUndoSnapshot = nil }
+        guard let id = angleInProgressID, let idx = indexOf(id) else { return }
+        document.objects.remove(at: idx)
+        if selectedID == id { selectedID = nil }
+        needsDisplay = true
+    }
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         commitTextEditing()
         let p = convert(event.locationInWindow, from: nil)
         undoSnapshot = snapshot()
+
+        // Angle tool (ruler tool, angle mode) — multi-stage interaction.
+        if tool == .ruler, rulerMode == .angle {
+            angleMouseDown(p); return
+        }
 
         // Double-click a text object to edit it, regardless of the active tool.
         if event.clickCount == 2,
@@ -427,7 +517,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
                     // get 2 (topLeft / bottomRight). Map accordingly so a
                     // 2-point object never resolves to an out-of-bounds index.
                     let idx: Int
-                    if sel.kind == .doubleArrow {
+                    if sel.kind == .doubleArrow || sel.kind == .angle {
                         idx = (h == .topLeft ? 0 : (h == .top ? 1 : 2))
                     } else {
                         idx = (h == .topLeft ? 0 : 1)
@@ -542,6 +632,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if tool == .ruler, rulerMode == .angle, anglePhase == .draggingFirstLeg {
+            angleMouseDragged(convert(event.locationInWindow, from: nil)); return
+        }
         guard let drag else { return }
         let p = convert(event.locationInWindow, from: nil)
 
@@ -594,8 +687,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 document.objects[idx].recomputeBounds()
             } else if document.objects[idx].isPathBased {
                 // Hold Shift to lock a straight path (ruler / line / arrow) to
-                // the nearest 45° angle.
-                let end = event.modifierFlags.contains(.shift)
+                // the nearest 45° angle. Read the live modifier state (not the
+                // event's) so it engages even if Shift is pressed mid-drag.
+                let end = NSEvent.modifierFlags.contains(.shift)
                     ? Self.constrained45(p, from: dragStart) : p
                 document.objects[idx].points = [dragStart, end]
                 document.objects[idx].recomputeBounds()
@@ -618,6 +712,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if tool == .ruler, rulerMode == .angle, anglePhase == .draggingFirstLeg {
+            angleMouseUp(); return
+        }
         if case .crop = drag {
             drag = nil
             applyCrop(cropRect)
@@ -662,8 +759,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 document.objects[idx].recomputeBounds()
             } else if document.objects[idx].isPathBased {
                 // Hold Shift to lock a straight path (ruler / line / arrow) to
-                // the nearest 45° angle.
-                let end = event.modifierFlags.contains(.shift)
+                // the nearest 45° angle. Read the live modifier state (not the
+                // event's) so it engages even if Shift is pressed mid-drag.
+                let end = NSEvent.modifierFlags.contains(.shift)
                     ? Self.constrained45(p, from: dragStart) : p
                 document.objects[idx].points = [dragStart, end]
                 document.objects[idx].recomputeBounds()
@@ -763,6 +861,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
         switch event.keyCode {
+        case 53:        // Esc — cancel an in-progress angle, else pass through
+            if anglePhase != .idle { cancelAngleInProgress() } else { super.keyDown(with: event) }
         case 51, 117:   // delete / forward-delete
             deleteSelection()
         default:

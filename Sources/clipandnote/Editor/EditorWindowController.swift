@@ -40,13 +40,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
         (.select, "cursorarrow", "Select", "V"),
+        (.ruler, "ruler", "Ruler / Angle — measure", "M"),
         (.ocr, "text.viewfinder", "Grab Text  (OCR)", "I"),
         (.crop, "crop", "Crop", "C"),
         (.pixelate, "mosaic", "Pixelate", "X"),
         (.arrow, "arrow.up.left", "Arrow", "A"),
         (.doubleArrow, "arrow.left.and.right", "Curved Double Arrow", "D"),
         (.line, "line.diagonal", "Line", "L"),
-        (.ruler, "ruler", "Ruler — measure in px", "M"),
         (.freehand, "scribble", "Pen", "P"),
         (.highlighter, "highlighter", "Highlighter", "H"),
         (.rectangle, "rectangle", "Rectangle", "R"),
@@ -128,7 +128,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     /// Tools whose icon previews the colored mark they'll draw on the canvas.
     private static let coloredTools: Set<Tool> = [
-        .arrow, .doubleArrow, .line, .rectangle, .ellipse, .freehand, .text, .highlighter,
+        .arrow, .doubleArrow, .line, .rectangle, .ellipse, .freehand, .text, .highlighter, .ruler,
     ]
 
     /// Bundle resource name for the tool's vector icon (under `toolicons/`).
@@ -206,6 +206,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             if t.tool == .arrow {
                 b.fillProvider = { [weak self] in self?.canvas?.strokeColor ?? .labelColor }
             }
+            // Ruler has no SVG icon — tint its SF symbol in the active colour
+            // so it previews like the other coloured tools.
+            if t.tool == .ruler {
+                b.customRender = { [weak self] _ in
+                    guard let self else { return nil }
+                    let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+                        .applying(.init(paletteColors: [self.canvas.strokeColor]))
+                    let img = NSImage(systemSymbolName: "ruler", accessibilityDescription: nil)?
+                        .withSymbolConfiguration(conf)
+                    img?.isTemplate = false
+                    return img
+                }
+            }
             // For the SVG-driven tools whose output is a colored mark, the tool
             // icon previews that mark in the active color (with a thin contrast
             // outline that stays visible whether selected or not).
@@ -239,8 +252,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             }
             toolButtons.append(b)
             toolStack.addArrangedSubview(b)
-            // Crosshair grab sits immediately after Select.
-            if t.tool == .select {
+            // Order: Select, Ruler, then the crosshair grab.
+            if t.tool == .ruler {
                 toolStack.addArrangedSubview(grabButton)
             }
             // Visual divider between the "image-editing" tools (select / grab /
@@ -730,6 +743,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             switch tool {
             case .rectangle, .ellipse: return makeShapeStyleAccessory(for: tool)
             case .text:                return makeFontFamilyAccessory()
+            case .ruler:               return makeRulerModeAccessory()
             default:                   return nil
             }
         }()
@@ -772,6 +786,25 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let filled = (sender.selectedSegment == 1)
         if sender.tag == 0 { canvas.rectFilled = filled } else { canvas.ellipseFilled = filled }
         toolButtons.forEach { $0.refreshIcon() }
+    }
+
+    /// Ruler vs Angle mode toggle — the ruler tool draws a dimension ruler or
+    /// an angle depending on this.
+    private func makeRulerModeAccessory() -> NSView {
+        let seg = NSSegmentedControl(labels: ["Ruler", "Angle"],
+                                     trackingMode: .selectOne,
+                                     target: self,
+                                     action: #selector(accessoryRulerModeChanged(_:)))
+        seg.selectedSegment = (canvas.rulerMode == .angle) ? 1 : 0
+        seg.segmentDistribution = .fillEqually
+        seg.controlSize = .small
+        seg.translatesAutoresizingMaskIntoConstraints = false
+        seg.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        return seg
+    }
+
+    @objc private func accessoryRulerModeChanged(_ sender: NSSegmentedControl) {
+        canvas.rulerMode = (sender.selectedSegment == 1) ? .angle : .ruler
     }
 
     /// Font-family dropdown used as the text popover accessory — each item

@@ -117,11 +117,13 @@ final class ColorPaletteView: NSView {
         hexField.toolTip = "Hex colour — type #RRGGBB and press Return"
 
         // Picker well + eyedropper side-by-side (original layout), with the hex
-        // field next to them.
+        // field next to them. Extra gap between the well and the eyedropper so
+        // they don't crowd.
         let sideCol = NSStackView(views: [well, dropper, hexField])
         sideCol.orientation = .horizontal
         sideCol.spacing = 8
         sideCol.alignment = .centerY
+        sideCol.setCustomSpacing(13, after: well)
         sideCol.translatesAutoresizingMaskIntoConstraints = false
 
         // Wider gap between the preset grid and the custom-colour tools so the

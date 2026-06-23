@@ -38,6 +38,10 @@ enum MarkupKind: String, Codable {
     /// minor ticks, a direction arrowhead, and a "<N> px" length label so you
     /// can call out exact pixel measurements in a markup.
     case ruler
+    /// An angle measurement: points[0] = end of first leg, points[1] = vertex,
+    /// points[2] = end of second leg. Renders the two legs, an arc at the
+    /// vertex, and a "<N>°" label.
+    case angle
 }
 
 /// A single markup object. A deliberately flat, fully-Codable struct: a few
@@ -121,7 +125,8 @@ struct MarkupObject: Identifiable, Codable, Equatable {
     }
 
     var isPathBased: Bool {
-        kind == .line || kind == .arrow || kind == .freehand || kind == .doubleArrow || kind == .ruler
+        kind == .line || kind == .arrow || kind == .freehand || kind == .doubleArrow
+            || kind == .ruler || kind == .angle
     }
 
     /// A copy with a fresh id, shifted by a delta (for paste/duplicate).

@@ -58,6 +58,8 @@ enum SVGExporter {
                 + "style=\"mix-blend-mode:multiply\"/>\n"
         case .ruler:
             return ruler(o)
+        case .angle:
+            return angle(o)
         case .text:
             return text(o)
         case .image:
@@ -158,6 +160,53 @@ enum SVGExporter {
             + "font-family=\"sans-serif\" font-size=\"\(num(fontSize))\" font-weight=\"700\" "
             + "fill=\"\(color)\" stroke=\"\(contrast)\" stroke-width=\"\(num(fontSize*0.12))\" "
             + "stroke-linejoin=\"round\" paint-order=\"stroke\">\(Int(length.rounded())) px</text>\n"
+        return out
+    }
+
+    /// Angle measurement — two legs, an arc, and a "<N>°" label.
+    private static func angle(_ o: MarkupObject) -> String {
+        guard o.points.count >= 3 else { return "" }
+        let a = o.points[0], v = o.points[1], b = o.points[2]
+        let color = hex(o.stroke.nsColor)
+        let contrast = hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor))
+        let lw = o.lineWidth
+
+        func line(_ p0: CGPoint, _ p1: CGPoint, _ w: CGFloat) -> String {
+            let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""
+            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(w + max(w*0.9,3)))\" stroke-linecap=\"round\"/>\n"
+                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(w))\" stroke-linecap=\"round\"/>\n"
+        }
+
+        var out = line(v, a, lw) + line(v, b, lw)
+        let ang1 = atan2(a.y - v.y, a.x - v.x)
+        let ang2 = atan2(b.y - v.y, b.x - v.x)
+        var diff = ang2 - ang1
+        while diff <= -.pi { diff += 2 * .pi }
+        while diff >  .pi { diff -= 2 * .pi }
+        let deg = abs(diff) * 180 / .pi
+        let legLen = min(hypot(a.x-v.x, a.y-v.y), hypot(b.x-v.x, b.y-v.y))
+        let radius = max(14, min(legLen * 0.4, 44))
+        if legLen > 4 {
+            // Arc as a polyline.
+            var pts: [String] = []
+            for i in 0...40 {
+                let ang = ang1 + diff * CGFloat(i) / 40
+                pts.append("\(num(v.x + cos(ang)*radius)),\(num(v.y + sin(ang)*radius))")
+            }
+            let aw = max(1, lw * 0.8)
+            let poly = "<polyline points=\"\(pts.joined(separator: " "))\" fill=\"none\""
+            out += "\(poly) stroke=\"\(contrast)\" stroke-width=\"\(num(aw + max(aw*0.9,3)))\" stroke-linecap=\"round\"/>\n"
+            out += "\(poly) stroke=\"\(color)\" stroke-width=\"\(num(aw))\" stroke-linecap=\"round\"/>\n"
+            // Label.
+            let bis = ang1 + diff / 2
+            let lr = radius + 16
+            let fontSize = max(13, lw * 3.5)
+            let lp = CGPoint(x: v.x + cos(bis)*lr, y: v.y + sin(bis)*lr + fontSize*0.35)
+            out += "<text x=\"\(num(lp.x))\" y=\"\(num(lp.y))\" text-anchor=\"middle\" "
+                + "font-family=\"sans-serif\" font-size=\"\(num(fontSize))\" font-weight=\"700\" "
+                + "fill=\"\(color)\" stroke=\"\(contrast)\" stroke-width=\"\(num(fontSize*0.12))\" "
+                + "stroke-linejoin=\"round\" paint-order=\"stroke\">\(Int(deg.rounded()))°</text>\n"
+        }
         return out
     }
 
