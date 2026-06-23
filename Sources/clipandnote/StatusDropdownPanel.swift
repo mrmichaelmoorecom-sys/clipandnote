@@ -20,47 +20,21 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
 
     override init() {
         super.init()
-        // NSPopover defaults to the .popover NSVisualEffectMaterial — a
-        // deliberately light, very-translucent vibrancy. Pinning the
-        // appearance to .vibrantDark makes the chrome (including the arrow
-        // tail) render in dark mode in either system theme, but the body
-        // still uses .popover, which on a dark theme is only mildly dark.
-        // To get a genuinely dark menu-style backdrop we also walk the
-        // popover's window once it shows and force every NSVisualEffectView
-        // inside to .menu material (see popoverDidShow). That's the only
-        // entry point AppKit gives us into NSPopover's private chrome view.
+        // No opaque views inside the popover content — that's the rule.
+        // NSPopover paints both the body AND the arrow tail with its native
+        // vibrancy material, but only on the parts of the popover where our
+        // content isn't drawing something opaque on top. Earlier attempts
+        // added an NSVisualEffectView + tint backdrop here; in AppKit those
+        // are the equivalent of putting a SwiftUI Form or .background(...)
+        // at the root — they obscure NSPopover's material, leaving the
+        // arrow tail empty (the tail is drawn outside our content's bounds,
+        // so it stops receiving a fill the moment we paint over the body).
+        // With a transparent content tree, vibrancy comes through edge-to-
+        // edge including the tail.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
-
-        // Dark NSVisualEffectView backdrop INSIDE our content. NSPopover's
-        // chrome in modern macOS doesn't expose an NSVisualEffectView we can
-        // override from the outside (popoverDidShow finds nothing), so we
-        // make the body dark ourselves by stacking .menu material at .active
-        // state inside the popover's content.
-        let backdrop = NSVisualEffectView()
-        backdrop.material = .menu
-        backdrop.blendingMode = .behindWindow
-        backdrop.state = .active
-        backdrop.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(backdrop)
-        // Tint over the vibrancy — pushes the dark from "Apple's dark .menu"
-        // toward the saturated dark-blue look in your clipandcue reference.
-        let tint = NSView()
-        tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.18).cgColor
-        tint.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(tint)
-
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            backdrop.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            backdrop.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            backdrop.topAnchor.constraint(equalTo: host.topAnchor),
-            backdrop.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-            tint.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            tint.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            tint.topAnchor.constraint(equalTo: host.topAnchor),
-            tint.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
