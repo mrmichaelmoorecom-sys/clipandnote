@@ -515,21 +515,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var mergeSelection: MergeSelectionWindowController?
 
-    /// Pop the thumbnail picker (newest first) and merge the ticked markups.
+    /// Pop the thumbnail picker and merge the ticked markups; the picker
+    /// controls sort order (= page order) and whether to add page numbers.
     private func chooseAndMergePDF() {
         let ordered = MarkupLibrary.shared.entries.sorted { $0.createdAt > $1.createdAt }
-        let wc = MergeSelectionWindowController(entries: ordered) { [weak self] selected in
+        let wc = MergeSelectionWindowController(entries: ordered) { [weak self] selected, paginate in
             guard !selected.isEmpty else { return }
-            self?.exportAllPDF(selected)
+            self?.exportAllPDF(selected, paginate: paginate)
             self?.mergeSelection = nil
         }
         mergeSelection = wc
         wc.show()
     }
 
-    private func exportAllPDF(_ entries: [MarkupLibrary.Entry]) {
+    private func exportAllPDF(_ entries: [MarkupLibrary.Entry], paginate: Bool = false) {
         let docs = entries.compactMap { MarkupLibrary.shared.document($0.id) }
-        guard let pdf = MarkupExporter.multiPagePDF(docs) else { return }
+        guard let pdf = MarkupExporter.multiPagePDF(docs, paginate: paginate) else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
         panel.nameFieldStringValue = "clipandnote markups.pdf"

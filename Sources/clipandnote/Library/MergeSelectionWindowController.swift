@@ -1,19 +1,38 @@
 import AppKit
 
 /// A picker for "Export All ▸ Merge into PDF": lists every saved markup as a
-/// thumbnail + checkbox, newest first, so you tick exactly which ones (and in
-/// what order, most-recent → oldest) get combined into a single PDF.
+/// thumbnail + checkbox so you tick exactly which ones get combined into a
+/// single PDF. The list is sortable (the order here = the PDF page order), and
+/// an optional "Add page numbers" toggle stamps each page.
 final class MergeSelectionWindowController: NSWindowController {
-    private let entries: [MarkupLibrary.Entry]
-    private var checked: [Bool]
+    /// Sort orders offered for the list (and therefore the PDF page order).
+    private enum SortOrder: Int, CaseIterable {
+        case newest, oldest, nameAZ, nameZA
+        var title: String {
+            switch self {
+            case .newest: return "Newest first"
+            case .oldest: return "Oldest first"
+            case .nameAZ: return "Name (A–Z)"
+            case .nameZA: return "Name (Z–A)"
+            }
+        }
+    }
+
+    private var ordered: [MarkupLibrary.Entry]      // current display/page order
+    private var checkedIDs: Set<UUID>               // checked by id, survives re-sort
+    private var sortOrder: SortOrder = .newest
+    private var paginate = false
+
+    private let listStack = NSStackView()
     private var checkboxes: [NSButton] = []
     private var countLabel: NSTextField!
     private var mergeButton: NSButton!
-    private let onMerge: ([MarkupLibrary.Entry]) -> Void
+    /// Selected entries (in current sort order) + whether to stamp page numbers.
+    private let onMerge: ([MarkupLibrary.Entry], Bool) -> Void
 
-    init(entries: [MarkupLibrary.Entry], onMerge: @escaping ([MarkupLibrary.Entry]) -> Void) {
-        self.entries = entries
-        self.checked = Array(repeating: true, count: entries.count)
+    init(entries: [MarkupLibrary.Entry], onMerge: @escaping ([MarkupLibrary.Entry], Bool) -> Void) {
+        self.ordered = entries
+        self.checkedIDs = Set(entries.map { $0.id })   // all ticked initially
         self.onMerge = onMerge
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 560),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -21,7 +40,9 @@ final class MergeSelectionWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
+        applySort()
         build()
+        rebuildRows()
         updateCount()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
@@ -33,17 +54,30 @@ final class MergeSelectionWindowController: NSWindowController {
     private func build() {
         let container = NSView()
 
-        let title = NSTextField(labelWithString: "Tick the markups to combine, newest first:")
+        let title = NSTextField(labelWithString: "Tick the markups to combine — Sort sets the page order:")
         title.font = .systemFont(ofSize: 12)
         title.translatesAutoresizingMaskIntoConstraints = false
 
+        // Sort control (sets list + PDF page order).
+        let sortLabel = NSTextField(labelWithString: "Sort:")
+        sortLabel.font = .systemFont(ofSize: 12)
+        sortLabel.textColor = .secondaryLabelColor
+        let sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        sortPopup.controlSize = .small
+        sortPopup.addItems(withTitles: SortOrder.allCases.map { $0.title })
+        sortPopup.selectItem(at: sortOrder.rawValue)
+        sortPopup.target = self
+        sortPopup.action = #selector(sortChanged(_:))
+        let sortRow = NSStackView(views: [sortLabel, sortPopup, NSView()])
+        sortRow.orientation = .horizontal
+        sortRow.spacing = 8
+        sortRow.translatesAutoresizingMaskIntoConstraints = false
+
         // Scrolling list of selectable rows.
-        let list = NSStackView()
-        list.orientation = .vertical
-        list.alignment = .leading
-        list.spacing = 6
-        list.translatesAutoresizingMaskIntoConstraints = false
-        for i in entries.indices { list.addArrangedSubview(makeRow(i)) }
+        listStack.orientation = .vertical
+        listStack.alignment = .leading
+        listStack.spacing = 6
+        listStack.translatesAutoresizingMaskIntoConstraints = false
 
         let clip = NSScrollView()
         clip.hasVerticalScroller = true
@@ -51,15 +85,21 @@ final class MergeSelectionWindowController: NSWindowController {
         clip.translatesAutoresizingMaskIntoConstraints = false
         let doc = NSView()
         doc.translatesAutoresizingMaskIntoConstraints = false
-        doc.addSubview(list)
+        doc.addSubview(listStack)
         clip.documentView = doc
         NSLayoutConstraint.activate([
-            list.topAnchor.constraint(equalTo: doc.topAnchor, constant: 4),
-            list.leadingAnchor.constraint(equalTo: doc.leadingAnchor, constant: 4),
-            list.trailingAnchor.constraint(equalTo: doc.trailingAnchor, constant: -4),
-            list.bottomAnchor.constraint(equalTo: doc.bottomAnchor, constant: -4),
+            listStack.topAnchor.constraint(equalTo: doc.topAnchor, constant: 4),
+            listStack.leadingAnchor.constraint(equalTo: doc.leadingAnchor, constant: 4),
+            listStack.trailingAnchor.constraint(equalTo: doc.trailingAnchor, constant: -4),
+            listStack.bottomAnchor.constraint(equalTo: doc.bottomAnchor, constant: -4),
             doc.widthAnchor.constraint(equalTo: clip.widthAnchor),
         ])
+
+        // Page-numbers toggle.
+        let pageNumbers = NSButton(checkboxWithTitle: "Add page numbers",
+                                   target: self, action: #selector(togglePaginate(_:)))
+        pageNumbers.state = paginate ? .on : .off
+        pageNumbers.font = .systemFont(ofSize: 12)
 
         // Footer: select all/none + count + actions.
         let selectAll = NSButton(title: "All", target: self, action: #selector(checkAll(_:)))
@@ -78,12 +118,13 @@ final class MergeSelectionWindowController: NSWindowController {
         mergeButton.keyEquivalent = "\r"
 
         let footer = NSStackView(views: [selectAll, selectNone, countLabel,
-                                         NSView(), cancel, mergeButton])
+                                         NSView(), pageNumbers, cancel, mergeButton])
         footer.orientation = .horizontal
         footer.spacing = 8
         footer.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubview(title)
+        container.addSubview(sortRow)
         container.addSubview(clip)
         container.addSubview(footer)
         NSLayoutConstraint.activate([
@@ -91,7 +132,11 @@ final class MergeSelectionWindowController: NSWindowController {
             title.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 18),
             title.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -18),
 
-            clip.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10),
+            sortRow.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
+            sortRow.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 18),
+            sortRow.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -18),
+
+            clip.topAnchor.constraint(equalTo: sortRow.bottomAnchor, constant: 10),
             clip.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 18),
             clip.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -18),
 
@@ -103,10 +148,20 @@ final class MergeSelectionWindowController: NSWindowController {
         window?.contentView = container
     }
 
+    // MARK: Rows
+
+    /// Rebuild every row from `ordered`; checkbox tags = current index so a
+    /// re-sort just re-tags. Checked state comes from `checkedIDs` (by id).
+    private func rebuildRows() {
+        listStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        checkboxes.removeAll()
+        for i in ordered.indices { listStack.addArrangedSubview(makeRow(i)) }
+    }
+
     private func makeRow(_ i: Int) -> NSView {
-        let entry = entries[i]
+        let entry = ordered[i]
         let check = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggle(_:)))
-        check.state = .on
+        check.state = checkedIDs.contains(entry.id) ? .on : .off
         check.tag = i
         checkboxes.append(check)
 
@@ -143,28 +198,50 @@ final class MergeSelectionWindowController: NSWindowController {
         return row
     }
 
+    private func applySort() {
+        switch sortOrder {
+        case .newest: ordered.sort { $0.createdAt > $1.createdAt }
+        case .oldest: ordered.sort { $0.createdAt < $1.createdAt }
+        case .nameAZ: ordered.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .nameZA: ordered.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+        }
+    }
+
     private func updateCount() {
-        let n = checked.filter { $0 }.count
+        let n = checkedIDs.count
         countLabel.stringValue = "\(n) selected"
         mergeButton.isEnabled = n > 0
     }
 
+    // MARK: Actions
+
+    @objc private func sortChanged(_ sender: NSPopUpButton) {
+        guard let order = SortOrder(rawValue: sender.indexOfSelectedItem) else { return }
+        sortOrder = order
+        applySort()
+        rebuildRows()
+    }
+
+    @objc private func togglePaginate(_ sender: NSButton) { paginate = (sender.state == .on) }
+
     @objc private func toggle(_ sender: NSButton) {
-        checked[sender.tag] = (sender.state == .on)
+        let id = ordered[sender.tag].id
+        if sender.state == .on { checkedIDs.insert(id) } else { checkedIDs.remove(id) }
         updateCount()
     }
     @objc private func checkAll(_ sender: Any?) { setAll(true) }
     @objc private func checkNone(_ sender: Any?) { setAll(false) }
     private func setAll(_ on: Bool) {
-        for i in checked.indices { checked[i] = on; checkboxes[i].state = on ? .on : .off }
+        checkedIDs = on ? Set(ordered.map { $0.id }) : []
+        checkboxes.forEach { $0.state = on ? .on : .off }
         updateCount()
     }
 
     @objc private func cancel(_ sender: Any?) { close() }
     @objc private func merge(_ sender: Any?) {
-        let selected = entries.enumerated().filter { checked[$0.offset] }.map { $0.element }
+        let selected = ordered.filter { checkedIDs.contains($0.id) }   // keeps sort order
         close()
-        onMerge(selected)
+        onMerge(selected, paginate)
     }
 
     func show() {
