@@ -752,7 +752,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// active tool — used when the user clicks the grey backdrop around the
     /// canvas to "drop" the selection so they can copy/share the whole
     /// markup, but still have the same tool active for the next stroke.
+    /// Also finishes any in-progress text editing first, so clicking outside
+    /// the canvas with the text tool commits the text (or discards it if
+    /// empty) instead of leaving the editor stuck open.
     func deselectAll() {
+        if editingID != nil { commitTextEditing() }
         guard !selectedIDs.isEmpty else { return }
         selectedIDs = []
         needsDisplay = true
