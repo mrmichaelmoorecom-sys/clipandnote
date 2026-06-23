@@ -1,13 +1,14 @@
 import AppKit
+import Vision
 
 /// The active drawing tool. `.select` manipulates existing objects; the rest
 /// create new objects of the corresponding kind.
 enum Tool: Equatable {
-    case select, crop, arrow, doubleArrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
+    case select, ocr, crop, arrow, doubleArrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
 
     var markupKind: MarkupKind? {
         switch self {
-        case .select, .crop: return nil
+        case .select, .crop, .ocr: return nil   // ocr extracts text, doesn't add a mark
         case .arrow:       return .arrow
         case .doubleArrow: return .doubleArrow
         case .line:        return .line
@@ -64,7 +65,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Single-key tool shortcuts.
     static let toolShortcuts: [String: Tool] = [
-        "v": .select, "c": .crop, "a": .arrow, "d": .doubleArrow,
+        "v": .select, "i": .ocr, "c": .crop, "a": .arrow, "d": .doubleArrow,
         "l": .line, "r": .rectangle, "o": .ellipse,
         "p": .freehand, "t": .text, "h": .highlighter, "x": .pixelate,
     ]
@@ -92,13 +93,18 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     // Drag state
-    private enum DragKind { case create, move, resize(Handle), endpoint(Int), crop, marquee }
+    private enum DragKind { case create, move, resize(Handle), endpoint(Int), crop, marquee, ocr }
     private var drag: DragKind?
     /// In-progress marquee rectangle (select tool, dragging over empty canvas).
     private var marqueeRect: CGRect = .zero
     /// Pre-drag snapshot of every selected object, for moving a group together.
     private var preDragGroup: [UUID: MarkupObject] = [:]
     private var cropRect: CGRect = .zero
+    /// In-progress OCR-grab rectangle (text-grab tool).
+    private var ocrRect: CGRect = .zero
+    /// Briefly-shown HUD ("Copied 47 chars", etc.). Reset by hideOCRHud(_:).
+    private var ocrHudMessage: String?
+    private var ocrHudOk: Bool = true
 
     /// Fired after a crop changes the canvas size (so the toolbar can refit).
     var onCropped: (() -> Void)?
@@ -221,6 +227,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
             dim.fill()
             NSColor.controlAccentColor.setStroke()
             let border = NSBezierPath(rect: cropRect); border.lineWidth = 1.5; border.stroke()
+        }
+
+        // OCR selection rectangle (lighter than crop — we're just grabbing
+        // text, not destructively modifying the canvas).
+        if case .ocr = drag, ocrRect.width > 0, ocrRect.height > 0 {
+            NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
+            NSBezierPath(rect: ocrRect).fill()
+            NSColor.controlAccentColor.setStroke()
+            let border = NSBezierPath(rect: ocrRect); border.lineWidth = 1.5; border.stroke()
+        }
+
+        // Brief "Copied N chars" / "No text found" HUD after an OCR grab.
+        if let msg = ocrHudMessage {
+            drawOCRHud(msg, ok: ocrHudOk)
         }
 
         // Hairline border so the canvas reads as a distinct card against the
@@ -377,6 +397,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
 
+        if tool == .ocr {
+            drag = .ocr
+            dragStart = p
+            ocrRect = CGRect(origin: p, size: .zero)
+            selectedID = nil
+            needsDisplay = true
+            return
+        }
+
         // Creating a new object.
         guard let kind = tool.markupKind else { return }
 
@@ -440,6 +469,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             cropRect = rect(from: dragStart, to: p)
             needsDisplay = true
             return
+        case .ocr:
+            ocrRect = rect(from: dragStart, to: p)
+            needsDisplay = true
+            return
         case .marquee:
             marqueeRect = rect(from: dragStart, to: p)
             // Select every object the rubber-band touches (the base snapshot
@@ -489,7 +522,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             pts[i] = p
             document.objects[idx].points = pts
             document.objects[idx].recomputeBounds()
-        case .move, .crop, .marquee:
+        case .move, .crop, .marquee, .ocr:
             break   // handled above
         }
         needsDisplay = true
@@ -500,6 +533,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
             drag = nil
             applyCrop(cropRect)
             cropRect = .zero
+            return
+        }
+        if case .ocr = drag {
+            drag = nil
+            let r = ocrRect.standardized
+            ocrRect = .zero
+            runOCR(on: r)
+            needsDisplay = true
             return
         }
         if case .marquee = drag {
@@ -955,6 +996,92 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Crop the canvas to `rect` (canvas coords): shift the base image + objects,
     /// drop objects that fall entirely outside, and resize the canvas.
+    // MARK: OCR (text grab)
+
+    /// Run Vision OCR on the base-image region under `rect` (canvas coords) and
+    /// drop the recognised text on the clipboard. Cancellable and non-blocking.
+    private func runOCR(on rect: CGRect) {
+        guard rect.width >= 8, rect.height >= 8 else { return }
+        guard let base = document.baseImage,
+              let baseCG = base.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            showOCRHud("No screenshot to read.", ok: false); return
+        }
+        // Canvas coords → base-image pixel coords.
+        let baseFrame = document.baseImageFrame
+        let sx = base.size.width  / max(1, baseFrame.width)
+        let sy = base.size.height / max(1, baseFrame.height)
+        let imgX = (rect.minX - baseFrame.minX) * sx
+        let imgY = (rect.minY - baseFrame.minY) * sy
+        let imgW = rect.width  * sx
+        let imgH = rect.height * sy
+        // CGImage is top-left origin in pixel space, same as our flipped canvas.
+        let cropRect = CGRect(x: imgX, y: imgY, width: imgW, height: imgH)
+            .intersection(CGRect(origin: .zero, size: base.size))
+        guard cropRect.width >= 4, cropRect.height >= 4,
+              let cropped = baseCG.cropping(to: cropRect) else {
+            showOCRHud("Outside the screenshot.", ok: false); return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            try? VNImageRequestHandler(cgImage: cropped, options: [:]).perform([request])
+            let lines = (request.results ?? []).compactMap { (o: VNRecognizedTextObservation) in
+                o.topCandidates(1).first?.string
+            }
+            let text = lines.joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if text.isEmpty {
+                    self.showOCRHud("No text found.", ok: false)
+                } else {
+                    let pb = NSPasteboard.general
+                    pb.clearContents()
+                    pb.setString(text, forType: .string)
+                    self.showOCRHud("Copied \(text.count) char\(text.count == 1 ? "" : "s")",
+                                     ok: true)
+                }
+            }
+        }
+    }
+
+    /// Show the OCR HUD label and auto-hide it after 1.6 s.
+    private func showOCRHud(_ message: String, ok: Bool) {
+        ocrHudMessage = message
+        ocrHudOk = ok
+        needsDisplay = true
+        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(hideOCRHud),
+                                               object: nil)
+        perform(#selector(hideOCRHud), with: nil, afterDelay: 1.6)
+    }
+
+    @objc private func hideOCRHud() {
+        ocrHudMessage = nil
+        needsDisplay = true
+    }
+
+    /// A rounded chip at the top-centre of the canvas showing the OCR result.
+    private func drawOCRHud(_ message: String, ok: Bool) {
+        let pad: CGFloat = 10
+        let font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: NSColor.white,
+        ]
+        let textSize = (message as NSString).size(withAttributes: attrs)
+        let chipSize = NSSize(width: textSize.width + pad * 2, height: textSize.height + 8)
+        let chip = NSRect(x: (bounds.width - chipSize.width) / 2,
+                          y: 16,                                // 16pt from top in flipped coords
+                          width: chipSize.width, height: chipSize.height)
+        let bg = (ok ? NSColor.systemGreen : NSColor.systemRed).withAlphaComponent(0.92)
+        bg.setFill()
+        NSBezierPath(roundedRect: chip, xRadius: chipSize.height / 2,
+                     yRadius: chipSize.height / 2).fill()
+        (message as NSString).draw(at: NSPoint(x: chip.minX + pad, y: chip.minY + 4),
+                                    withAttributes: attrs)
+    }
+
     private func applyCrop(_ rect: CGRect) {
         let crop = rect.standardized
         guard crop.width >= 8, crop.height >= 8 else { needsDisplay = true; return }

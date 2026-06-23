@@ -25,16 +25,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
         (.select, "cursorarrow", "Select", "V"),
+        (.ocr, "text.viewfinder", "Grab Text  (OCR)", "I"),
         (.crop, "crop", "Crop", "C"),
         (.pixelate, "mosaic", "Pixelate", "X"),
         (.arrow, "arrow.up.left", "Arrow", "A"),
         (.doubleArrow, "arrow.left.and.right", "Curved Double Arrow", "D"),
         (.line, "line.diagonal", "Line", "L"),
+        (.freehand, "scribble", "Pen", "P"),
+        (.highlighter, "highlighter", "Highlighter", "H"),
         (.rectangle, "rectangle", "Rectangle", "R"),
         (.ellipse, "circle", "Ellipse", "O"),
-        (.freehand, "scribble", "Pen", "P"),
         (.text, "textformat", "Text", "T"),
-        (.highlighter, "highlighter", "Highlighter", "H"),
     ]
     private var toolButtons: [ToolButton] = []
     private var colors: ColorPaletteView!
@@ -101,7 +102,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case .highlighter: return "highlighter"
         case .pixelate: return "pixelate"
         case .doubleArrow: return "doublearrow"
-        case .select, .crop, .arrow: return nil   // keep their built-in glyphs
+        case .select, .crop, .arrow, .ocr: return nil   // keep their built-in glyphs
         }
     }
 

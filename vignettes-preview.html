@@ -11,7 +11,7 @@
 :root{
   --thistle:#d0bcd5; --lilac:#a29ab1; --grape:#524c61; --shadow:#1f1b25; --cyan:#e0fbfc;
   --tint:#f3edf4; --cream:#fffdfe; --ink:#241f2b; --ink-soft:#6b6175; --line:rgba(36,31,43,.10);
-  --red:#c9476b; --blue:#2c6e9e; --yellow:#ffe06a; --r:18px; --shadow-lg:0 18px 50px -22px rgba(50,40,60,.45);
+  --red:#c9476b; --blue:#2c6e9e; --green:#2f9e6e; --yellow:#ffe06a; --r:18px; --shadow-lg:0 18px 50px -22px rgba(50,40,60,.45);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{background:var(--cream)}
@@ -19,129 +19,99 @@ body{font-family:'Outfit',-apple-system,system-ui,sans-serif;color:var(--ink);li
   background:linear-gradient(125deg,#fffdfe 0%,#f3edf4 45%,#f7f1f8 60%,#fffdfe 100%);min-height:100vh;padding:48px 24px 80px}
 .serif{font-family:'Instrument Serif',Georgia,serif;font-style:italic}
 .wrap{max-width:1040px;margin:0 auto}
-.lead{text-align:center;max-width:640px;margin:0 auto 12px}
+.lead{text-align:center;max-width:660px;margin:0 auto 12px}
 .lead .kicker{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lilac)}
 .lead h1{font-size:clamp(30px,4.4vw,44px);margin-top:10px;letter-spacing:-.02em}
 .lead p{color:var(--ink-soft);font-size:17px;margin-top:12px}
 .note{text-align:center;color:var(--ink-soft);font-size:13.5px;margin:14px auto 40px;max-width:560px}
 
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:34px}
-@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.band3{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+@media (max-width:860px){.band3{grid-template-columns:1fr;max-width:400px;margin:0 auto}}
 .vig{display:flex;flex-direction:column;align-items:center}
-.cap{margin-top:18px;text-align:center;font-size:17px;font-weight:600;color:var(--ink);max-width:330px}
+.cap{margin-top:16px;text-align:center;font-size:16px;font-weight:600;color:var(--ink);max-width:300px}
 .cap b{color:var(--grape)}
-.cap .sub{display:block;font-size:13px;font-weight:500;color:var(--ink-soft);margin-top:4px}
+.cap .sub{display:block;font-size:12.5px;font-weight:500;color:var(--ink-soft);margin-top:4px}
 
 /* mac window chrome */
 .macwin{width:100%;max-width:380px;background:#fff;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-lg);overflow:hidden}
 .macbar{display:flex;align-items:center;gap:7px;padding:10px 13px;background:#f1ecf2;border-bottom:1px solid var(--line)}
 .dot{width:11px;height:11px;border-radius:50%}
 .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
-.macbar .ttl{margin-left:8px;font-size:12px;color:var(--ink-soft)}
-.macbar .badge{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--grape);background:var(--tint);padding:2px 9px;border-radius:999px;letter-spacing:.02em}
-.stage{position:relative;height:230px;overflow:hidden}
+.macbar .ttl{margin-left:8px;font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.macbar .badge{margin-left:auto;font-size:10px;font-weight:700;color:var(--grape);background:var(--tint);padding:2px 8px;border-radius:999px;letter-spacing:.02em;flex-shrink:0}
+.stage{position:relative;height:226px;overflow:hidden}
 svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 
-/* generic draw animation */
-.draw{stroke-dasharray:var(--len,300);stroke-dashoffset:var(--len,300)}
+/* ---------- 1. LIFT TEXT / OCR ---------- */
+.app-ocr{position:absolute;inset:0;background:#2b2740;display:flex;align-items:center;justify-content:center}
+.slide{width:84%;height:62%;border-radius:10px;background:linear-gradient(150deg,#5a4f7d,#7d6aa6);position:relative;overflow:hidden;box-shadow:0 14px 30px -16px rgba(0,0,0,.5)}
+.slide:before{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.10)}
+.slide .stl{position:absolute;left:18px;top:24px;color:#fff;font-weight:800;font-size:17px;letter-spacing:-.01em}
+.slide .ssub{position:absolute;left:18px;top:50px;color:rgba(255,255,255,.82);font-size:10.5px;font-weight:500}
+.marquee{position:absolute;left:9%;top:24%;width:62%;height:34%;border:1.5px dashed var(--cyan);border-radius:6px;
+  background:rgba(224,251,252,.12);opacity:0}
+.ocrout{position:absolute;left:50%;bottom:12px;transform:translateX(-50%) translateY(14px);width:80%;opacity:0;
+  background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 26px -12px rgba(0,0,0,.45);padding:10px 12px}
+.ocrout .o1{font-size:12px;font-weight:700;color:var(--ink)}
+.ocrout .o2{font-size:10px;color:var(--ink-soft);margin-top:2px}
+.ocrout .copied{display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:9.5px;font-weight:700;color:var(--green);
+  background:rgba(47,158,110,.12);padding:2px 8px;border-radius:999px}
+@keyframes ocr-mq{0%,16%{opacity:0}24%,42%{opacity:1}50%{opacity:.35}54%,100%{opacity:0}}
+@keyframes ocr-out{0%,44%{opacity:0;transform:translateX(-50%) translateY(14px)}56%,82%{opacity:1;transform:translateX(-50%) translateY(0)}92%,100%{opacity:0;transform:translateX(-50%) translateY(14px)}}
+.marquee{animation:ocr-mq 7s ease-in-out infinite}
+.ocrout{animation:ocr-out 7s ease-in-out infinite}
 
-/* ---------- 1. BUG REPORT ---------- */
-.app1{position:absolute;inset:0;background:linear-gradient(160deg,#eef0f5,#e4e8f0);padding:20px}
-.app1 .panel{background:#fff;border-radius:10px;border:1px solid var(--line);padding:16px;height:100%;box-shadow:0 6px 18px -12px rgba(40,40,60,.4)}
-.app1 .h{height:9px;width:46%;background:#dfe3ec;border-radius:5px}
-.app1 .row{height:8px;background:#eceef4;border-radius:4px;margin-top:11px}
-.app1 .field{margin-top:13px;height:30px;border:1px solid #e2e5ee;border-radius:7px;background:#fafbfd}
-.app1 .pay{position:relative;margin-top:16px;height:34px;border-radius:8px;background:linear-gradient(180deg,#5b6bd6,#4554c0);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700}
-.bugbox{position:absolute;left:18px;top:171px;width:calc(100% - 36px);height:38px}
-.bugbox rect{fill:none;stroke:var(--red);stroke-width:3;rx:8}
-.bugarrow{stroke:var(--red);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.sendchip{position:absolute;right:14px;top:14px;display:flex;align-items:center;gap:6px;background:var(--grape);color:#fff;
-  font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;opacity:0;transform:translateY(-6px) scale(.9)}
-@keyframes v1box{0%,8%{stroke-dashoffset:300}26%,68%{stroke-dashoffset:0}82%,100%{stroke-dashoffset:300}}
-@keyframes v1arrow{0%,30%{stroke-dashoffset:160}48%,68%{stroke-dashoffset:0}82%,100%{stroke-dashoffset:160}}
-@keyframes v1chip{0%,55%{opacity:0;transform:translateY(-6px) scale(.9)}66%,82%{opacity:1;transform:translateY(0) scale(1)}94%,100%{opacity:0;transform:translateY(-6px) scale(.9)}}
-@keyframes v1pulse{0%,55%{box-shadow:0 0 0 0 rgba(201,71,107,0)}62%{box-shadow:0 0 0 6px rgba(201,71,107,.18)}72%,100%{box-shadow:0 0 0 0 rgba(201,71,107,0)}}
-.bugbox rect{stroke-dasharray:300;animation:v1box 7s ease-in-out infinite}
-.bugarrow{stroke-dasharray:160;animation:v1arrow 7s ease-in-out infinite}
-.sendchip{animation:v1chip 7s ease-in-out infinite}
-.app1 .pay{animation:v1pulse 7s ease-in-out infinite}
+/* ---------- 2. COACH'S PLAYBOOK ---------- */
+.app-field{position:absolute;inset:0;background:repeating-linear-gradient(90deg,#3f9d5a 0 38px,#46a862 38px 76px)}
+.app-field .mk{position:absolute;border:2px solid rgba(255,255,255,.7)}
+.fieldline{position:absolute;left:50%;top:8%;bottom:8%;width:2px;background:rgba(255,255,255,.7);transform:translateX(-50%)}
+.fieldcirc{position:absolute;left:50%;top:50%;width:70px;height:70px;border:2px solid rgba(255,255,255,.7);border-radius:50%;transform:translate(-50%,-50%)}
+.player{position:absolute;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:#fff;opacity:0;transform:scale(.3)}
+.player.r{background:var(--red)}.player.b{background:var(--blue)}
+.p1{left:24%;top:32%}.p2{left:30%;top:64%}.p3{left:62%;top:46%}
+.runarrow{stroke:var(--yellow);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.ball{position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:1.5px solid #1f1b25;opacity:0;left:30%;top:64%}
+@keyframes pl-pop{0%,8%{opacity:0;transform:scale(.3)}16%{opacity:1;transform:scale(1.15)}22%,84%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.3)}}
+@keyframes pl-pop2{0%,16%{opacity:0;transform:scale(.3)}24%{opacity:1;transform:scale(1.15)}30%,84%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.3)}}
+@keyframes pl-pop3{0%,24%{opacity:0;transform:scale(.3)}32%{opacity:1;transform:scale(1.15)}38%,84%{opacity:1;transform:scale(1)}92%,100%{opacity:0;transform:scale(.3)}}
+@keyframes run-draw{0%,38%{stroke-dashoffset:200}58%,84%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:200}}
+@keyframes ball-go{0%,40%{opacity:0;left:30%;top:64%}48%{opacity:1}66%{opacity:1;left:60%;top:47%}74%,100%{opacity:0;left:60%;top:47%}}
+.p1{animation:pl-pop 7s ease-in-out infinite}
+.p2{animation:pl-pop2 7s ease-in-out infinite}
+.p3{animation:pl-pop3 7s ease-in-out infinite}
+.runarrow{stroke-dasharray:200;animation:run-draw 7s ease-in-out infinite}
+.ball{animation:ball-go 7s ease-in-out infinite}
 
-/* ---------- 2. REDACT ---------- */
-.app2{position:absolute;inset:0;background:#fff;padding:18px 20px}
-.app2 .inv-h{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.02em}
-.app2 .inv-sub{font-size:10px;color:var(--ink-soft);margin-top:2px}
-.app2 .line{display:flex;justify-content:space-between;font-size:11px;margin-top:14px;color:var(--ink-soft)}
-.app2 .line .v{color:var(--ink);font-weight:600}
-.app2 .secret{position:relative;margin-top:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fbfafc}
-.app2 .secret .lbl{font-size:9.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em}
-.app2 .secret .num{font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--ink);margin-top:3px;font-family:ui-monospace,Menlo,monospace}
-.mosaic{position:absolute;left:0;top:0;height:100%;width:0;overflow:hidden;border-radius:7px;
-  background-image:
-    linear-gradient(45deg,#b9a7c4 25%,transparent 25%,transparent 75%,#b9a7c4 75%),
-    linear-gradient(45deg,#b9a7c4 25%,#cdbed6 25%,#cdbed6 75%,#b9a7c4 75%);
-  background-size:9px 9px;background-position:0 0,4.5px 4.5px}
-.cursor2{position:absolute;width:16px;height:16px;opacity:0}
-@keyframes v2wipe{0%,12%{width:0}40%,72%{width:100%}88%,100%{width:0}}
-@keyframes v2cursor{0%,12%{opacity:0;left:8px}18%{opacity:1}40%{opacity:1;left:88%}48%{opacity:0}100%{opacity:0;left:8px}}
-.mosaic{animation:v2wipe 7s ease-in-out infinite}
-.cursor2{animation:v2cursor 7s ease-in-out infinite}
+/* ---------- 3. HOUSE / SHOPPING ---------- */
+.app-room{position:absolute;inset:0;background:linear-gradient(180deg,#efe9e0 0 62%,#d9cbb6 62% 100%)}
+.app-room .win{position:absolute;left:14%;top:16%;width:34%;height:42%;background:linear-gradient(160deg,#cdeafe,#a9d6f5);border:5px solid #fff;border-radius:4px;box-shadow:0 6px 14px -8px rgba(0,0,0,.3)}
+.app-room .win:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 45%,rgba(255,255,255,.6) 50%,transparent 55%)}
+.app-room .sofa{position:absolute;right:12%;bottom:16%;width:30%;height:20%;background:#9c8f7e;border-radius:8px 8px 4px 4px}
+.app-room .plant{position:absolute;left:10%;bottom:16%;width:8%;height:26%;background:#6f8f5a;border-radius:50% 50% 4px 4px}
+.app-room .closet{position:absolute;right:14%;top:14%;width:14%;height:24%;background:#c9bba6;border:2px solid #b3a489;border-radius:3px}
+.lovecirc{stroke:var(--red);stroke-width:3;fill:none;stroke-linecap:round}
+.xmark{stroke:var(--grape);stroke-width:3.5;fill:none;stroke-linecap:round}
+.tag{position:absolute;display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:7px;
+  box-shadow:0 6px 14px -7px rgba(0,0,0,.4);opacity:0;transform:translateY(-5px)}
+.tag.love{left:16%;top:7%;background:#fff;border:1.5px solid var(--red);color:var(--red)}
+.tag.small{right:8%;top:42%;background:#fff;border:1.5px solid var(--grape);color:var(--grape)}
+@keyframes house-c{0%,12%{stroke-dashoffset:150}30%,84%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:150}}
+@keyframes house-lt{0%,22%{opacity:0;transform:translateY(-5px)}32%,84%{opacity:1;transform:translateY(0)}92%,100%{opacity:0;transform:translateY(-5px)}}
+@keyframes house-x{0%,40%{stroke-dashoffset:70}56%,84%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:70}}
+@keyframes house-st{0%,50%{opacity:0;transform:translateY(-5px)}60%,84%{opacity:1;transform:translateY(0)}92%,100%{opacity:0;transform:translateY(-5px)}}
+.lovecirc{stroke-dasharray:150;animation:house-c 7s ease-in-out infinite}
+.tag.love{animation:house-lt 7s ease-in-out infinite}
+.xmark{stroke-dasharray:70;animation:house-x 7s ease-in-out infinite}
+.tag.small{animation:house-st 7s ease-in-out infinite}
 
-/* ---------- 3. DESIGN FEEDBACK ---------- */
-.app3{position:absolute;inset:0;background:#fff}
-.app3 .topbar{height:26px;background:#faf8fb;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px}
-.app3 .topbar i{width:7px;height:7px;border-radius:50%;background:#e0dce6}
-.app3 .url{margin-left:6px;font-size:9px;color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:5px;padding:2px 8px}
-.app3 .hero{padding:26px 22px}
-.app3 .ph{height:16px;width:64%;background:linear-gradient(90deg,#cdbede,#d9d0e6);border-radius:6px}
-.app3 .psub{height:8px;width:80%;background:#edeaf1;border-radius:4px;margin-top:12px}
-.app3 .psub.s2{width:55%;margin-top:7px}
-.app3 .cta{margin-top:16px;display:inline-block;height:26px;width:104px;border-radius:7px;background:var(--grape)}
-.fbarrow{stroke:var(--blue);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.fbnote{position:absolute;right:14px;top:16px;background:#fff;border:1.5px solid var(--blue);color:var(--blue);
-  font-size:10.5px;font-weight:700;padding:5px 10px;border-radius:8px;box-shadow:0 6px 16px -8px rgba(44,110,158,.5);
-  opacity:0;transform:translateY(-5px) rotate(-3deg)}
-.hl{position:absolute;left:22px;top:150px;height:30px;width:104px;background:rgba(255,224,106,.55);border-radius:5px;
-  transform-origin:left center;transform:scaleX(0);mix-blend-mode:multiply}
-@keyframes v3arrow{0%,12%{stroke-dashoffset:150}34%,72%{stroke-dashoffset:0}88%,100%{stroke-dashoffset:150}}
-@keyframes v3note{0%,30%{opacity:0;transform:translateY(-5px) rotate(-3deg)}44%,72%{opacity:1;transform:translateY(0) rotate(-3deg)}88%,100%{opacity:0;transform:translateY(-5px) rotate(-3deg)}}
-@keyframes v3hl{0%,46%{transform:scaleX(0)}62%,74%{transform:scaleX(1)}88%,100%{transform:scaleX(0)}}
-.fbarrow{stroke-dasharray:150;animation:v3arrow 7s ease-in-out infinite}
-.fbnote{animation:v3note 7s ease-in-out infinite}
-.hl{animation:v3hl 7s ease-in-out infinite}
-
-/* ---------- 4. HOW-TO / ONBOARDING ---------- */
-.app4{position:absolute;inset:0;background:linear-gradient(160deg,#f3f1f7,#eae6f0);padding:18px}
-.app4 .panel{background:#fff;border-radius:10px;border:1px solid var(--line);overflow:hidden;height:100%}
-.app4 .ph{padding:11px 14px;font-size:11px;font-weight:700;color:var(--ink);border-bottom:1px solid var(--line)}
-.app4 .opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);position:relative}
-.app4 .opt:last-child{border-bottom:none}
-.app4 .ico{width:22px;height:22px;border-radius:6px;background:var(--tint)}
-.app4 .ot{height:7px;width:42%;background:#e6e2ee;border-radius:4px}
-.app4 .opt .obox{position:absolute;inset:6px 8px;border:2px solid var(--grape);border-radius:7px;opacity:0}
-.num{position:absolute;left:-7px;top:50%;width:24px;height:24px;margin-top:-12px;border-radius:50%;background:var(--red);color:#fff;
-  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px -3px rgba(201,71,107,.6);
-  opacity:0;transform:scale(.4)}
-@keyframes pop1{0%,12%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1.15)}24%,76%{opacity:1;transform:scale(1)}88%,100%{opacity:0;transform:scale(.4)}}
-@keyframes pop2{0%,26%{opacity:0;transform:scale(.4)}32%{opacity:1;transform:scale(1.15)}38%,76%{opacity:1;transform:scale(1)}88%,100%{opacity:0;transform:scale(.4)}}
-@keyframes pop3{0%,40%{opacity:0;transform:scale(.4)}46%{opacity:1;transform:scale(1.15)}52%,76%{opacity:1;transform:scale(1)}88%,100%{opacity:0;transform:scale(.4)}}
-@keyframes box1{0%,12%{opacity:0}19%,76%{opacity:.9}88%,100%{opacity:0}}
-@keyframes box2{0%,26%{opacity:0}33%,76%{opacity:.9}88%,100%{opacity:0}}
-@keyframes box3{0%,40%{opacity:0}47%,76%{opacity:.9}88%,100%{opacity:0}}
-.n1{animation:pop1 7s ease-in-out infinite}
-.n2{animation:pop2 7s ease-in-out infinite}
-.n3{animation:pop3 7s ease-in-out infinite}
-.b1{animation:box1 7s ease-in-out infinite}
-.b2{animation:box2 7s ease-in-out infinite}
-.b3{animation:box3 7s ease-in-out infinite}
-
-/* ---------- 5. GRADING → PDF EXPORT (wide) ---------- */
+/* ---------- 4. GRADING → PDF EXPORT (wide) ---------- */
 .vig.wide{margin-top:34px}
 .vig.wide .macwin{max-width:760px}
 .vig.wide .stage{height:300px}
 .app5{position:absolute;inset:0;background:linear-gradient(160deg,#f1eef6,#e7eaf1);display:grid;grid-template-columns:1.05fr .95fr;gap:0}
 .app5 .left{position:relative;padding:20px 18px;display:flex;align-items:center;justify-content:center}
 .app5 .right{position:relative;border-left:1px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
-/* the paper being marked */
 .paper{position:relative;width:208px;height:260px;background:#fff;border-radius:8px;border:1px solid var(--line);box-shadow:0 12px 30px -16px rgba(40,40,60,.5);padding:18px 18px 14px}
 .paper .pt{font-size:11px;font-weight:700;color:var(--ink)}
 .paper .pmeta{font-size:8.5px;color:var(--ink-soft);margin-top:2px}
@@ -151,11 +121,10 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   transform:rotate(-9deg) scale(.3);opacity:0;background:rgba(255,255,255,.85)}
 .gradeStamp .g{font-size:17px}.gradeStamp .s{font-size:9px;font-weight:700}
 .circ{stroke:var(--red);stroke-width:2.5;fill:none;stroke-linecap:round}
-.check{stroke:#2f9e6e;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.check{stroke:var(--green);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .mnote{position:absolute;left:6px;display:flex;align-items:center;gap:5px;background:#fff;border:1.5px solid var(--blue);color:var(--blue);
   font-size:9px;font-weight:700;padding:3px 7px;border-radius:7px;box-shadow:0 5px 14px -7px rgba(44,110,158,.55);opacity:0;transform:translateX(-6px)}
-.mnote.m1{top:96px}.mnote.m2{top:150px;border-color:#2f9e6e;color:#2f9e6e}
-/* export stack on the right */
+.mnote.m1{top:96px}.mnote.m2{top:150px;border-color:var(--green);color:var(--green)}
 .expwrap{position:relative;width:160px;height:178px}
 .pg{position:absolute;width:118px;height:150px;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:0 10px 24px -14px rgba(40,40,60,.45);left:21px;top:8px}
 .pg .pgl{height:5px;background:#eceaf0;border-radius:3px;margin:11px 12px 0}
@@ -168,7 +137,6 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   padding:8px 15px;border-radius:11px;box-shadow:0 12px 26px -10px rgba(82,76,97,.6);white-space:nowrap}
 .pdfbadge .ct{background:rgba(255,255,255,.22);border-radius:6px;padding:1px 7px;font-size:10.5px}
 .expcap{position:absolute;top:16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--lilac)}
-
 @keyframes g-circ{0%,14%{stroke-dashoffset:170}26%,82%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:170}}
 @keyframes g-check{0%,24%{stroke-dashoffset:60}34%,82%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:60}}
 @keyframes g-note1{0%,20%{opacity:0;transform:translateX(-6px)}30%,82%{opacity:1;transform:translateX(0)}92%,100%{opacity:0;transform:translateX(-6px)}}
@@ -195,99 +163,83 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 <div class="wrap">
   <div class="lead">
     <div class="kicker">preview · in-context vignettes</div>
-    <h1 class="serif" style="font-style:normal">Five scenes, looping.</h1>
-    <p>The clipandcue-style band for clipandnote — a real screen, a capture, and the markup snapping into place. The wide one spotlights marking up a whole paper and exporting it as one layered PDF. These loop on a shared 7-second cycle.</p>
+    <h1 class="serif" style="font-style:normal">Four scenes, looping.</h1>
+    <p>The clipandcue-style band for clipandnote — a real screen and the markup snapping into place. The wide one spotlights marking up a whole stack of papers and exporting them as one layered PDF. All loop on a shared 7-second cycle.</p>
   </div>
   <p class="note">Draft mockups for review — colors, timing, and captions are all adjustable. Tell me what to tune.</p>
 
-  <div class="grid">
+  <div class="band3">
 
-    <!-- 1. BUG REPORT -->
+    <!-- 1. LIFT TEXT / OCR -->
     <div class="vig">
       <div class="macwin">
-        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">Checkout</span><span class="badge">clipandnote</span></div>
+        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">lecture-slide.png</span><span class="badge">OCR</span></div>
         <div class="stage">
-          <div class="app1">
-            <div class="panel">
-              <div class="h"></div>
-              <div class="row" style="width:80%"></div>
-              <div class="field"></div>
-              <div class="pay">Pay&nbsp;$49</div>
+          <div class="app-ocr">
+            <div class="slide">
+              <div class="stl">Designing for Focus</div>
+              <div class="ssub">Keynote · 9:00 AM · Hall B</div>
             </div>
           </div>
-          <svg class="bugbox" viewBox="0 0 344 38" preserveAspectRatio="none"><rect x="2" y="2" width="340" height="34" rx="8"/></svg>
-          <svg class="layer" viewBox="0 0 380 230"><path class="bugarrow" d="M300 120 C 300 150, 250 170, 210 188"/><path class="bugarrow" d="M226 176 L210 190 L222 198"/></svg>
-          <div class="sendchip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> #bugs</div>
+          <div class="marquee"></div>
+          <div class="ocrout">
+            <div class="o1">Designing for Focus</div>
+            <div class="o2">Keynote · 9:00 AM · Hall B</div>
+            <span class="copied"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> Copied as text</span>
+          </div>
         </div>
       </div>
-      <p class="cap">Arrow the bug, ship it to the <b>team</b>.<span class="sub">Arrow + box · the classic Skitch job</span></p>
+      <p class="cap">Grab the words out of any <b>picture</b>.<span class="sub">On-device OCR · text you can paste</span></p>
     </div>
 
-    <!-- 2. REDACT -->
+    <!-- 2. COACH'S PLAYBOOK -->
     <div class="vig">
       <div class="macwin">
-        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">Invoice.pdf</span><span class="badge">pixelate</span></div>
+        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">play_3.png</span><span class="badge">markup</span></div>
         <div class="stage">
-          <div class="app2">
-            <div class="inv-h">Invoice #2241</div>
-            <div class="inv-sub">Toy Robot Media · paid June 22</div>
-            <div class="line"><span>Subtotal</span><span class="v">$49.00</span></div>
-            <div class="line"><span>Tax</span><span class="v">$4.16</span></div>
-            <div class="secret">
-              <div class="lbl">Card on file</div>
-              <div class="num">4012&nbsp;8842&nbsp;1190&nbsp;3318</div>
-              <div class="mosaic"></div>
-            </div>
-            <svg class="cursor2" viewBox="0 0 24 24" fill="var(--grape)"><path d="M5 2l16 7-6 2-2 6-8-15z"/></svg>
+          <div class="app-field">
+            <div class="fieldline"></div>
+            <div class="fieldcirc"></div>
           </div>
+          <svg class="layer" viewBox="0 0 380 226">
+            <path class="runarrow" d="M96 78 C 150 70, 180 120, 232 104"/>
+            <path class="runarrow" d="M222 96 L236 104 L226 116"/>
+            <path class="runarrow" d="M118 150 C 150 150, 180 130, 224 110" stroke-dasharray="6 9"/>
+          </svg>
+          <div class="player r p1">1</div>
+          <div class="player b p2">7</div>
+          <div class="player r p3">9</div>
+          <div class="ball"></div>
         </div>
       </div>
-      <p class="cap">Blur what shouldn't ship, send the <b>rest</b>.<span class="sub">Pixelate · safe to share in seconds</span></p>
+      <p class="cap">Chalk the play, run it <b>back</b>.<span class="sub">Ellipse · arrow · freehand</span></p>
     </div>
 
-    <!-- 3. DESIGN FEEDBACK -->
+    <!-- 3. HOUSE / SHOPPING -->
     <div class="vig">
       <div class="macwin">
-        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">mockup — home</span><span class="badge">markup</span></div>
+        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">listing-photo.jpg</span><span class="badge">markup</span></div>
         <div class="stage">
-          <div class="app3">
-            <div class="topbar"><i></i><i></i><i></i><span class="url">clipandnote.com</span></div>
-            <div class="hero">
-              <div class="ph"></div>
-              <div class="psub"></div>
-              <div class="psub s2"></div>
-              <div class="cta"></div>
-            </div>
+          <div class="app-room">
+            <div class="win"></div>
+            <div class="closet"></div>
+            <div class="plant"></div>
+            <div class="sofa"></div>
           </div>
-          <div class="hl"></div>
-          <svg class="layer" viewBox="0 0 380 230"><path class="fbarrow" d="M300 64 C 250 60, 210 60, 168 70"/><path class="fbarrow" d="M182 60 L166 71 L178 82"/></svg>
-          <div class="fbnote">tighten ↑</div>
+          <svg class="layer" viewBox="0 0 380 226">
+            <ellipse class="lovecirc" cx="98" cy="78" rx="56" ry="46"/>
+            <path class="xmark" d="M268 40 l40 46 M308 40 l-40 46"/>
+          </svg>
+          <div class="tag love"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C.5 8 3 4 7 4c2 0 3 1 5 3 2-2 3-3 5-3 4 0 6.5 4 4.5 8C19 16.5 12 21 12 21z"/></svg> love the light</div>
+          <div class="tag small">closet too small</div>
         </div>
       </div>
-      <p class="cap">Scribble notes right on the <b>mockup</b>.<span class="sub">Arrow + text + highlighter</span></p>
-    </div>
-
-    <!-- 4. HOW-TO -->
-    <div class="vig">
-      <div class="macwin">
-        <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">Settings</span><span class="badge">walkthrough</span></div>
-        <div class="stage">
-          <div class="app4">
-            <div class="panel">
-              <div class="ph">Enable screen capture</div>
-              <div class="opt"><span class="ico"></span><span class="ot"></span><span class="obox b1"></span><span class="num n1">1</span></div>
-              <div class="opt"><span class="ico"></span><span class="ot" style="width:54%"></span><span class="obox b2"></span><span class="num n2">2</span></div>
-              <div class="opt"><span class="ico"></span><span class="ot" style="width:38%"></span><span class="obox b3"></span><span class="num n3">3</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="cap">Number the steps, send the <b>walkthrough</b>.<span class="sub">Numbered badges + boxes</span></p>
+      <p class="cap">Mark the listing before you <b>decide</b>.<span class="sub">Circle · cross-out · notes</span></p>
     </div>
 
   </div>
 
-  <!-- 5. GRADING → PDF (wide spotlight) -->
+  <!-- 4. GRADING → PDF (wide spotlight) -->
   <div class="vig wide">
     <div class="macwin">
       <div class="macbar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="ttl">Paper 3 of 24 — Othello essay</span><span class="badge">grade &amp; export</span></div>
@@ -305,7 +257,6 @@ svg.layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
               <div class="pl" style="width:60%"></div>
               <div class="pl" style="width:90%;margin-top:18px"></div>
               <div class="pl" style="width:50%"></div>
-              <!-- markups -->
               <svg class="layer" viewBox="0 0 208 260">
                 <ellipse class="circ" cx="70" cy="92" rx="34" ry="11"/>
                 <path class="check" d="M150 150 l7 8 14 -18"/>
