@@ -57,12 +57,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var strokeColor: NSColor = RGBAColor.red.nsColor
     var lineWidth: CGFloat = 4
 
-    /// Per-shape style toggles for newly-created objects. The user picks via the
-    /// tool button's long-press menu — existing marks aren't retroactively
-    /// changed, only the next one drawn.
+    /// Per-shape style toggles for newly-created objects. The user picks via
+    /// the tool button's menu — existing marks aren't retroactively changed,
+    /// only the next one drawn.
     var rectFilled: Bool = false
     var ellipseFilled: Bool = false
-    var textOutlined: Bool = false
 
     /// Fired whenever the selection changes, so the toolbar can reflect the
     /// selected object's color and width.
@@ -486,7 +485,6 @@ final class CanvasView: NSView, NSTextViewDelegate {
                                    stroke: RGBAColor(strokeColor), lineWidth: lineWidth)
             obj.fontSize = max(lineWidth * 6, 22)
             obj.fontName = fontName
-            obj.textOutlined = textOutlined ? true : nil
             document.objects.append(obj)
             selectedID = obj.id
             commitUndo()

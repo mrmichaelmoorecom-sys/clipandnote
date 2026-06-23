@@ -57,11 +57,6 @@ struct MarkupObject: Identifiable, Codable, Equatable {
     /// PNG bytes for `.image` objects (pasted or dropped images).
     var imageData: Data?
 
-    /// Text-only style toggle. `true` = stroke-only glyphs (hollow outline);
-    /// nil / false = filled with a contrast halo (the default). Optional so
-    /// older .can files (without this field) decode cleanly as filled text.
-    var textOutlined: Bool?
-
     init(kind: MarkupKind,
          id: UUID = UUID(),
          frame: CGRect = .zero,
@@ -72,8 +67,7 @@ struct MarkupObject: Identifiable, Codable, Equatable {
          text: String = "",
          fontSize: CGFloat = 28,
          fontName: String? = nil,
-         imageData: Data? = nil,
-         textOutlined: Bool? = nil) {
+         imageData: Data? = nil) {
         self.id = id
         self.kind = kind
         self.frame = frame
@@ -85,7 +79,6 @@ struct MarkupObject: Identifiable, Codable, Equatable {
         self.fontSize = fontSize
         self.fontName = fontName
         self.imageData = imageData
-        self.textOutlined = textOutlined
     }
 
     /// The resolved AppKit font for a text object (family + size), falling back

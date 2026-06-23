@@ -94,14 +94,6 @@ enum SVGExporter {
         let yBase = num(o.frame.minY + o.fontSize * 0.82)
         let common = "x=\"\(x)\" y=\"\(yBase)\" font-family=\"\(escape(family))\" "
             + "font-size=\"\(num(o.fontSize))\" font-weight=\"600\""
-
-        // Outline-only: hollow glyphs in the chosen color.
-        if o.textOutlined == true {
-            let sw = num(max(2.0, o.fontSize * 0.06))
-            return "<text \(common) fill=\"none\" stroke=\"\(color)\" stroke-width=\"\(sw)\" "
-                + "stroke-linejoin=\"round\">\(tspans)</text>\n"
-        }
-
         // Filled with contrast outline (paint-order="stroke" → outline under fill).
         let sw = num(o.fontSize * 0.06)
         return "<text \(common) fill=\"\(color)\" stroke=\"\(contrast)\" "

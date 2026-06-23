@@ -255,20 +255,6 @@ enum MarkupRenderer {
         guard !o.text.isEmpty else { return }
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
-
-        // Outline-only style: stroke the glyphs in the chosen colour, no fill.
-        if o.textOutlined == true {
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: o.resolvedFont(),
-                .foregroundColor: NSColor.clear,
-                .strokeColor: o.stroke.nsColor,
-                .strokeWidth: max(2.0, o.fontSize * 0.06),  // positive → stroke only
-                .paragraphStyle: style,
-            ]
-            NSAttributedString(string: o.text, attributes: attrs).draw(in: o.frame)
-            return
-        }
-
         let fill = o.stroke.nsColor
         let outline = contrastColor(for: fill)
 

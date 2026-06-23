@@ -559,26 +559,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         for b in toolButtons { b.isSelected = (b.tool == tool) }
     }
 
-    /// Press-and-hold the text tool: pick a font family + flip between filled
-    /// and outline-only style.
+    /// Tap the ▼ on the text tool: pick a font family.
     private func showFontMenu(from button: ToolButton) {
         let menu = NSMenu()
-
-        // Style options at the top, with a checkmark on the active one.
-        let filled = NSMenuItem(title: "Filled",
-                                action: #selector(setTextStyle(_:)), keyEquivalent: "")
-        filled.target = self
-        filled.tag = 0
-        filled.state = canvas.textOutlined ? .off : .on
-        menu.addItem(filled)
-        let outlined = NSMenuItem(title: "Outline",
-                                  action: #selector(setTextStyle(_:)), keyEquivalent: "")
-        outlined.target = self
-        outlined.tag = 1
-        outlined.state = canvas.textOutlined ? .on : .off
-        menu.addItem(outlined)
-        menu.addItem(.separator())
-
         let def = NSMenuItem(title: "System Font (default)",
                              action: #selector(pickFont(_:)), keyEquivalent: "")
         def.target = self
@@ -601,12 +584,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let family = sender.representedObject as? String ?? ""
         canvas.setActiveFont(family.isEmpty ? nil : family)
         pickTool(.text)
-    }
-
-    @objc private func setTextStyle(_ sender: NSMenuItem) {
-        canvas.textOutlined = (sender.tag == 1)
-        pickTool(.text)
-        refreshColoredToolIcons()
     }
 
     /// Press-and-hold the rectangle / ellipse buttons: pick outline or filled
