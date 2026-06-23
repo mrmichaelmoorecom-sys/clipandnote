@@ -15,6 +15,10 @@ struct RGBAColor: Codable, Equatable {
     }
 
     var nsColor: NSColor { NSColor(srgbRed: r, green: g, blue: b, alpha: a) }
+    /// Same RGB, alpha forced to 1 — for use inside a CG transparency layer
+    /// whose own setAlpha handles the object's translucency. Drawing with
+    /// `nsColor` inside such a layer would multiply alpha twice.
+    var opaqueColor: NSColor { NSColor(srgbRed: r, green: g, blue: b, alpha: 1) }
 
     static let red = RGBAColor(r: 0.93, g: 0.20, b: 0.18, a: 1)
     static let highlighter = RGBAColor(r: 1.0, g: 0.86, b: 0.18, a: 0.38)

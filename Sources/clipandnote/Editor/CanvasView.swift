@@ -934,28 +934,28 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     /// Set the active tool's opacity. Mirrors setActiveWidth/setActiveColor:
-    /// updates the canvas-wide default for the next mark, AND — if an object
-    /// is currently selected — pushes the change into that object's stroke
-    /// (and fill for highlighter / filled shapes) so editing reads as live.
+    /// updates the canvas-wide default for the next mark, AND — if one or
+    /// more objects are currently selected — pushes the change into each
+    /// selected object's stroke (and fill for highlighter / filled shapes)
+    /// so the slider reads as live editing of the whole selection.
     /// Highlighter has its own opacity backing; everything else uses
     /// strokeOpacity.
     func setActiveOpacity(_ a: CGFloat) {
         if tool == .highlighter { highlighterOpacity = a } else { strokeOpacity = a }
-        guard let id = selectedID, let idx = indexOf(id) else {
-            needsDisplay = true; return
-        }
+        guard !selectedIDs.isEmpty else { needsDisplay = true; return }
         undoSnapshot = snapshot()
-        if document.objects[idx].kind == .highlighter {
-            // Highlighter: stroke + fill share the translucent colour.
-            var c = document.objects[idx].stroke; c.a = a
-            document.objects[idx].stroke = c
-            document.objects[idx].fill = c
-        } else {
-            var s = document.objects[idx].stroke; s.a = a
-            document.objects[idx].stroke = s
-            if var f = document.objects[idx].fill {
-                f.a = a
-                document.objects[idx].fill = f
+        for i in document.objects.indices where selectedIDs.contains(document.objects[i].id) {
+            if document.objects[i].kind == .highlighter {
+                var c = document.objects[i].stroke; c.a = a
+                document.objects[i].stroke = c
+                document.objects[i].fill = c
+            } else {
+                var s = document.objects[i].stroke; s.a = a
+                document.objects[i].stroke = s
+                if var f = document.objects[i].fill {
+                    f.a = a
+                    document.objects[i].fill = f
+                }
             }
         }
         commitUndo()
@@ -971,13 +971,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             sizeTextView()
             return
         }
-        guard let id = selectedID, let idx = indexOf(id) else { return }
+        guard !selectedIDs.isEmpty else { return }
         undoSnapshot = snapshot()
-        if document.objects[idx].kind == .text {
-            document.objects[idx].fontSize = max(w * 5, 12)
-            resizeTextFrame(idx)
-        } else {
-            document.objects[idx].lineWidth = w
+        for i in document.objects.indices where selectedIDs.contains(document.objects[i].id) {
+            if document.objects[i].kind == .text {
+                document.objects[i].fontSize = max(w * 5, 12)
+                resizeTextFrame(i)
+            } else {
+                document.objects[i].lineWidth = w
+            }
         }
         commitUndo()
         needsDisplay = true

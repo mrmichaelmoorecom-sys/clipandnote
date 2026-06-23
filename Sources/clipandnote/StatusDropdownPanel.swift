@@ -22,28 +22,16 @@ final class StatusDropdownPanel: NSObject {
 
     override init() {
         super.init()
-        // NSPopover needs a view-controller whose .view fills the popover.
-        // We sandwich:
-        //   1. NSVisualEffectView (`.menu` material) — gives the saturated
-        //      dark/translucent backdrop like clipandcue. The popover's own
-        //      chrome is lighter and washed out by default.
-        //   2. Our StatusDropdownContent on top, edge-to-edge.
+        // Use the popover's own native chrome with no custom backdrop. clipandcue
+        // does the same — its content view is just SwiftUI inside an
+        // NSHostingController with no NSVisualEffectView wrapper — and the result
+        // is a lighter, more transparent dropdown that matches macOS popover
+        // styling out of the box. Stacking our own .menu visual-effect view on
+        // top of NSPopover's chrome gave a darker, blue-tinted look that didn't.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
-
-        let blur = NSVisualEffectView()
-        blur.material = .menu
-        blur.blendingMode = .behindWindow
-        blur.state = .active
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(blur)
-
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            blur.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            blur.topAnchor.constraint(equalTo: host.topAnchor),
-            blur.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
@@ -53,9 +41,6 @@ final class StatusDropdownPanel: NSObject {
         popover.contentViewController = hostController
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient        // outside-click dismisses
-        // Force dark vibrant chrome so labels in here read correctly against
-        // the dark backdrop regardless of the system theme.
-        popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
     var isShown: Bool { popover.isShown }

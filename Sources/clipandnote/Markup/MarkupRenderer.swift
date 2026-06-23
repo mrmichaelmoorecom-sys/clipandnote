@@ -7,6 +7,26 @@ import AppKit
 enum MarkupRenderer {
 
     static func draw(_ obj: MarkupObject, baseImage: NSImage?, baseFrame: CGRect) {
+        // For stroke-and-fill marks (everything except highlighter / image /
+        // pixelate), the contrast outline and the coloured body overlap. If
+        // we just lowered each colour's alpha they'd composite at different
+        // effective opacities (boundary 0.75, interior 0.5). Instead, wrap
+        // the whole mark in a CG transparency layer with global setAlpha:
+        // the inner draws run at full opacity into the layer, then the
+        // layer composites at the desired alpha exactly once. Highlighter
+        // already uses translucent fill + multiply, image / pixelate are
+        // intentionally opaque.
+        let ctx = NSGraphicsContext.current?.cgContext
+        let needsLayer: Bool
+        switch obj.kind {
+        case .image, .pixelate, .highlighter: needsLayer = false
+        default: needsLayer = obj.stroke.a < 1.0
+        }
+        if needsLayer, let ctx {
+            ctx.saveGState()
+            ctx.setAlpha(obj.stroke.a)
+            ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+        }
         switch obj.kind {
         case .rectangle:   drawRect(obj)
         case .ellipse:     drawEllipse(obj)
@@ -18,6 +38,10 @@ enum MarkupRenderer {
         case .highlighter: drawHighlighter(obj)   // translucent — no contrast edge
         case .image:       drawImage(obj)
         case .pixelate:    drawPixelate(obj, baseImage: baseImage, baseFrame: baseFrame)
+        }
+        if needsLayer, let ctx {
+            ctx.endTransparencyLayer()
+            ctx.restoreGState()
         }
     }
 
@@ -36,11 +60,11 @@ enum MarkupRenderer {
     // MARK: Stroked shapes (outline underlay → colored stroke)
 
     private static func strokeWithContrast(_ path: NSBezierPath, _ o: MarkupObject) {
-        if let fill = o.fill { fill.nsColor.setFill(); path.fill() }
+        if let fill = o.fill { fill.opaqueColor.setFill(); path.fill() }
         path.lineWidth = outlineWidth(o.lineWidth)
-        contrastColor(for: o.stroke.nsColor).setStroke(); path.stroke()
+        contrastColor(for: o.stroke.opaqueColor).setStroke(); path.stroke()
         path.lineWidth = o.lineWidth
-        o.stroke.nsColor.setStroke(); path.stroke()
+        o.stroke.opaqueColor.setStroke(); path.stroke()
     }
 
     private static func drawRect(_ o: MarkupObject) {
@@ -113,10 +137,10 @@ enum MarkupRenderer {
         path.close()
         path.lineJoinStyle = .round
 
-        contrastColor(for: o.stroke.nsColor).setStroke()
+        contrastColor(for: o.stroke.opaqueColor).setStroke()
         path.lineWidth = 3
         path.stroke()
-        o.stroke.nsColor.setFill()
+        o.stroke.opaqueColor.setFill()
         path.fill()
     }
 
@@ -234,10 +258,10 @@ enum MarkupRenderer {
         path.lineJoinStyle = .round
 
         // Contrasting outline, then the colored fill.
-        contrastColor(for: o.stroke.nsColor).setStroke()
+        contrastColor(for: o.stroke.opaqueColor).setStroke()
         path.lineWidth = 3
         path.stroke()
-        o.stroke.nsColor.setFill()
+        o.stroke.opaqueColor.setFill()
         path.fill()
     }
 
@@ -255,7 +279,7 @@ enum MarkupRenderer {
         guard !o.text.isEmpty else { return }
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
-        let fill = o.stroke.nsColor
+        let fill = o.stroke.opaqueColor
         let outline = contrastColor(for: fill)
 
         // Outline radius: a sensible % of font size, clamped so tiny text still
