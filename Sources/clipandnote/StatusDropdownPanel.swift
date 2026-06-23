@@ -39,16 +39,25 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
             content.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            // Pin host width / minimum height via Auto Layout so the popover
+            // can derive its preferredContentSize from the content (the
+            // popover.contentSize override is gone — see init notes).
+            host.widthAnchor.constraint(equalToConstant: Self.dropdownSize.width),
+            host.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.dropdownSize.height),
         ])
         hostController.view = host
         popover.contentViewController = hostController
-        popover.contentSize = Self.dropdownSize
         popover.behavior = .transient
         popover.animates = true
         // No forced appearance and no material override — the popover follows
         // the system appearance (light/dark) and uses AppKit's default
-        // `.popover` vibrancy material, exactly like clipandcue. This keeps the
-        // dropdown background identical between the two apps in both modes.
+        // `.popover` vibrancy material, exactly like clipandcue. Setting
+        // popover.contentSize explicitly interferes with how NSPopover
+        // composites the vibrancy material under the content; letting it
+        // measure the content view's intrinsic / auto-layout size matches
+        // clipandcue's `host.sizingOptions = [.preferredContentSize]`
+        // behaviour and keeps the dropdown background identical between the
+        // two apps in both modes.
         popover.delegate = self
     }
 
