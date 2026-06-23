@@ -9,6 +9,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     static let canvasMargin: CGFloat = 36
 
     private var canvas: CanvasView!
+    /// NSEvent monitor that catches mouseDown in the grey backdrop around the
+    /// canvas and drops the current selection (the scroll view's clip view
+    /// otherwise swallows those clicks). The active tool stays put.
+    private var outsideClickMonitor: Any?
     /// The `.can` file backing this window, once saved/opened.
     private(set) var fileURL: URL?
     /// The library entry this window autosaves to (every capture has one).
@@ -356,6 +360,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = container
         window.makeFirstResponder(canvas)
         window.delegate = self
+        installOutsideClickMonitor()
 
         if document.baseImage == nil && document.objects.isEmpty {
             installEmptyState(in: container, below: bar)
@@ -485,7 +490,39 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         picker.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
     }
 
-    func windowWillClose(_ notification: Notification) { autosaveNow() }
+    func windowWillClose(_ notification: Notification) {
+        autosaveNow()
+        if let m = outsideClickMonitor {
+            NSEvent.removeMonitor(m)
+            outsideClickMonitor = nil
+        }
+    }
+
+    /// Drop the canvas selection when the user clicks the grey backdrop
+    /// around the canvas. The selected object(s) lose focus so the next copy
+    /// / share / export picks up the whole markup, but the active tool stays
+    /// put — useful when you've drawn an arrow, want to capture it cleanly,
+    /// and then keep drawing more arrows without round-tripping through the
+    /// Select tool.
+    private func installOutsideClickMonitor() {
+        outsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) {
+            [weak self] event in
+            guard let self,
+                  event.window === self.window,
+                  let scroll = self.scrollView,
+                  let canvas = self.canvas
+            else { return event }
+            let winPoint = event.locationInWindow
+            let scrollRectInWin = scroll.convert(scroll.bounds, to: nil)
+            guard scrollRectInWin.contains(winPoint) else { return event }
+            // Inside the canvas card — let normal mouseDown handling run.
+            let canvasPoint = canvas.convert(winPoint, from: nil)
+            let canvasRect = CGRect(origin: .zero, size: canvas.document.canvasSize)
+            if canvasRect.contains(canvasPoint) { return event }
+            canvas.deselectAll()
+            return nil
+        }
+    }
 
     // MARK: - Empty state (blank home window)
 

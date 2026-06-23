@@ -729,6 +729,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
     }
 
+    /// Clear the current selection (single or multi) without changing the
+    /// active tool — used when the user clicks the grey backdrop around the
+    /// canvas to "drop" the selection so they can copy/share the whole
+    /// markup, but still have the same tool active for the next stroke.
+    func deselectAll() {
+        guard !selectedIDs.isEmpty else { return }
+        selectedIDs = []
+        needsDisplay = true
+    }
+
     // MARK: Z-order (layering)
 
     @objc func bringForward(_ sender: Any?) { moveSelected(by: +1) }

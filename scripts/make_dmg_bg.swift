@@ -16,21 +16,30 @@ func rgb(_ r: Int, _ g: Int, _ b: Int) -> NSColor {
     NSColor(srgbRed: CGFloat(r)/255, green: CGFloat(g)/255, blue: CGFloat(b)/255, alpha: 1)
 }
 
-// clipandnote's brand mark — extracted from Resources/menubar-icon.svg, plus a
-// rounded "cn cut" square that's part of the wordmark logo.
+// clipandnote's "mark accent" variant — the clip-mark + notepad composite
+// from img/mark_accent_v2.svg. The two-tone purple palette (#a29ab1 + #524c61)
+// matches the app icon. The external <image> reference is stripped since it
+// won't resolve when NSImage loads this string.
 let clipSVG = """
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="82 167 362 205" width="362" height="205" fill="#524c61">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512">
   <defs>
-    <mask id="cnCut" maskUnits="userSpaceOnUse" x="-2" y="0" width="510" height="512">
-      <rect x="-2" y="0" width="510" height="512" fill="#fff"/>
-      <rect x="288.857" y="211.844" width="174.536" height="172.969" rx="52.4" fill="#000"/>
-    </mask>
+    <style>
+      .st0 { fill: #a29ab1; }
+      .st1 { fill: #524c61; }
+    </style>
   </defs>
-  <g mask="url(#cnCut)">
-    <g transform="rotate(90 223 250)">
-      <path d="M293.1,180.2v133.8c0,25.7-20.8,46.5-46.5,46.5s-46.5-20.8-46.5-46.5v-145.5c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s29.1-13,29.1-29.1v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s64-28.6,64-64v-133.8h-17.5Z"/>
-    </g>
+  <path class="st0" d="M203.5,129v133.8c0,25.7-20.8,46.5-46.5,46.5s-46.5-20.8-46.5-46.5V117.3c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s29.1-13,29.1-29.1v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s64-28.6,64-64v-133.8h-17.5Z"/>
+  <g>
+    <path class="st1" d="M246.6,360.5c-25.7,0-46.5-20.8-46.5-46.5v-145.5c0-16.1,13-29.1,29.1-29.1s29.1,13,29.1,29.1v122.2c0,6.4-5.2,11.6-11.6,11.6s-11.6-5.2-11.6-11.6v-110.5h-17.5v110.5c0,16.1,13,29.1,29.1,29.1s3.6-.2,5.4-.5c2.1-13.1,11.4-23.8,23.7-27.9,0-.2,0-.4,0-.6v-122.2c0-25.7-20.8-46.5-46.5-46.5s-46.5,20.8-46.5,46.5v145.5c0,35.4,28.6,64,64,64s3.3,0,4.9-.2v-17.5c-1.6.2-3.3.3-4.9.3Z"/>
+    <rect class="st1" x="293.1" y="180.2" width="17.5" height="109.3"/>
   </g>
+  <circle class="st1" cx="311" cy="347" r="13"/>
+  <rect class="st1" x="334" y="340" width="48" height="16"/>
+  <circle class="st1" cx="311" cy="380" r="13"/>
+  <rect class="st1" x="334" y="373" width="48" height="16"/>
+  <circle class="st1" cx="311" cy="413" r="13"/>
+  <rect class="st1" x="334" y="406" width="48" height="16"/>
+  <path class="st1" d="M395.7,455.3h-105.8c-12.8,0-23.1-10.4-23.1-23.1v-103.4c0-12.8,10.4-23.1,23.1-23.1h105.8c12.8,0,23.1,10.4,23.1,23.1v103.4c0,12.8-10.4,23.1-23.1,23.1ZM289.9,320.6c-4.5,0-8.1,3.6-8.1,8.1v103.4c0,4.5,3.6,8.1,8.1,8.1h105.8c4.5,0,8.1-3.6,8.1-8.1v-103.4c0-4.5-3.6-8.1-8.1-8.1h-105.8Z"/>
 </svg>
 """
 let clipURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("cnclip.svg")
@@ -46,24 +55,27 @@ NSGraphicsContext.current = gctx
 let cg = gctx.cgContext
 cg.scaleBy(x: scale, y: scale)
 
-// Soft lavender diagonal wash — picks up clipandnote's #524c61 brand colour at
-// very low saturation so it stays as a backdrop, not a foreground.
+// Lavender diagonal wash — picks up clipandnote's brand purples at low
+// saturation. The mid-tone is noticeably deeper than the endpoints so the
+// gradient reads as a real wash rather than near-flat off-white.
 let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
     colors: [rgb(0xf6,0xf5,0xfa).cgColor,
-             rgb(0xeb,0xe8,0xf3).cgColor,
-             rgb(0xf2,0xf0,0xf8).cgColor] as CFArray,
+             rgb(0xd6,0xcf,0xe5).cgColor,
+             rgb(0xee,0xeb,0xf6).cgColor] as CFArray,
     locations: [0, 0.55, 1])!
 cg.drawLinearGradient(grad, start: CGPoint(x: 0, y: LH), end: CGPoint(x: LW, y: 0),
                       options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
 
-// Faint clipandnote mark, large, tilted, lower-right corner.
+// Mark-accent watermark — large, tilted, lower-right corner. The two-tone
+// purple shows through the wash for a brand-colored backdrop element instead
+// of a generic grey watermark.
 if let mark = NSImage(contentsOf: clipURL) {
     NSGraphicsContext.saveGraphicsState()
     cg.translateBy(x: 510, y: 150)
     cg.rotate(by: -16 * .pi / 180)
     let s: CGFloat = 300
     mark.draw(in: CGRect(x: -s/2, y: -s/2, width: s, height: s),
-              from: .zero, operation: .sourceOver, fraction: 0.10)
+              from: .zero, operation: .sourceOver, fraction: 0.22)
     NSGraphicsContext.restoreGraphicsState()
 }
 
@@ -76,19 +88,28 @@ arrow.move(to: CGPoint(x: 377, y: 200)); arrow.line(to: CGPoint(x: 350, y: 227))
 rgb(0x2e, 0x2a, 0x33).setStroke()
 arrow.stroke()
 
-// Headline — system font, soft glow against the wash.
-let text = "Snap. Mark. Share."
-let font = NSFont.systemFont(ofSize: 36, weight: .heavy)
+// Headline + subtitle — system font, soft glow against the wash. The
+// subtitle is a smaller medium-weight tagline that sits right under the
+// headline.
 let para = NSMutableParagraphStyle(); para.alignment = .center
 let glow = NSShadow(); glow.shadowColor = NSColor.white.withAlphaComponent(0.7)
 glow.shadowBlurRadius = 5; glow.shadowOffset = .zero
-let astr = NSAttributedString(string: text, attributes: [
-    .font: font,
+
+let head = NSAttributedString(string: "Snap. Mark. Share.", attributes: [
+    .font: NSFont.systemFont(ofSize: 36, weight: .heavy),
     .foregroundColor: rgb(0x2e, 0x2a, 0x33),
     .paragraphStyle: para,
     .shadow: glow])
-let ts = astr.size()
-astr.draw(at: CGPoint(x: (LW - ts.width)/2, y: LH - 36 - ts.height))
+let sub = NSAttributedString(string: "clip it. clip it good.", attributes: [
+    .font: NSFont.systemFont(ofSize: 16, weight: .medium),
+    .foregroundColor: rgb(0x2e, 0x2a, 0x33),
+    .paragraphStyle: para,
+    .shadow: glow])
+let hs = head.size()
+let ss = sub.size()
+let topMargin: CGFloat = 30
+head.draw(at: CGPoint(x: (LW - hs.width)/2, y: LH - topMargin - hs.height))
+sub.draw(at: CGPoint(x: (LW - ss.width)/2, y: LH - topMargin - hs.height - ss.height - 4))
 
 gctx.flushGraphics()
 NSGraphicsContext.restoreGraphicsState()
