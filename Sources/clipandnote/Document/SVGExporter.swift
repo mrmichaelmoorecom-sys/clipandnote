@@ -121,8 +121,8 @@ enum SVGExporter {
 
         func line(_ p0: CGPoint, _ p1: CGPoint, _ w: CGFloat) -> String {
             let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""
-            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(w + max(w*0.9,3)))\" stroke-linecap=\"round\"/>\n"
-                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(w))\" stroke-linecap=\"round\"/>\n"
+            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(w + max(w*0.9,3)))\"/>\n"
+                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(w))\"/>\n"
         }
 
         let capHalf = max(8, lw * 2.5)
@@ -141,13 +141,13 @@ enum SVGExporter {
         }
         // Graduated tick hatches (taller at 10/50/100); spacing scales with
         // length so long rulers don't blob, with a thin contrast halo.
-        let tickW = max(1, lw * 0.6)
+        let tickW = max(0.75, lw * 0.45)
         func tickLine(_ p0: CGPoint, _ p1: CGPoint) -> String {
             let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""
-            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(tickW + 0.75))\" stroke-linecap=\"round\"/>\n"
-                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(tickW))\" stroke-linecap=\"round\"/>\n"
+            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(tickW + 0.75))\"/>\n"
+                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(tickW))\"/>\n"
         }
-        let step = MarkupRenderer.rulerTickStep(length)
+        let step = MarkupRenderer.rulerTickStep(forTickWidth: tickW)
         var nTick = step
         while CGFloat(nTick) < length {
             if CGFloat(nTick) > 2, length - CGFloat(nTick) > 2,

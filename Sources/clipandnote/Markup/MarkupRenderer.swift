@@ -95,12 +95,13 @@ enum MarkupRenderer {
         return nil
     }
 
-    /// Spacing between ruler ticks, scaled to length so long rulers don't blob:
-    /// 5px on short rulers, 10px on medium, 50px on long.
-    static func rulerTickStep(_ length: CGFloat) -> Int {
-        if length > 400 { return 50 }
-        if length > 150 { return 10 }
-        return 5
+    /// Pick the tick spacing (from the graduated set) so it stays at least 5×
+    /// the tick width — a 5:1 spacing:width ratio keeps the hash marks from
+    /// colliding while still showing the finest spacing the width allows.
+    static func rulerTickStep(forTickWidth tickW: CGFloat) -> Int {
+        let minSpacing = tickW * 5
+        for s in [5, 10, 50, 100] where CGFloat(s) >= minSpacing { return s }
+        return 100
     }
 
     /// A dimension ruler: baseline a→b, perpendicular end caps, graduated tick
@@ -122,8 +123,9 @@ enum MarkupRenderer {
         let contrast = contrastColor(for: o.stroke.nsColor)
 
         // Stroke a tiny path with the contrast underlay, then the colour.
+        // Flat (butt) caps — sharp ruler marks, no rounded bulge.
         func stroked(width: CGFloat, _ build: (NSBezierPath) -> Void) {
-            let p = NSBezierPath(); p.lineCapStyle = .round; build(p)
+            let p = NSBezierPath(); p.lineCapStyle = .butt; build(p)
             p.lineWidth = width + max(width * 0.9, 3); contrast.setStroke(); p.stroke()
             p.lineWidth = width; color.setStroke(); p.stroke()
         }
@@ -156,7 +158,7 @@ enum MarkupRenderer {
         // Graduated tick hatches along the baseline, centered, with a thin
         // contrast halo. Tick spacing scales with length so long rulers don't
         // blob; skip ticks too close to either end cap.
-        let tickW = max(1, lw * 0.6)
+        let tickW = max(0.75, lw * 0.45)
         func tick(_ n: Int) {
             guard CGFloat(n) > 2, length - CGFloat(n) > 2,
                   let frac = rulerTickFraction(n) else { return }
@@ -164,11 +166,11 @@ enum MarkupRenderer {
             let m = CGPoint(x: a.x + ux * CGFloat(n), y: a.y + uy * CGFloat(n))
             let t0 = CGPoint(x: m.x + nx * h, y: m.y + ny * h)
             let t1 = CGPoint(x: m.x - nx * h, y: m.y - ny * h)
-            let p = NSBezierPath(); p.move(to: t0); p.line(to: t1); p.lineCapStyle = .round
+            let p = NSBezierPath(); p.move(to: t0); p.line(to: t1); p.lineCapStyle = .butt
             p.lineWidth = tickW + 0.75; contrast.setStroke(); p.stroke()
             p.lineWidth = tickW; color.setStroke(); p.stroke()
         }
-        let step = rulerTickStep(length)
+        let step = rulerTickStep(forTickWidth: tickW)
         var n = step
         while CGFloat(n) < length { tick(n); n += step }
 
