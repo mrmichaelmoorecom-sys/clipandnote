@@ -95,11 +95,12 @@ enum MarkupRenderer {
         return nil
     }
 
-    /// Pick the tick spacing (from the graduated set) so it stays at least 5×
-    /// the tick width — a 5:1 spacing:width ratio keeps the hash marks from
-    /// colliding while still showing the finest spacing the width allows.
+    /// Pick the tick spacing (from the graduated set) so it stays at least 2×
+    /// the tick width. The multiplier sets how soon spacing steps up as the
+    /// stroke thickens — lower = finer marks survive to wider strokes. Was 5;
+    /// 2 pushes every step-up transition to ~2.5× the line width (150% later).
     static func rulerTickStep(forTickWidth tickW: CGFloat) -> Int {
-        let minSpacing = tickW * 5
+        let minSpacing = tickW * 2
         for s in [5, 10, 50, 100] where CGFloat(s) >= minSpacing { return s }
         return 100
     }
