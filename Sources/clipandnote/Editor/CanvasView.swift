@@ -56,8 +56,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
     var strokeColor: NSColor = .black
     var lineWidth: CGFloat = 4
-    /// Translucent fill alpha used by the highlighter tool. Tunable per-canvas
-    /// via the highlighter's ▼ slider; defaults to a Skitch-style 0.38.
+    /// Alpha multiplier applied to the strokeColor when creating any new
+    /// non-highlighter mark. Tunable per-canvas via every drawing tool's
+    /// ▼ slider so the user can dial in a translucent arrow / shape / text
+    /// without changing the palette colour itself. Default 1.0 = fully opaque.
+    var strokeOpacity: CGFloat = 1.0
+    /// Highlighter's own translucency, tracked separately so picking the
+    /// highlighter restores its Skitch-style 0.38 baseline instead of
+    /// inheriting whatever opacity the user set for a different tool.
     var highlighterOpacity: CGFloat = 0.38
 
     /// Per-shape style toggles for newly-created objects. The user picks via
@@ -487,10 +493,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         }
 
+        // Strokes for non-highlighter marks inherit canvas.strokeOpacity so
+        // the per-tool ▼ slider can dial in a translucent shape / arrow /
+        // text without changing the palette colour itself.
+        var stroke = RGBAColor(strokeColor); stroke.a *= strokeOpacity
+
         if kind == .text {
             var obj = MarkupObject(kind: .text,
                                    frame: CGRect(x: p.x, y: p.y, width: 200, height: 40),
-                                   stroke: RGBAColor(strokeColor), lineWidth: lineWidth)
+                                   stroke: stroke, lineWidth: lineWidth)
             obj.fontSize = max(lineWidth * 6, 22)
             obj.fontName = fontName
             document.objects.append(obj)
@@ -501,7 +512,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
 
         var obj = MarkupObject(kind: kind,
-                               stroke: RGBAColor(strokeColor),
+                               stroke: stroke,
                                lineWidth: lineWidth)
         if kind == .highlighter {
             let f = highlighterFill(strokeColor); obj.fill = f; obj.stroke = f
@@ -509,8 +520,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if kind == .pixelate { obj.fill = nil }
         // Shape fill toggle (set via long-press on the tool button). Filled
         // shapes use the stroke colour as their fill.
-        if kind == .rectangle, rectFilled { obj.fill = RGBAColor(strokeColor) }
-        if kind == .ellipse,   ellipseFilled { obj.fill = RGBAColor(strokeColor) }
+        if kind == .rectangle, rectFilled { obj.fill = stroke }
+        if kind == .ellipse,   ellipseFilled { obj.fill = stroke }
         if obj.isPathBased {
             if obj.kind == .doubleArrow {
                 // Start, control (at start until drag computes a midpoint with

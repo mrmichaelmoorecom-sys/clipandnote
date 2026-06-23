@@ -142,22 +142,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             let b = ToolButton(tool: t.tool, symbolName: t.symbol, tooltip: "\(t.label)  (\(t.key))")
             b.isSelected = (t.tool == .select)
             b.onClick = { [weak self] in self?.pickTool(t.tool) }
-            // Every "scalar-tunable" tool gets the same ▼ → tiny slider
-            // popover. Highlighter slides opacity; text slides font size; the
-            // rest slide stroke width. A "value bubble" floats next to the
-            // knob while the user is dragging and disappears on release.
+            // Every "tunable" tool gets the same ▼ → opacity-slider popover.
+            // Width / size stay on the global toolbar slider; the per-tool
+            // triangle is unified as "how translucent is this tool's output".
+            // Rect / ellipse / text also get their non-scalar option
+            // (outline-vs-filled, font family) riding above the slider so
+            // those choices don't disappear.
             switch t.tool {
-            case .highlighter:
+            case .highlighter, .text,
+                 .arrow, .doubleArrow, .line, .freehand,
+                 .rectangle, .ellipse:
                 b.onShowMenu = { [weak self, weak b] in
                     if let b { self?.showOpacitySlider(from: b) }
-                }
-            case .text:
-                b.onShowMenu = { [weak self, weak b] in
-                    if let b { self?.showFontSizeSlider(from: b) }
-                }
-            case .arrow, .doubleArrow, .line, .freehand, .rectangle, .ellipse:
-                b.onShowMenu = { [weak self, weak b] in
-                    if let b { self?.showWidthSlider(from: b) }
                 }
             default:
                 break
@@ -621,38 +617,56 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         for b in toolButtons { b.isSelected = (b.tool == tool) }
     }
 
-    /// Tap the ▼ on a stroke-based tool (arrow, line, freehand, rect, ellipse,
-    /// doubleArrow): tiny width slider with a value bubble. Rectangle and
-    /// ellipse also get an outline-vs-filled segmented toggle riding above
-    /// the slider so they don't lose that option.
-    private func showWidthSlider(from button: ToolButton) {
-        var accessory: NSView?
+    /// Tap the ▼ on any tunable tool: opacity slider (10–100%). For
+    /// highlighter the slider edits canvas.highlighterOpacity so picking it
+    /// up later restores its Skitch-style 0.38 baseline; every other tool
+    /// edits canvas.strokeOpacity. Rect / ellipse / text also get their
+    /// non-scalar option (outline-vs-filled / font family) above the slider
+    /// so they don't lose that choice.
+    private func showOpacitySlider(from button: ToolButton) {
         let tool = button.tool
-        if tool == .rectangle || tool == .ellipse {
-            let isFilled = (tool == .rectangle) ? canvas.rectFilled : canvas.ellipseFilled
-            let seg = NSSegmentedControl(labels: ["Outline", "Filled"],
-                                         trackingMode: .selectOne,
-                                         target: self,
-                                         action: #selector(accessoryShapeStyleChanged(_:)))
-            seg.selectedSegment = isFilled ? 1 : 0
-            seg.segmentDistribution = .fillEqually
-            seg.tag = (tool == .rectangle) ? 0 : 1   // 0 = rect, 1 = ellipse
-            seg.controlSize = .small
-            seg.translatesAutoresizingMaskIntoConstraints = false
-            seg.widthAnchor.constraint(equalToConstant: 160).isActive = true
-            accessory = seg
-        }
+        let isHighlighter = (tool == .highlighter)
+        let accessory: NSView? = {
+            switch tool {
+            case .rectangle, .ellipse: return makeShapeStyleAccessory(for: tool)
+            case .text:                return makeFontFamilyAccessory()
+            default:                   return nil
+            }
+        }()
         toolValuePopover.show(from: button, config: .init(
-            label: "Width", unit: "pt", range: 1...30,
-            value: { [weak self] in Double(self?.canvas?.lineWidth ?? 4) },
+            label: "Opacity", unit: "%", range: 10...100,
+            value: { [weak self] in
+                guard let self else { return 100 }
+                return Double(isHighlighter
+                    ? self.canvas.highlighterOpacity
+                    : self.canvas.strokeOpacity) * 100
+            },
             onChange: { [weak self] v in
                 guard let self else { return }
-                self.canvas.lineWidth = CGFloat(v)
-                self.widthSlider.doubleValue = v
+                let a = CGFloat(v / 100)
+                if isHighlighter { self.canvas.highlighterOpacity = a }
+                else             { self.canvas.strokeOpacity = a }
                 self.toolButtons.forEach { $0.refreshIcon() }
             },
             onCommit: nil,
             isInteger: true), accessory: accessory)
+    }
+
+    /// Outline-vs-filled segmented control used as the rect / ellipse popover
+    /// accessory — same behaviour the old long-press menu had.
+    private func makeShapeStyleAccessory(for tool: Tool) -> NSView {
+        let isFilled = (tool == .rectangle) ? canvas.rectFilled : canvas.ellipseFilled
+        let seg = NSSegmentedControl(labels: ["Outline", "Filled"],
+                                     trackingMode: .selectOne,
+                                     target: self,
+                                     action: #selector(accessoryShapeStyleChanged(_:)))
+        seg.selectedSegment = isFilled ? 1 : 0
+        seg.segmentDistribution = .fillEqually
+        seg.tag = (tool == .rectangle) ? 0 : 1
+        seg.controlSize = .small
+        seg.translatesAutoresizingMaskIntoConstraints = false
+        seg.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        return seg
     }
 
     @objc private func accessoryShapeStyleChanged(_ sender: NSSegmentedControl) {
@@ -661,24 +675,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         toolButtons.forEach { $0.refreshIcon() }
     }
 
-    /// Tap the ▼ on the highlighter: opacity slider (0–100%).
-    private func showOpacitySlider(from button: ToolButton) {
-        toolValuePopover.show(from: button, config: .init(
-            label: "Opacity", unit: "%", range: 10...90,
-            value: { [weak self] in Double((self?.canvas?.highlighterOpacity ?? 0.38) * 100) },
-            onChange: { [weak self] v in
-                guard let self else { return }
-                self.canvas.highlighterOpacity = CGFloat(v / 100)
-                self.toolButtons.forEach { $0.refreshIcon() }
-            },
-            onCommit: nil,
-            isInteger: true))
-    }
-
-    /// Tap the ▼ on the text tool: font-family dropdown + font-size slider in
-    /// one popover. New text objects pull fontSize from canvas.lineWidth * 6,
-    /// so sliding here scales lineWidth to land at the displayed pt size.
-    private func showFontSizeSlider(from button: ToolButton) {
+    /// Font-family dropdown used as the text popover accessory — each item
+    /// rendered in its own typeface so picking is visual.
+    private func makeFontFamilyAccessory() -> NSView {
         let picker = NSPopUpButton(frame: .zero, pullsDown: false)
         picker.translatesAutoresizingMaskIntoConstraints = false
         picker.controlSize = .small
@@ -687,8 +686,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         picker.menu?.addItem(.separator())
         let currentFamily = canvas.fontName ?? ""
         for family in NSFontManager.shared.availableFontFamilies {
-            let item = NSMenuItem(title: family,
-                                  action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: family, action: nil, keyEquivalent: "")
             item.representedObject = family
             if let f = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: 12) {
                 item.attributedTitle = NSAttributedString(string: family, attributes: [.font: f])
@@ -699,17 +697,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         picker.target = self
         picker.action = #selector(accessoryFontFamilyChanged(_:))
         picker.widthAnchor.constraint(equalToConstant: 160).isActive = true
-
-        toolValuePopover.show(from: button, config: .init(
-            label: "Size", unit: "pt", range: 12...96,
-            value: { [weak self] in Double((self?.canvas?.lineWidth ?? 4) * 6) },
-            onChange: { [weak self] v in
-                guard let self else { return }
-                self.canvas.lineWidth = CGFloat(v / 6)
-                self.widthSlider.doubleValue = Double(self.canvas.lineWidth)
-            },
-            onCommit: nil,
-            isInteger: true), accessory: picker)
+        return picker
     }
 
     @objc private func accessoryFontFamilyChanged(_ sender: NSPopUpButton) {
