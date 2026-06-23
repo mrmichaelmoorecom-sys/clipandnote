@@ -125,8 +125,16 @@ enum SVGExporter {
                 + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(w))\" stroke-linecap=\"round\"/>\n"
         }
 
-        var out = line(a, b, lw)   // baseline
         let capHalf = max(8, lw * 2.5)
+        // Arrowhead FIRST (bottom layer) so the end cap + ticks sit on top.
+        let headLen = max(12, lw*3.5), headHalf = max(7, lw*2)
+        let tip = CGPoint(x: b.x + ux*headLen, y: b.y + uy*headLen)
+        let l = CGPoint(x: b.x + nx*headHalf, y: b.y + ny*headHalf)
+        let r = CGPoint(x: b.x - nx*headHalf, y: b.y - ny*headHalf)
+        let pts = "\(num(tip.x)),\(num(tip.y)) \(num(l.x)),\(num(l.y)) \(num(r.x)),\(num(r.y))"
+        var out = "<polygon points=\"\(pts)\" fill=\"\(color)\" stroke=\"\(contrast)\" "
+            + "stroke-width=\"\(num(max(1.4, lw*0.5)))\" stroke-linejoin=\"round\"/>\n"
+        out += line(a, b, lw)   // baseline
         for pt in [a, b] {
             out += line(CGPoint(x: pt.x + nx*capHalf, y: pt.y + ny*capHalf),
                         CGPoint(x: pt.x - nx*capHalf, y: pt.y - ny*capHalf), lw)
@@ -144,14 +152,6 @@ enum SVGExporter {
             }
             nTick += 5
         }
-        // Arrowhead.
-        let headLen = max(12, lw*3.5), headHalf = max(7, lw*2)
-        let tip = CGPoint(x: b.x + ux*headLen, y: b.y + uy*headLen)
-        let l = CGPoint(x: b.x + nx*headHalf, y: b.y + ny*headHalf)
-        let r = CGPoint(x: b.x - nx*headHalf, y: b.y - ny*headHalf)
-        let pts = "\(num(tip.x)),\(num(tip.y)) \(num(l.x)),\(num(l.y)) \(num(r.x)),\(num(r.y))"
-        out += "<polygon points=\"\(pts)\" fill=\"\(color)\" stroke=\"\(contrast)\" "
-            + "stroke-width=\"\(num(max(1.4, lw*0.5)))\" stroke-linejoin=\"round\"/>\n"
         // Label above the midpoint.
         let fontSize = max(13, lw * 3.5)
         let off = 14 + fontSize / 2

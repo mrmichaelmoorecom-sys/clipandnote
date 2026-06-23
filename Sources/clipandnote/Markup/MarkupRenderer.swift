@@ -120,11 +120,25 @@ enum MarkupRenderer {
             p.lineWidth = width; color.setStroke(); p.stroke()
         }
 
+        let capHalf = max(8, lw * 2.5)
+
+        // Arrowhead FIRST (bottom layer), just past the end — so the end cap
+        // and ticks render on top of it instead of the arrow covering them.
+        let headLen = max(12, lw * 3.5)
+        let headHalf = max(7, lw * 2)
+        let tip = CGPoint(x: b.x + ux * headLen, y: b.y + uy * headLen)
+        let left = CGPoint(x: b.x + nx * headHalf, y: b.y + ny * headHalf)
+        let right = CGPoint(x: b.x - nx * headHalf, y: b.y - ny * headHalf)
+        let head = NSBezierPath()
+        head.move(to: tip); head.line(to: left); head.line(to: right); head.close()
+        head.lineJoinStyle = .round
+        contrast.setStroke(); head.lineWidth = max(1.4, lw * 0.5); head.stroke()
+        color.setFill(); head.fill()
+
         // Baseline.
         stroked(width: lw) { $0.move(to: a); $0.line(to: b) }
 
         // Perpendicular end caps at both ends.
-        let capHalf = max(8, lw * 2.5)
         for pt in [a, b] {
             let c0 = CGPoint(x: pt.x + nx * capHalf, y: pt.y + ny * capHalf)
             let c1 = CGPoint(x: pt.x - nx * capHalf, y: pt.y - ny * capHalf)
@@ -147,18 +161,6 @@ enum MarkupRenderer {
         }
         var n = 5
         while CGFloat(n) < length { tick(n); n += 5 }
-
-        // Arrowhead just past the end, pointing along the measure direction.
-        let headLen = max(12, lw * 3.5)
-        let headHalf = max(7, lw * 2)
-        let tip = CGPoint(x: b.x + ux * headLen, y: b.y + uy * headLen)
-        let left = CGPoint(x: b.x + nx * headHalf, y: b.y + ny * headHalf)
-        let right = CGPoint(x: b.x - nx * headHalf, y: b.y - ny * headHalf)
-        let head = NSBezierPath()
-        head.move(to: tip); head.line(to: left); head.line(to: right); head.close()
-        head.lineJoinStyle = .round
-        contrast.setStroke(); head.lineWidth = max(1.4, lw * 0.5); head.stroke()
-        color.setFill(); head.fill()
 
         // Length label above the midpoint.
         drawRulerLabel("\(Int(length.rounded())) px",
