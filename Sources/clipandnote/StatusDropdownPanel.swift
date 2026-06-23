@@ -37,6 +37,11 @@ final class StatusDropdownPanel: NSObject {
         popover.contentViewController = hostController
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient        // outside-click dismisses
+        // Force dark vibrant chrome so the dropdown reads like clipandcue's
+        // (dark translucent backdrop) instead of following the user's system
+        // theme. Labels in here are already dynamic colours, so they invert
+        // correctly against the dark backdrop.
+        popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
     var isShown: Bool { popover.isShown }
