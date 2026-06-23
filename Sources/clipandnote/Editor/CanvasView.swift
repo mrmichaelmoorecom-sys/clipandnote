@@ -54,8 +54,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
             needsDisplay = true
         }
     }
-    var strokeColor: NSColor = RGBAColor.red.nsColor
+    var strokeColor: NSColor = .black
     var lineWidth: CGFloat = 4
+    /// Translucent fill alpha used by the highlighter tool. Tunable per-canvas
+    /// via the highlighter's ▼ slider; defaults to a Skitch-style 0.38.
+    var highlighterOpacity: CGFloat = 0.38
 
     /// Per-shape style toggles for newly-created objects. The user picks via
     /// the tool button's menu — existing marks aren't retroactively changed,
@@ -98,9 +101,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
         set { selectedIDs = newValue.map { [$0] } ?? [] }
     }
 
-    /// Translucent fill for a highlighter of the given color.
-    static func highlighterFill(_ c: NSColor) -> RGBAColor {
-        var x = RGBAColor(c); x.a = 0.38; return x
+    /// Translucent fill for a highlighter of the given color, at the canvas's
+    /// current highlighter opacity (or an explicit override).
+    static func highlighterFill(_ c: NSColor, opacity: CGFloat = 0.38) -> RGBAColor {
+        var x = RGBAColor(c); x.a = opacity; return x
+    }
+    /// Convenience wrapper that uses this canvas's tunable opacity.
+    func highlighterFill(_ c: NSColor) -> RGBAColor {
+        Self.highlighterFill(c, opacity: highlighterOpacity)
     }
 
     // Drag state
@@ -496,7 +504,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
                                stroke: RGBAColor(strokeColor),
                                lineWidth: lineWidth)
         if kind == .highlighter {
-            let f = Self.highlighterFill(strokeColor); obj.fill = f; obj.stroke = f
+            let f = highlighterFill(strokeColor); obj.fill = f; obj.stroke = f
         }
         if kind == .pixelate { obj.fill = nil }
         // Shape fill toggle (set via long-press on the tool button). Filled
@@ -895,8 +903,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard let id = selectedID, let idx = indexOf(id) else { return }
         undoSnapshot = snapshot()
         if document.objects[idx].kind == .highlighter {
-            document.objects[idx].fill = Self.highlighterFill(c)
-            document.objects[idx].stroke = Self.highlighterFill(c)
+            document.objects[idx].fill = highlighterFill(c)
+            document.objects[idx].stroke = highlighterFill(c)
         } else {
             document.objects[idx].stroke = RGBAColor(c)
         }

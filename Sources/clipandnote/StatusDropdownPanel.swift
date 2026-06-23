@@ -37,16 +37,6 @@ final class StatusDropdownPanel: NSObject {
         blur.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(blur)
 
-        // Additional translucent dark overlay on top of the vibrancy — the
-        // .menu material alone reads too light against most content. Stacking
-        // a black tint at ~30% gives the deeper saturated dark backdrop the
-        // user wants to match clipandcue.
-        let darken = NSView()
-        darken.wantsLayer = true
-        darken.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.30).cgColor
-        darken.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(darken)
-
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -54,10 +44,6 @@ final class StatusDropdownPanel: NSObject {
             blur.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             blur.topAnchor.constraint(equalTo: host.topAnchor),
             blur.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-            darken.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            darken.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            darken.topAnchor.constraint(equalTo: host.topAnchor),
-            darken.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),

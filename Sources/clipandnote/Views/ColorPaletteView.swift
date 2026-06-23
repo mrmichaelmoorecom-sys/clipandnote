@@ -40,8 +40,8 @@ final class ColorPaletteView: NSView {
     var onPick: ((NSColor) -> Void)?
 
     private let presets: [NSColor] = [
-        RGBAColor.red.nsColor, .systemOrange, .systemYellow, .systemGreen,
-        .systemBlue, .systemPurple, .black, .white,
+        .black, RGBAColor.red.nsColor, .systemOrange, .systemYellow,
+        .systemGreen, .systemBlue, .systemPurple, .white,
     ]
     private var customColors: [NSColor?] = [nil, nil, nil, nil]
     private var customRoll = 0

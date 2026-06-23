@@ -13,6 +13,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// canvas and drops the current selection (the scroll view's clip view
     /// otherwise swallows those clicks). The active tool stays put.
     private var outsideClickMonitor: Any?
+    /// Shared popover used by every tool button's ▼ to surface a tiny
+    /// horizontal slider for that tool's primary scalar (width / opacity /
+    /// font size). Reused so successive openings don't stack windows.
+    private let toolValuePopover = ToolValuePopover()
     /// The `.can` file backing this window, once saved/opened.
     private(set) var fileURL: URL?
     /// The library entry this window autosaves to (every capture has one).
@@ -138,16 +142,25 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             let b = ToolButton(tool: t.tool, symbolName: t.symbol, tooltip: "\(t.label)  (\(t.key))")
             b.isSelected = (t.tool == .select)
             b.onClick = { [weak self] in self?.pickTool(t.tool) }
-            if t.tool == .text {
-                b.onShowMenu = { [weak self, weak b] in if let b { self?.showFontMenu(from: b) } }
-            }
-            // Tap the ▼ on the rectangle / ellipse buttons to switch between
-            // outline and filled style for the *next* shape drawn.
-            if t.tool == .rectangle || t.tool == .ellipse {
-                let tool = t.tool
+            // Every "scalar-tunable" tool gets the same ▼ → tiny slider
+            // popover. Highlighter slides opacity; text slides font size; the
+            // rest slide stroke width. A "value bubble" floats next to the
+            // knob while the user is dragging and disappears on release.
+            switch t.tool {
+            case .highlighter:
                 b.onShowMenu = { [weak self, weak b] in
-                    if let b { self?.showShapeStyleMenu(for: tool, from: b) }
+                    if let b { self?.showOpacitySlider(from: b) }
                 }
+            case .text:
+                b.onShowMenu = { [weak self, weak b] in
+                    if let b { self?.showFontSizeSlider(from: b) }
+                }
+            case .arrow, .doubleArrow, .line, .freehand, .rectangle, .ellipse:
+                b.onShowMenu = { [weak self, weak b] in
+                    if let b { self?.showWidthSlider(from: b) }
+                }
+            default:
+                break
             }
             // The arrow tool previews the actual rendered shape (handled in
             // ToolButton.draw) — give it the active color through a closure.
@@ -163,7 +176,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                     guard let self else { return nil }
                     let fill: NSColor = colored
                         ? (t.tool == .highlighter
-                           ? CanvasView.highlighterFill(self.canvas.strokeColor).nsColor
+                           ? self.canvas.highlighterFill(self.canvas.strokeColor).nsColor
                            : self.canvas.strokeColor)
                         : .labelColor
                     // Outline matches MarkupRenderer.contrastColor — i.e. the
@@ -606,6 +619,52 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// shortcut changes the tool inside the canvas).
     private func setActiveTool(_ tool: Tool) {
         for b in toolButtons { b.isSelected = (b.tool == tool) }
+    }
+
+    /// Tap the ▼ on a stroke-based tool (arrow, line, freehand, rect, ellipse,
+    /// doubleArrow): tiny width slider with a value bubble.
+    private func showWidthSlider(from button: ToolButton) {
+        toolValuePopover.show(from: button, config: .init(
+            label: "Width", unit: "pt", range: 1...30,
+            value: { [weak self] in Double(self?.canvas?.lineWidth ?? 4) },
+            onChange: { [weak self] v in
+                guard let self else { return }
+                self.canvas.lineWidth = CGFloat(v)
+                self.widthSlider.doubleValue = v
+                self.toolButtons.forEach { $0.refreshIcon() }
+            },
+            onCommit: nil,
+            isInteger: true))
+    }
+
+    /// Tap the ▼ on the highlighter: opacity slider (0–100%).
+    private func showOpacitySlider(from button: ToolButton) {
+        toolValuePopover.show(from: button, config: .init(
+            label: "Opacity", unit: "%", range: 10...90,
+            value: { [weak self] in Double((self?.canvas?.highlighterOpacity ?? 0.38) * 100) },
+            onChange: { [weak self] v in
+                guard let self else { return }
+                self.canvas.highlighterOpacity = CGFloat(v / 100)
+                self.toolButtons.forEach { $0.refreshIcon() }
+            },
+            onCommit: nil,
+            isInteger: true))
+    }
+
+    /// Tap the ▼ on the text tool: font-size slider. New text objects pull
+    /// fontSize from canvas.lineWidth * 6, so sliding here scales lineWidth
+    /// accordingly to land at the displayed pt size.
+    private func showFontSizeSlider(from button: ToolButton) {
+        toolValuePopover.show(from: button, config: .init(
+            label: "Size", unit: "pt", range: 12...96,
+            value: { [weak self] in Double((self?.canvas?.lineWidth ?? 4) * 6) },
+            onChange: { [weak self] v in
+                guard let self else { return }
+                self.canvas.lineWidth = CGFloat(v / 6)
+                self.widthSlider.doubleValue = Double(self.canvas.lineWidth)
+            },
+            onCommit: nil,
+            isInteger: true))
     }
 
     /// Tap the ▼ on the text tool: pick a font family.
