@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
         sc.onOpenGallery = { [weak self] in self?.openGallery(nil) }
-        sc.onExportAll = { [weak self] in self?.exportAllMarkups(nil) }
+        sc.onExportSelected = { [weak self] indices in self?.exportRecents(at: indices) }
         sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc
 
@@ -428,6 +428,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Export all markups
+
+    /// Status-panel "Export" button. `indices` references the same recents list
+    /// the menu shows (newest first via `MarkupLibrary.recent(60)`). Empty
+    /// indices = "Export All".
+    private func exportRecents(at indices: [Int]) {
+        let recents = MarkupLibrary.shared.recent(60)
+        let chosen = indices.isEmpty
+            ? recents
+            : indices.compactMap { i in (i >= 0 && i < recents.count) ? recents[i] : nil }
+        guard !chosen.isEmpty else {
+            let a = NSAlert(); a.messageText = "No markups to export yet."; a.runModal(); return
+        }
+        // Same dialog the Export-All menu used, but pre-scoped to the picks.
+        let alert = NSAlert()
+        alert.messageText = "Export \(chosen.count) Markup\(chosen.count == 1 ? "" : "s")"
+        alert.informativeText = "Combine into one multi-page PDF, or write a folder of individual files."
+        alert.addButton(withTitle: "Multi-page PDF…")
+        alert.addButton(withTitle: "Folder of Files…")
+        alert.addButton(withTitle: "Cancel")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:  exportAllPDF(chosen)
+        case .alertSecondButtonReturn: exportAllFolder(chosen)
+        default: break
+        }
+    }
 
     @objc private func exportAllMarkups(_ sender: Any?) {
         let entries = MarkupLibrary.shared.recent(.max)

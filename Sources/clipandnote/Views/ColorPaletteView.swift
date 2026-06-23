@@ -15,7 +15,7 @@ final class SwatchView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
 
-    override var intrinsicContentSize: NSSize { NSSize(width: 22, height: 22) }
+    override var intrinsicContentSize: NSSize { NSSize(width: 13, height: 13) }
     override func mouseDown(with event: NSEvent) {
         if color != nil { onClick?() }
     }
@@ -59,48 +59,64 @@ final class ColorPaletteView: NSView {
     private var allColors: [NSColor?] { presets.map { Optional($0) } + customColors }
 
     private func build() {
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.spacing = 4
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        // Two stacked rows of swatches so the colour palette takes half the
+        // toolbar-width footprint without making the bar taller. Layout:
+        //   row 1: 6 presets (red / orange / yellow / green / blue / purple)
+        //   row 2: 2 presets (black / white) + 4 custom slots
+        //   side column: NSColorWell picker + eyedropper button
+        let cols = 6
+        let row1 = NSStackView(); row1.orientation = .horizontal; row1.spacing = 3
+        let row2 = NSStackView(); row2.orientation = .horizontal; row2.spacing = 3
 
-        for i in 0..<allColors.count {
+        let all = allColors
+        for i in 0..<all.count {
             let s = SwatchView()
             s.onClick = { [weak self] in self?.pick(index: i) }
             swatches.append(s)
-            stack.addArrangedSubview(s)
-            if i == presets.count - 1 {       // divider between presets and customs
-                let sep = NSBox(); sep.boxType = .separator
-                sep.translatesAutoresizingMaskIntoConstraints = false
-                sep.heightAnchor.constraint(equalToConstant: 18).isActive = true
-                stack.addArrangedSubview(sep)
-            }
+            (i < cols ? row1 : row2).addArrangedSubview(s)
         }
 
+        let grid = NSStackView(views: [row1, row2])
+        grid.orientation = .vertical
+        grid.spacing = 2
+        grid.alignment = .leading
+        grid.translatesAutoresizingMaskIntoConstraints = false
+
+        // Side controls: small picker + eyedropper, stacked vertically to match
+        // the two-row grid height.
         well.colorWellStyle = .minimal
         well.color = presets[0]
         well.target = self
         well.action = #selector(wellChanged(_:))
         well.translatesAutoresizingMaskIntoConstraints = false
-        well.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        well.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        well.widthAnchor.constraint(equalToConstant: 13).isActive = true
+        well.heightAnchor.constraint(equalToConstant: 13).isActive = true
         well.toolTip = "Pick a custom color — it’s saved to an empty slot"
-        stack.addArrangedSubview(well)
 
-        // Eyedropper: sample a color from anywhere on screen into a custom slot.
         let dropper = IconButton(symbolName: "eyedropper",
                                  tooltip: "Sample a color from anywhere on screen")
         dropper.onClick = { [weak self] in self?.sampleColor() }
         dropper.translatesAutoresizingMaskIntoConstraints = false
-        dropper.widthAnchor.constraint(equalToConstant: 24).isActive = true
-        stack.addArrangedSubview(dropper)
+        dropper.widthAnchor.constraint(equalToConstant: 13).isActive = true
+        dropper.heightAnchor.constraint(equalToConstant: 13).isActive = true
 
-        addSubview(stack)
+        let sideCol = NSStackView(views: [well, dropper])
+        sideCol.orientation = .vertical
+        sideCol.spacing = 2
+        sideCol.translatesAutoresizingMaskIntoConstraints = false
+
+        let outer = NSStackView(views: [grid, sideCol])
+        outer.orientation = .horizontal
+        outer.spacing = 6
+        outer.alignment = .centerY
+        outer.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(outer)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            outer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            outer.trailingAnchor.constraint(equalTo: trailingAnchor),
+            outer.topAnchor.constraint(equalTo: topAnchor),
+            outer.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         selected = presets[0]
         refresh()
