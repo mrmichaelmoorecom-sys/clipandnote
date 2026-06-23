@@ -4,7 +4,7 @@ import Vision
 /// The active drawing tool. `.select` manipulates existing objects; the rest
 /// create new objects of the corresponding kind.
 enum Tool: Equatable {
-    case select, ocr, crop, arrow, doubleArrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate
+    case select, ocr, crop, arrow, doubleArrow, line, rectangle, ellipse, freehand, text, highlighter, pixelate, ruler
 
     var markupKind: MarkupKind? {
         switch self {
@@ -18,6 +18,7 @@ enum Tool: Equatable {
         case .text:        return .text
         case .highlighter: return .highlighter
         case .pixelate:    return .pixelate
+        case .ruler:       return .ruler
         }
     }
 }
@@ -88,6 +89,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         "v": .select, "i": .ocr, "c": .crop, "a": .arrow, "d": .doubleArrow,
         "l": .line, "r": .rectangle, "o": .ellipse,
         "p": .freehand, "t": .text, "h": .highlighter, "x": .pixelate,
+        "m": .ruler,
     ]
 
     func selectTool(_ t: Tool) { tool = t; onToolChanged?(t) }
@@ -667,7 +669,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let degenerate: Bool
             switch o.kind {
             case .freehand: degenerate = o.points.count < 3
-            case .line, .arrow:
+            case .line, .arrow, .ruler:
                 degenerate = o.points.count < 2 ||
                     hypot(o.points[0].x - o.points[1].x, o.points[0].y - o.points[1].y) < 3
             case .doubleArrow:

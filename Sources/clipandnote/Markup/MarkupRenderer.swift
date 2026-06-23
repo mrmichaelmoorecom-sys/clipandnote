@@ -38,6 +38,7 @@ enum MarkupRenderer {
         case .highlighter: drawHighlighter(obj)   // translucent — no contrast edge
         case .image:       drawImage(obj)
         case .pixelate:    drawPixelate(obj, baseImage: baseImage, baseFrame: baseFrame)
+        case .ruler:       drawRuler(obj)
         }
         if needsLayer, let ctx {
             ctx.endTransparencyLayer()
@@ -81,6 +82,93 @@ enum MarkupRenderer {
         p.move(to: o.points[0]); p.line(to: o.points[1])
         p.lineCapStyle = .round
         strokeWithContrast(p, o)
+    }
+
+    /// A dimension ruler: baseline a→b, perpendicular end caps, evenly-spaced
+    /// minor ticks, a direction arrowhead just past the end, and a "<N> px"
+    /// length label above the midpoint. N is the straight-line distance in
+    /// canvas pixels (the canvas is 1:1 with the snapshot, so it reads true).
+    private static func drawRuler(_ o: MarkupObject) {
+        guard o.points.count >= 2 else { return }
+        let a = o.points[0], b = o.points[1]
+        let dx = b.x - a.x, dy = b.y - a.y
+        let length = hypot(dx, dy)
+        guard length > 0.5 else { return }
+        let ux = dx / length, uy = dy / length      // unit direction
+        let nx = -uy, ny = ux                        // unit perpendicular
+
+        let lw = o.lineWidth
+        let color = o.stroke.opaqueColor             // alpha handled by the layer
+        let contrast = contrastColor(for: o.stroke.nsColor)
+
+        // Stroke a tiny path with the contrast underlay, then the colour.
+        func stroked(width: CGFloat, _ build: (NSBezierPath) -> Void) {
+            let p = NSBezierPath(); p.lineCapStyle = .round; build(p)
+            p.lineWidth = width + max(width * 0.9, 3); contrast.setStroke(); p.stroke()
+            p.lineWidth = width; color.setStroke(); p.stroke()
+        }
+
+        // Baseline.
+        stroked(width: lw) { $0.move(to: a); $0.line(to: b) }
+
+        // Perpendicular end caps at both ends.
+        let capHalf = max(8, lw * 2.5)
+        for pt in [a, b] {
+            let c0 = CGPoint(x: pt.x + nx * capHalf, y: pt.y + ny * capHalf)
+            let c1 = CGPoint(x: pt.x - nx * capHalf, y: pt.y - ny * capHalf)
+            stroked(width: lw) { $0.move(to: c0); $0.line(to: c1) }
+        }
+
+        // Minor ticks ~every 16px, capped, skipping the very ends.
+        let tickHalf = capHalf * 0.45
+        let segments = max(2, min(20, Int(length / 16)))
+        for i in 1..<segments {
+            let t = CGFloat(i) / CGFloat(segments)
+            let m = CGPoint(x: a.x + dx * t, y: a.y + dy * t)
+            let t0 = CGPoint(x: m.x + nx * tickHalf, y: m.y + ny * tickHalf)
+            let t1 = CGPoint(x: m.x - nx * tickHalf, y: m.y - ny * tickHalf)
+            stroked(width: max(1, lw * 0.7)) { $0.move(to: t0); $0.line(to: t1) }
+        }
+
+        // Arrowhead just past the end, pointing along the measure direction.
+        let headLen = max(12, lw * 3.5)
+        let headHalf = max(7, lw * 2)
+        let tip = CGPoint(x: b.x + ux * headLen, y: b.y + uy * headLen)
+        let left = CGPoint(x: b.x + nx * headHalf, y: b.y + ny * headHalf)
+        let right = CGPoint(x: b.x - nx * headHalf, y: b.y - ny * headHalf)
+        let head = NSBezierPath()
+        head.move(to: tip); head.line(to: left); head.line(to: right); head.close()
+        head.lineJoinStyle = .round
+        contrast.setStroke(); head.lineWidth = max(1.4, lw * 0.5); head.stroke()
+        color.setFill(); head.fill()
+
+        // Length label above the midpoint.
+        drawRulerLabel("\(Int(length.rounded())) px",
+                       mid: CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2),
+                       perp: CGPoint(x: nx, y: ny), o: o)
+    }
+
+    /// Horizontal (screen-aligned) length label with an 8-direction contrast
+    /// halo so it reads on any background, offset above the baseline.
+    private static func drawRulerLabel(_ text: String, mid: CGPoint, perp: CGPoint, o: MarkupObject) {
+        let font = NSFont.systemFont(ofSize: max(13, o.lineWidth * 3.5), weight: .bold)
+        let fill = o.stroke.opaqueColor
+        let outline = contrastColor(for: o.stroke.nsColor)
+        let ns = text as NSString
+        let size = ns.size(withAttributes: [.font: font])
+        // Push above the line along the perpendicular. Canvas is flipped
+        // (top-left origin), so "above" = subtract the perpendicular.
+        let off = 14 + size.height / 2
+        let center = CGPoint(x: mid.x - perp.x * off, y: mid.y - perp.y * off)
+        let origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
+        let r: CGFloat = 2.5
+        let haloAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: outline]
+        for ang in stride(from: 0.0, to: 2 * Double.pi, by: Double.pi / 4) {
+            ns.draw(at: CGPoint(x: origin.x + CGFloat(cos(ang)) * r,
+                                y: origin.y + CGFloat(sin(ang)) * r),
+                    withAttributes: haloAttrs)
+        }
+        ns.draw(at: origin, withAttributes: [.font: font, .foregroundColor: fill])
     }
 
     private static func drawFreehand(_ o: MarkupObject) {

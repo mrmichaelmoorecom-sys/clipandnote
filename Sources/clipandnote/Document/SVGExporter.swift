@@ -56,6 +56,8 @@ enum SVGExporter {
                 + "width=\"\(num(o.frame.width))\" height=\"\(num(o.frame.height))\" "
                 + "fill=\"\(hex(fill.nsColor))\" fill-opacity=\"\(num(fill.a))\" "
                 + "style=\"mix-blend-mode:multiply\"/>\n"
+        case .ruler:
+            return ruler(o)
         case .text:
             return text(o)
         case .image:
@@ -99,6 +101,59 @@ enum SVGExporter {
         return "<text \(common) fill=\"\(color)\" stroke=\"\(contrast)\" "
             + "stroke-width=\"\(sw)\" stroke-linejoin=\"round\" "
             + "paint-order=\"stroke\">\(tspans)</text>\n"
+    }
+
+    /// Dimension ruler — baseline, caps, ticks, arrowhead, and the "<N> px"
+    /// label, mirroring MarkupRenderer.drawRuler.
+    private static func ruler(_ o: MarkupObject) -> String {
+        guard o.points.count >= 2 else { return "" }
+        let a = o.points[0], b = o.points[1]
+        let dx = b.x - a.x, dy = b.y - a.y
+        let length = hypot(dx, dy)
+        guard length > 0.5 else { return "" }
+        let ux = dx / length, uy = dy / length
+        let nx = -uy, ny = ux
+        let color = hex(o.stroke.nsColor)
+        let contrast = hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor))
+        let lw = o.lineWidth, ow = MarkupRenderer.outlineWidth(o.lineWidth)
+
+        func line(_ p0: CGPoint, _ p1: CGPoint, _ w: CGFloat) -> String {
+            let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""
+            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(w + max(w*0.9,3)))\" stroke-linecap=\"round\"/>\n"
+                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(w))\" stroke-linecap=\"round\"/>\n"
+        }
+
+        var out = line(a, b, lw)   // baseline
+        let capHalf = max(8, lw * 2.5)
+        for pt in [a, b] {
+            out += line(CGPoint(x: pt.x + nx*capHalf, y: pt.y + ny*capHalf),
+                        CGPoint(x: pt.x - nx*capHalf, y: pt.y - ny*capHalf), lw)
+        }
+        let tickHalf = capHalf * 0.45
+        let segments = max(2, min(20, Int(length / 16)))
+        for i in 1..<segments {
+            let t = CGFloat(i) / CGFloat(segments)
+            let m = CGPoint(x: a.x + dx*t, y: a.y + dy*t)
+            out += line(CGPoint(x: m.x + nx*tickHalf, y: m.y + ny*tickHalf),
+                        CGPoint(x: m.x - nx*tickHalf, y: m.y - ny*tickHalf), max(1, lw*0.7))
+        }
+        // Arrowhead.
+        let headLen = max(12, lw*3.5), headHalf = max(7, lw*2)
+        let tip = CGPoint(x: b.x + ux*headLen, y: b.y + uy*headLen)
+        let l = CGPoint(x: b.x + nx*headHalf, y: b.y + ny*headHalf)
+        let r = CGPoint(x: b.x - nx*headHalf, y: b.y - ny*headHalf)
+        let pts = "\(num(tip.x)),\(num(tip.y)) \(num(l.x)),\(num(l.y)) \(num(r.x)),\(num(r.y))"
+        out += "<polygon points=\"\(pts)\" fill=\"\(color)\" stroke=\"\(contrast)\" "
+            + "stroke-width=\"\(num(max(1.4, lw*0.5)))\" stroke-linejoin=\"round\"/>\n"
+        // Label above the midpoint.
+        let fontSize = max(13, lw * 3.5)
+        let off = 14 + fontSize / 2
+        let mid = CGPoint(x: (a.x+b.x)/2 - nx*off, y: (a.y+b.y)/2 - ny*off + fontSize*0.35)
+        out += "<text x=\"\(num(mid.x))\" y=\"\(num(mid.y))\" text-anchor=\"middle\" "
+            + "font-family=\"sans-serif\" font-size=\"\(num(fontSize))\" font-weight=\"700\" "
+            + "fill=\"\(color)\" stroke=\"\(contrast)\" stroke-width=\"\(num(fontSize*0.12))\" "
+            + "stroke-linejoin=\"round\" paint-order=\"stroke\">\(Int(length.rounded())) px</text>\n"
+        return out
     }
 
     private static func image(_ png: Data, _ frame: CGRect, pixelated: Bool) -> String {

@@ -34,6 +34,10 @@ enum MarkupKind: String, Codable {
     /// start, points[1] = control (quadratic bezier control point — drag it to
     /// shape the curve), points[2] = end.
     case doubleArrow
+    /// A dimension ruler: points[0] = start, points[1] = end. Renders end caps,
+    /// minor ticks, a direction arrowhead, and a "<N> px" length label so you
+    /// can call out exact pixel measurements in a markup.
+    case ruler
 }
 
 /// A single markup object. A deliberately flat, fully-Codable struct: a few
@@ -117,7 +121,7 @@ struct MarkupObject: Identifiable, Codable, Equatable {
     }
 
     var isPathBased: Bool {
-        kind == .line || kind == .arrow || kind == .freehand || kind == .doubleArrow
+        kind == .line || kind == .arrow || kind == .freehand || kind == .doubleArrow || kind == .ruler
     }
 
     /// A copy with a fresh id, shifted by a delta (for paste/duplicate).

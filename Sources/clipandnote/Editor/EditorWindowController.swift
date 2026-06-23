@@ -46,6 +46,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         (.arrow, "arrow.up.left", "Arrow", "A"),
         (.doubleArrow, "arrow.left.and.right", "Curved Double Arrow", "D"),
         (.line, "line.diagonal", "Line", "L"),
+        (.ruler, "ruler", "Ruler — measure in px", "M"),
         (.freehand, "scribble", "Pen", "P"),
         (.highlighter, "highlighter", "Highlighter", "H"),
         (.rectangle, "rectangle", "Rectangle", "R"),
@@ -141,7 +142,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case .highlighter: return "highlighter"
         case .pixelate: return "pixelate"
         case .doubleArrow: return "doublearrow"
-        case .select, .crop, .arrow, .ocr: return nil   // keep their built-in glyphs
+        case .select, .crop, .arrow, .ocr, .ruler: return nil   // keep their built-in glyphs
         }
     }
 
