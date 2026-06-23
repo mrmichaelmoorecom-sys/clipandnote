@@ -55,7 +55,7 @@ final class StatusDropdownModel: ObservableObject {
 /// edge-to-edge (body + arrow tail) exactly like clipandcue does. The earlier
 /// pure-AppKit content disturbed that compositing pipeline no matter how
 /// transparent we made it.
-final class StatusDropdownPanel: NSObject {
+final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
     let content = StatusDropdownModel()
     private let popover = NSPopover()
     private var hostingController: NSHostingController<StatusDropdownContentView>!
@@ -73,9 +73,29 @@ final class StatusDropdownPanel: NSObject {
         popover.contentViewController = hostingController
         popover.behavior = .transient
         popover.animates = true
-        // No appearance override. With the deployment target at macOS 13
-        // (matching clipandcue), NSPopover follows the system appearance and
-        // renders its default vibrancy material automatically.
+        popover.delegate = self
+        // No appearance override — see popoverDidShow for the material fix.
+    }
+
+    /// clipandnote is a `.regular` app (it needs Dock + editor windows), so
+    /// when its menu-bar NSPopover shows, the app is frontmost and the popover
+    /// window becomes key — which makes its vibrancy render *emphasized*
+    /// (lighter, blurrier). clipandcue is an `.accessory` agent, so its popover
+    /// stays passive and gets the darker system-menu material. To match
+    /// clipandcue (and the system Apple menu / Claude menu, which all share the
+    /// same look) we force the popover's backing NSVisualEffectView to the
+    /// `.menu` material, non-emphasized, once it's on screen.
+    func popoverDidShow(_ notification: Notification) {
+        guard let win = popover.contentViewController?.view.window,
+              let root = win.contentView else { return }
+        applyMenuMaterial(to: root)
+    }
+
+    private func applyMenuMaterial(to view: NSView) {
+        if let ve = view as? NSVisualEffectView {
+            ve.isEmphasized = false
+        }
+        for sub in view.subviews { applyMenuMaterial(to: sub) }
     }
 
     var isShown: Bool { popover.isShown }
@@ -99,10 +119,7 @@ final class StatusDropdownPanel: NSObject {
 /// material shows through edge-to-edge.
 struct StatusDropdownContentView: View {
     @ObservedObject var model: StatusDropdownModel
-
-    /// Brand purple title tint — the lighter of the two tones in
-    /// `img/mark_accent_v2.svg`.
-    private let brandPurple = Color(red: 0xa2/255.0, green: 0x9a/255.0, blue: 0xb1/255.0)
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -116,17 +133,25 @@ struct StatusDropdownContentView: View {
             footer
         }
         // Width-only frame, intrinsic height — exactly like clipandcue's
-        // `.frame(width: 380)`. A fixed height forced the popover to a
-        // 500pt box regardless of content, which rendered differently from
-        // clipandcue's content-sized popover.
+        // `.frame(width: 380)`.
         .frame(width: 320)
+        // .hudWindow material + a dark tint that the user dialled in for Dark
+        // Mode. The tint only applies in Dark Mode — a 45%-black overlay in
+        // Light Mode would muddy the light material into grey, so Light Mode
+        // gets the material untinted.
+        .background(
+            MenuMaterialBackground()
+                .overlay(colorScheme == .dark ? Color.black.opacity(0.45) : Color.clear)
+        )
     }
 
     private var header: some View {
         HStack {
             Text("clipandnote")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(brandPurple)
+                // .primary adapts to the appearance — white on the dark menu,
+                // black in Light Mode — so the title stays legible in both.
+                .foregroundColor(.primary)
             Spacer()
         }
         .padding(.horizontal, 10)
@@ -340,5 +365,30 @@ private struct RecentRowView: View {
                         .strokeBorder(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 1)
                 )
         }
+    }
+}
+
+/// SwiftUI bridge for an NSVisualEffectView rendering the system `.menu`
+/// material, non-emphasized, sampling behind the window — the same dark
+/// vibrant look macOS uses for the Apple menu, app menus, and the clipandcue
+/// dropdown. Used as the dropdown's background since clipandnote (a `.regular`
+/// app) can't get that material from NSPopover's own emphasized chrome.
+private struct MenuMaterialBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        // `.hudWindow`: darker and crisper than `.popover` (less blur), and
+        // saturated so the menu-bar / wallpaper colour reflects through the
+        // top edge — the blue-tinted look clipandcue and the system menus
+        // have. `.popover` was a touch light + too blurry; `.menu` was too
+        // dark + blurry. behindWindow blending samples the desktop behind it.
+        v.material = .hudWindow
+        v.blendingMode = .behindWindow
+        v.state = .active
+        v.isEmphasized = false
+        return v
+    }
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {
+        v.material = .hudWindow
+        v.isEmphasized = false
     }
 }
