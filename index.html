@@ -133,10 +133,11 @@ nav .brand svg{width:30px;height:30px}
 
 .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   padding:120px 24px 80px;background:radial-gradient(120% 90% at 50% 0%,rgba(208,188,213,.55) 0%,rgba(255,253,254,0) 62%);overflow:hidden}
+.herolock{transform:translateY(-40px)}
 .heromark{width:128px;height:128px;margin:0 auto 8px;display:block;filter:drop-shadow(0 10px 20px rgba(82,76,97,.32))}
 .hero h1{font-size:clamp(40px,7vw,76px);font-weight:800}
-.herodiv{width:clamp(280px,42vw,460px);height:4px;border-radius:3px;background:var(--grape);margin:18px auto 0;opacity:.85}
-.hero .tag{font-size:clamp(22px,3vw,30px);color:var(--grape);margin-top:18px}
+.herodiv{width:clamp(280px,42vw,460px);height:4px;border-radius:3px;background:var(--grape);margin:0 auto;opacity:.85}
+.hero .herohead{font-size:clamp(30px,4.4vw,46px);margin-top:12px}
 .hero .sub{font-size:clamp(18px,2.4vw,22px);color:var(--ink-soft);margin:18px auto 0;max-width:580px}
 .hero .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
 .hero .meta{margin-top:18px;font-size:14px;color:var(--ink-soft)}
@@ -151,7 +152,9 @@ nav .brand svg{width:30px;height:30px}
 .pad{padding:100px 0}
 .pad-tint{background:rgba(208,188,213,.28)}
 
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media (max-width:880px){.cards{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.cards{grid-template-columns:1fr}}
 .card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px;transition:transform .3s ease,box-shadow .3s ease}
 .card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg)}
 .card .ic{width:46px;height:46px;border-radius:13px;background:var(--tint);color:var(--grape);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
@@ -282,11 +285,15 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 
 <header class="hero">
   <div class="hero-inner">
-    <img class="heromark" data-speed="0.07" src="img/appicon_1024.png" alt="clipandnote app icon">
-    <h1>clipandnote</h1>
-    <div class="herodiv" aria-hidden="true"></div>
-    <p class="tag serif">capture it, mark it up, move on.</p>
-    <p class="sub">A fast, native macOS <strong>screenshot-markup</strong> app, a modern open take on Skitch. Snap from the menu bar, mark it up with movable objects, then copy, share, or export multi-page PDFs.</p>
+    <div class="herolock">
+      <img class="heromark" data-speed="0.07" src="img/appicon_1024.png" alt="clipandnote app icon">
+      <h1>clipandnote</h1>
+    </div>
+    <div class="shead" style="margin:97px auto 0;max-width:none">
+      <div class="herodiv" aria-hidden="true"></div>
+      <h2 class="herohead">Clip it. Note it. Share it.</h2>
+      <p class="sub">Markup your screenshots, share, export multi-page PDFs and more.</p>
+    </div>
     <div class="cta-row">
       <a href="#download" class="btn">Download for macOS</a>
       <a href="#how" class="btn ghost">See how it works</a>
@@ -311,6 +318,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
       <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div><h3>Automatic history</h3><p>Every markup is saved automatically, with your recent shots one tap away in the menu bar.</p></div>
       <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M7 3h8l5 5v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 13h6M9 17h4"/></svg></div><h3>Export real layered files</h3><p>Save an editable document, or export layered PDF, PNG, and SVG. Nothing flattened by surprise.</p></div>
       <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="11" height="15" rx="1.5"/><path d="M8 21h11a1.5 1.5 0 0 0 1.5-1.5V7"/><path d="M8 8h5M8 11h5"/></svg></div><h3>Output multi-page PDFs</h3><p>Tick the markups you want, drag them into order, and export one PDF with optional page numbers.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5h7v14H9M3 9h4M3 15h4M15 4h2a3 3 0 0 1 3 3M20 17a3 3 0 0 1-3 3h-2"/></svg></div><h3>Grab text from a shot</h3><p>Pull any text out of a screenshot with on-device OCR. Selected lines copy straight to your clipboard.</p></div>
     </div>
   </div>
 </section>
