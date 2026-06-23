@@ -37,6 +37,16 @@ final class StatusDropdownPanel: NSObject {
         blur.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(blur)
 
+        // Additional translucent dark overlay on top of the vibrancy — the
+        // .menu material alone reads too light against most content. Stacking
+        // a black tint at ~30% gives the deeper saturated dark backdrop the
+        // user wants to match clipandcue.
+        let darken = NSView()
+        darken.wantsLayer = true
+        darken.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.30).cgColor
+        darken.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(darken)
+
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -44,6 +54,10 @@ final class StatusDropdownPanel: NSObject {
             blur.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             blur.topAnchor.constraint(equalTo: host.topAnchor),
             blur.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            darken.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            darken.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            darken.topAnchor.constraint(equalTo: host.topAnchor),
+            darken.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
@@ -224,11 +238,13 @@ final class StatusDropdownContent: NSView {
         actionBar.translatesAutoresizingMaskIntoConstraints = false
 
         // -- Layout the column --
+        // separator0 underlines the app-name title (clipandcue does the same).
+        let separator0 = thinSeparator()
         let separator1 = thinSeparator()
         let separator2 = thinSeparator()
 
         let outer = NSStackView(views: [
-            captureHeader, captureColumn,
+            captureHeader, separator0, captureColumn,
             separator1,
             recentsHeader, recentsScroll,
             separator2,
@@ -238,13 +254,14 @@ final class StatusDropdownContent: NSView {
         outer.spacing = 4
         outer.alignment = .leading
         outer.distribution = .fill
-        outer.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-        outer.setCustomSpacing(2, after: captureHeader)
+        outer.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 6, right: 10)
+        outer.setCustomSpacing(6, after: captureHeader)
+        outer.setCustomSpacing(4, after: separator0)
         outer.setCustomSpacing(8, after: captureColumn)
         outer.setCustomSpacing(8, after: separator1)
         outer.setCustomSpacing(2, after: recentsHeader)
-        outer.setCustomSpacing(8, after: recentsScroll)
-        outer.setCustomSpacing(8, after: separator2)
+        outer.setCustomSpacing(4, after: recentsScroll)
+        outer.setCustomSpacing(4, after: separator2)
         outer.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(outer)
@@ -261,6 +278,7 @@ final class StatusDropdownContent: NSView {
             recentsScroll.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             recentsScroll.heightAnchor.constraint(equalToConstant: 260),
             actionBar.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
+            separator0.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             separator1.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             separator2.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
         ])
