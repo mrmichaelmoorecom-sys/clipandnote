@@ -118,7 +118,11 @@ struct StatusDropdownContentView: View {
             Divider()
             footer
         }
-        .frame(width: 320, height: 500)
+        // Width-only frame, intrinsic height — exactly like clipandcue's
+        // `.frame(width: 380)`. A fixed height forced the popover to a
+        // 500pt box regardless of content, which rendered differently from
+        // clipandcue's content-sized popover.
+        .frame(width: 320)
     }
 
     private var header: some View {
@@ -187,9 +191,11 @@ struct StatusDropdownContentView: View {
                         }
                     }
                 }
+                // maxHeight (not fixed height) so the list sizes to content up
+                // to a cap, matching clipandcue's `.frame(maxHeight: 368)`.
+                .frame(maxHeight: 300)
             }
         }
-        .frame(height: 260)
     }
 
     private var footer: some View {
