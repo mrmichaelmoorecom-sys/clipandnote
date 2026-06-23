@@ -20,12 +20,11 @@ final class StatusDropdownPanel: NSObject {
 
     override init() {
         super.init()
-        // Plain NSViewController hosting our AppKit content — NO custom
-        // NSVisualEffectView, NO SwiftUI hosting bridge. NSPopover renders
-        // its own dark-vibrant chrome (body + arrow tail in the same colour)
-        // when we pin its appearance to .vibrantDark. clipandcue relies on
-        // the system being in Dark Mode for the same look; pinning it here
-        // makes clipandnote consistent in either theme.
+        // Plain NSViewController hosting our AppKit content — no custom
+        // NSVisualEffectView, no SwiftUI hosting bridge, no appearance
+        // override. NSPopover draws its own chrome (body + arrow tail in
+        // the same colour) and inherits the system theme — matching
+        // clipandcue, which also relies on the system theme.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -40,7 +39,6 @@ final class StatusDropdownPanel: NSObject {
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
     var isShown: Bool { popover.isShown }
