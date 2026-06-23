@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 
 /// One recent-markup row's data shown in the menu-bar list.
 struct RecentRowItem {
@@ -15,28 +14,33 @@ struct RecentRowItem {
 final class StatusDropdownPanel: NSObject {
     let content = StatusDropdownContent()
     private let popover = NSPopover()
-    private var hostingController: NSHostingController<DropdownHost>!
+    private let hostController = NSViewController()
 
     private static let dropdownSize = NSSize(width: 320, height: 500)
 
     override init() {
         super.init()
-        // Wrap our AppKit StatusDropdownContent inside an NSHostingController
-        // hosting a SwiftUI view that bridges it back in via NSViewRepresentable.
-        // This matters because NSPopover renders very differently when its
-        // content view controller is NSHostingController vs a plain
-        // NSViewController: SwiftUI hosting unlocks the popover's native dark
-        // vibrant chrome (the same look clipandcue gets for free since its
-        // content is SwiftUI), which crucially makes the arrow tail render in
-        // the same colour as the body. With a plain NSViewController + our own
-        // NSVisualEffectView the body matched but the tail kept the popover's
-        // default chrome — visible colour mismatch at the anchor point.
-        hostingController = NSHostingController(rootView: DropdownHost(content: content))
-        hostingController.sizingOptions = [.preferredContentSize]
-        popover.contentViewController = hostingController
+        // Plain NSViewController hosting our AppKit content — NO custom
+        // NSVisualEffectView, NO SwiftUI hosting bridge. NSPopover renders
+        // its own dark-vibrant chrome (body + arrow tail in the same colour)
+        // when we pin its appearance to .vibrantDark. clipandcue relies on
+        // the system being in Dark Mode for the same look; pinning it here
+        // makes clipandnote consistent in either theme.
+        let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
+        host.addSubview(content)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            content.topAnchor.constraint(equalTo: host.topAnchor),
+            content.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+        ])
+        hostController.view = host
+        popover.contentViewController = hostController
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient
         popover.animates = true
+        popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
     var isShown: Bool { popover.isShown }
@@ -50,24 +54,6 @@ final class StatusDropdownPanel: NSObject {
     func close() {
         popover.performClose(nil)
     }
-}
-
-/// SwiftUI host that bridges our existing AppKit content into NSPopover via
-/// NSHostingController — the bridge is what unlocks the popover's native
-/// dark-vibrant chrome (including a matching arrow-tail colour), the same way
-/// clipandcue gets it for free since its content is already SwiftUI.
-struct DropdownHost: View {
-    let content: StatusDropdownContent
-    var body: some View {
-        DropdownContentRepresentable(content: content)
-            .frame(width: 320, height: 500)
-    }
-}
-
-private struct DropdownContentRepresentable: NSViewRepresentable {
-    let content: StatusDropdownContent
-    func makeNSView(context: Context) -> NSView { content }
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 // MARK: - Content
