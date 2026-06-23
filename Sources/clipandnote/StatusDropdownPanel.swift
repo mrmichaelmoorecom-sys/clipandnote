@@ -286,9 +286,11 @@ final class StatusDropdownContent: NSView {
     }
 
     private func thinSeparator() -> NSView {
-        let v = NSView()
-        v.wantsLayer = true
-        v.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        // Use draw(_:) so NSColor resolves against the current effective appearance
+        // at paint time — same reason WindowBackgroundView uses draw() instead of
+        // storing a CGColor on a CALayer (CGColors are frozen to the appearance
+        // that was active when .cgColor was called).
+        let v = _SeparatorLine()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.heightAnchor.constraint(equalToConstant: 1).isActive = true
         return v
@@ -317,6 +319,22 @@ final class StatusDropdownContent: NSView {
         btn.widthAnchor.constraint(equalToConstant: 32).isActive = true
         ButtonActionHolder.attach(btn, action: action)
         return btn
+    }
+}
+
+/// A 1-pt separator that re-paints `NSColor.separatorColor` in `draw(_:)` so it
+/// always resolves against the current effective appearance. Using
+/// `layer?.backgroundColor = NSColor.separatorColor.cgColor` would freeze the
+/// colour to whichever mode was active at init time — the same hazard documented
+/// in WindowBackgroundView.
+private final class _SeparatorLine: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.separatorColor.setFill()
+        bounds.fill()
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 }
 
@@ -402,6 +420,10 @@ private final class RecentRow: NSView {
     private var hovered = false { didSet { needsDisplay = true } }
     private var trackingArea: NSTrackingArea?
     private let checkbox = NSButton()
+    // Stored so viewDidChangeEffectiveAppearance can re-resolve the layer colours.
+    // (CGColor is frozen to the appearance at call time, so we can't set it once
+    // in init and leave it — same issue WindowBackgroundView documents.)
+    private let thumb = NSImageView()
 
     init(index: Int, item: RecentRowItem, checked: Bool) {
         self.index = index
@@ -423,15 +445,13 @@ private final class RecentRow: NSView {
         checkbox.setContentHuggingPriority(.required, for: .horizontal)
         checkbox.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        let thumb = NSImageView()
         thumb.imageScaling = .scaleProportionallyUpOrDown
         thumb.wantsLayer = true
         thumb.layer?.cornerRadius = 3
         thumb.layer?.borderWidth = 1
-        thumb.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
-        thumb.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         thumb.image = item.thumbnail
         thumb.translatesAutoresizingMaskIntoConstraints = false
+        applyThumbLayerColors()
 
         let title = NSTextField(labelWithString: item.title)
         title.font = .systemFont(ofSize: 12)
@@ -456,6 +476,21 @@ private final class RecentRow: NSView {
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Re-resolve the frozen-at-call-time CGColors whenever the effective
+    /// appearance changes (light ↔ dark). Without this the thumbnail border
+    /// and fill would stay locked to whichever mode was active at init time.
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyThumbLayerColors()
+    }
+
+    private func applyThumbLayerColors() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            thumb.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
+            thumb.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        }
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
