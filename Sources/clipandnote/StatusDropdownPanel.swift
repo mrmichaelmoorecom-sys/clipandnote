@@ -206,11 +206,16 @@ final class StatusDropdownContent: NSView {
         translatesAutoresizingMaskIntoConstraints = false
 
         // -- App title header + capture commands --
-        // Matches clipandcue's pattern of putting the app name at the very top
-        // of the dropdown instead of a generic section label.
+        // Matches clipandcue's pattern of putting the app name at the very
+        // top of the dropdown — coloured in clipandnote's brand purple
+        // (#a29ab1, the lighter of the two mark_accent_v2.svg tones) so it
+        // reads as branded chrome rather than a generic section label.
         let captureHeader = NSTextField(labelWithString: "clipandnote")
         captureHeader.font = .systemFont(ofSize: 13, weight: .semibold)
-        captureHeader.textColor = .labelColor
+        captureHeader.textColor = NSColor(srgbRed: 0xa2/255.0,
+                                          green: 0x9a/255.0,
+                                          blue: 0xb1/255.0,
+                                          alpha: 1)
         captureColumn.orientation = .vertical
         captureColumn.spacing = 0
         captureColumn.alignment = .leading
@@ -284,7 +289,11 @@ final class StatusDropdownContent: NSView {
         outer.spacing = 4
         outer.alignment = .leading
         outer.distribution = .fill
-        outer.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 6, right: 10)
+        // No horizontal edge inset on the stack — separators need to span
+        // the popover edge-to-edge (like NSMenu separators), and content
+        // rows get their own explicit 10pt leading/trailing constraints
+        // below. Top / bottom stay padded.
+        outer.edgeInsets = NSEdgeInsets(top: 10, left: 0, bottom: 6, right: 0)
         outer.setCustomSpacing(6, after: captureHeader)
         outer.setCustomSpacing(4, after: separator0)
         outer.setCustomSpacing(8, after: captureColumn)
@@ -295,22 +304,28 @@ final class StatusDropdownContent: NSView {
         outer.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(outer)
-        // outer's 10pt horizontal edgeInsets — pin every child width to the
-        // available content area so rows actually fill the panel (otherwise
-        // .leading alignment leaves them hugging their intrinsic width).
-        let contentInset: CGFloat = -20       // 10 left + 10 right
+        let pad: CGFloat = 10
         NSLayoutConstraint.activate([
             outer.leadingAnchor.constraint(equalTo: leadingAnchor),
             outer.trailingAnchor.constraint(equalTo: trailingAnchor),
             outer.topAnchor.constraint(equalTo: topAnchor),
             outer.bottomAnchor.constraint(equalTo: bottomAnchor),
-            captureColumn.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
-            recentsScroll.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
+
+            // Content rows — inset 10pt on each side.
+            captureHeader.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: pad),
+            captureColumn.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: pad),
+            captureColumn.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -2 * pad),
+            recentsHeader.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: pad),
+            recentsScroll.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: pad),
+            recentsScroll.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -2 * pad),
             recentsScroll.heightAnchor.constraint(equalToConstant: 260),
-            actionBar.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
-            separator0.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
-            separator1.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
-            separator2.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
+            actionBar.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: pad),
+            actionBar.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -2 * pad),
+
+            // Separators — full popover width, like NSMenu divider cells.
+            separator0.widthAnchor.constraint(equalTo: outer.widthAnchor),
+            separator1.widthAnchor.constraint(equalTo: outer.widthAnchor),
+            separator2.widthAnchor.constraint(equalTo: outer.widthAnchor),
         ])
     }
 
