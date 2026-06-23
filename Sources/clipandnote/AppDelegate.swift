@@ -221,6 +221,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(exportAllItem)
 
         fileMenu.addItem(.separator())
+        // Revert travels the responder chain to the key editor window — same
+        // pattern as Save / Save As. Disabled automatically when no editor
+        // implements revertToOriginal:.
+        let revertItem = NSMenuItem(title: "Revert clipandnote",
+                                    action: #selector(EditorWindowController.revertToOriginal(_:)),
+                                    keyEquivalent: "")
+        fileMenu.addItem(revertItem)
+
+        fileMenu.addItem(.separator())
         fileMenu.addItem(NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)),
                                     keyEquivalent: "w"))
         fileItem.submenu = fileMenu

@@ -9,6 +9,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     static let canvasMargin: CGFloat = 36
 
     private var canvas: CanvasView!
+    /// Snapshot of the document the way it was when this window was opened
+    /// (or last saved). Backs File ▸ Revert clipandnote — flipping the canvas
+    /// back to this puts the markup in its "as you first saw it" state.
+    private var originalDocument: MarkupDocument!
     /// NSEvent monitor that catches mouseDown in the grey backdrop around the
     /// canvas and drops the current selection (the scroll view's clip view
     /// otherwise swallows those clicks). The active tool stays put.
@@ -73,6 +77,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var isBlank: Bool { canvas.document.baseImage == nil && canvas.document.objects.isEmpty }
 
     convenience init(document: MarkupDocument) {
+        self.init(document: document, revertableSnapshot: document)
+    }
+
+    /// Designated init — `revertableSnapshot` is the document state Revert
+    /// will restore to. Callers that load from disk pass the loaded document;
+    /// New / fresh-capture callers pass the same fresh document.
+    convenience init(document: MarkupDocument, revertableSnapshot: MarkupDocument) {
         let canvasSize = document.canvasSize
         let minW: CGFloat = 760           // enough for the full toolbar
         let margin = Self.canvasMargin    // even breathing room around the canvas
@@ -97,6 +108,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.init(window: window)
 
         buildUI(document: document)
+        self.originalDocument = revertableSnapshot
     }
 
     /// Tools whose icon previews the colored mark they'll draw on the canvas.
@@ -813,6 +825,26 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvas.setActiveWidth(CGFloat(sender.doubleValue))
     }
 
+    /// File ▸ Revert clipandnote — restore the canvas to the document state
+    /// as it was when this window was first opened (or last saved). Confirms
+    /// because the action is destructive: anything drawn since is dropped.
+    @objc func revertToOriginal(_ sender: Any?) {
+        guard let original = originalDocument else { return }
+        let alert = NSAlert()
+        alert.messageText = "Revert clipandnote?"
+        alert.informativeText = "All marks added since this clipping was opened will be discarded. This can't be undone."
+        alert.addButton(withTitle: "Revert")
+        alert.addButton(withTitle: "Cancel")
+        guard let window = window, alert.runModal() == .alertFirstButtonReturn else { return }
+        _ = window
+        canvas.document = original
+        canvas.deselectAll()
+        canvas.needsDisplay = true
+        window.isDocumentEdited = false
+        updateSizeLabel()
+        scheduleAutosave()
+    }
+
     @objc private func opacityChanged(_ sender: NSSlider) {
         canvas.setActiveOpacity(CGFloat(sender.doubleValue / 100))
         toolButtons.forEach { $0.refreshIcon() }
@@ -871,6 +903,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         do {
             try CanFile.write(canvas.document, to: url)
             setFileURL(url)
+            // A successful save is the new "as-opened" baseline — Revert
+            // should drop to the most recent on-disk state, not all the way
+            // back to the original capture.
+            originalDocument = canvas.document
         } catch {
             if let window { NSAlert(error: error).beginSheetModal(for: window) }
         }
