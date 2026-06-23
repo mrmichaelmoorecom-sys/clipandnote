@@ -34,12 +34,24 @@ done
 
 [[ -d "$APP" ]] || { echo "error: $APP not found — run scripts/build_app.sh release '$IDENTITY' first" >&2; exit 1; }
 
-# Regenerate the background PNG → TIFF if the source script changed or the
-# TIFF isn't there yet. Cheap — takes <1s.
+# Regenerate the background PNG → HiDPI TIFF if the source script changed or
+# the TIFF isn't there yet. Finder displays DMG backgrounds at 1:1 logical
+# size, so a plain @2x bitmap would only show its top-left corner in the
+# window. We render at @1x and @2x and combine them into a multi-rep TIFF
+# (tiffutil -cathidpicheck) so Finder picks the right one per display.
 if [[ ! -f "$BG_TIFF" || "$ROOT/scripts/make_dmg_bg.swift" -nt "$BG_TIFF" ]]; then
-  echo "==> generating DMG background"
-  swift "$ROOT/scripts/make_dmg_bg.swift" "$BG_PNG" 2 >/dev/null
-  sips -s format tiff "$BG_PNG" --out "$BG_TIFF" >/dev/null
+  echo "==> generating DMG background (HiDPI TIFF: @1x + @2x)"
+  WORK_BG="$(mktemp -d)"
+  PNG1="$WORK_BG/bg_1x.png"; PNG2="$WORK_BG/bg_2x.png"
+  TIFF1="$WORK_BG/bg_1x.tiff"; TIFF2="$WORK_BG/bg_2x.tiff"
+  swift "$ROOT/scripts/make_dmg_bg.swift" "$PNG1" 1 >/dev/null
+  swift "$ROOT/scripts/make_dmg_bg.swift" "$PNG2" 2 >/dev/null
+  sips -s format tiff "$PNG1" --out "$TIFF1" >/dev/null
+  sips -s format tiff "$PNG2" --out "$TIFF2" >/dev/null
+  tiffutil -cathidpicheck "$TIFF1" "$TIFF2" -out "$BG_TIFF" >/dev/null
+  # Keep the 1x PNG as a regenerable preview artefact at the canonical name.
+  cp "$PNG1" "$BG_PNG"
+  rm -rf "$WORK_BG"
 fi
 
 # Detach any stale mount of the same volume.
