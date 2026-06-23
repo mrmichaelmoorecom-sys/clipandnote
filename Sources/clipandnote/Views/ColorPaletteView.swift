@@ -101,18 +101,21 @@ final class ColorPaletteView: NSView {
         dropper.heightAnchor.constraint(equalToConstant: 13).isActive = true
 
         // Picker + eyedropper sit side-by-side as a single row (not stacked) so
-        // they read as two peer controls instead of a tall pill. Big gap
-        // between them — a few times the 13pt control width — so they read
-        // as clearly distinct controls rather than a paired pill.
+        // they read as two peer controls instead of a tall pill. Moderate gap
+        // — close enough to read as a paired "custom colour" tool group, far
+        // enough that the well doesn't visually swallow the eyedropper.
         let sideCol = NSStackView(views: [well, dropper])
         sideCol.orientation = .horizontal
-        sideCol.spacing = 28
+        sideCol.spacing = 10
         sideCol.alignment = .centerY
         sideCol.translatesAutoresizingMaskIntoConstraints = false
 
+        // Wider gap between the preset grid and the custom-colour tools so the
+        // tool group reads as its own section rather than a 7th column of the
+        // swatch grid.
         let outer = NSStackView(views: [grid, sideCol])
         outer.orientation = .horizontal
-        outer.spacing = 6
+        outer.spacing = 18
         outer.alignment = .centerY
         outer.translatesAutoresizingMaskIntoConstraints = false
 

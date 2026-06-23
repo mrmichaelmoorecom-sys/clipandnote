@@ -526,16 +526,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             if canvas.tool == .select { return event }
             canvas.expandToInclude(point: canvasPoint)
             self.updateSizeLabel()
-            // Force layout so the canvas's new frame.origin is fully applied
-            // before we re-dispatch the click; otherwise canvas.mouseDown's
-            // window→canvas conversion would still see the old origin.
+            // Force layout so the canvas's new frame.origin is applied before
+            // AppKit hit-tests. Critically we DO NOT consume the event here:
+            // returning it lets AppKit dispatch the mouseDown to the canvas
+            // through its normal path, which engages the system drag-tracking
+            // loop. Manually calling `canvas.mouseDown(_:)` would fire the
+            // handler but skip drag tracking — so dragged events never reach
+            // the canvas and you'd just see a single dot at the click point.
             canvas.superview?.layoutSubtreeIfNeeded()
-            // Re-dispatch the mouseDown to the canvas — now that the canvas
-            // has grown out to include this window point, its own
-            // convert(locationInWindow:) lands inside-bounds and the draw
-            // starts at the user's click instead of needing a second tap.
-            canvas.mouseDown(with: event)
-            return nil   // consume; we've forwarded it ourselves
+            return event
         }
     }
 
