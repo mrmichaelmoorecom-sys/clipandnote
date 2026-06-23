@@ -148,7 +148,10 @@ final class StatusDropdownContent: NSView {
     }
 
     private func updateExportTitle() {
-        exportButton.title = checked.isEmpty ? "Export All" : "Export \(checked.count)"
+        // Empty selection → "Export" (opens the thumbnail picker, like
+        // 'Export All' used to). Non-empty selection → "Export N" (direct
+        // export of the checked recents).
+        exportButton.title = checked.isEmpty ? "Export" : "Export \(checked.count)"
     }
 
     private func build() {
@@ -161,6 +164,7 @@ final class StatusDropdownContent: NSView {
         captureColumn.orientation = .vertical
         captureColumn.spacing = 0
         captureColumn.alignment = .leading
+        captureColumn.distribution = .fill
         captureColumn.translatesAutoresizingMaskIntoConstraints = false
 
         // -- Recents header + scrolling list --
@@ -171,6 +175,7 @@ final class StatusDropdownContent: NSView {
         recentsColumn.orientation = .vertical
         recentsColumn.spacing = 0
         recentsColumn.alignment = .leading
+        recentsColumn.distribution = .fill
         recentsColumn.translatesAutoresizingMaskIntoConstraints = false
 
         recentsScroll.hasVerticalScroller = true
@@ -226,7 +231,8 @@ final class StatusDropdownContent: NSView {
         outer.orientation = .vertical
         outer.spacing = 6
         outer.alignment = .leading
-        outer.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+        outer.distribution = .fill
+        outer.edgeInsets = NSEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
         outer.setCustomSpacing(2, after: captureHeader)
         outer.setCustomSpacing(10, after: captureColumn)
         outer.setCustomSpacing(10, after: separator1)
@@ -236,17 +242,21 @@ final class StatusDropdownContent: NSView {
         outer.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(outer)
+        // outer's 12pt horizontal edgeInsets — pin every child width to the
+        // available content area so rows actually fill the panel (otherwise
+        // .leading alignment leaves them hugging their intrinsic width).
+        let contentInset: CGFloat = -24       // 12 left + 12 right
         NSLayoutConstraint.activate([
             outer.leadingAnchor.constraint(equalTo: leadingAnchor),
             outer.trailingAnchor.constraint(equalTo: trailingAnchor),
             outer.topAnchor.constraint(equalTo: topAnchor),
             outer.bottomAnchor.constraint(equalTo: bottomAnchor),
-            captureColumn.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -28),
-            recentsScroll.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -28),
+            captureColumn.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
+            recentsScroll.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
             recentsScroll.heightAnchor.constraint(equalToConstant: 320),
-            actionBar.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -28),
-            separator1.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -28),
-            separator2.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -28),
+            actionBar.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
+            separator1.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
+            separator2.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: contentInset),
         ])
     }
 
@@ -409,14 +419,14 @@ private final class RecentRow: NSView {
         addSubview(thumb)
         addSubview(title)
         NSLayoutConstraint.activate([
-            checkbox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            checkbox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             checkbox.centerYAnchor.constraint(equalTo: centerYAnchor),
-            thumb.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 6),
+            thumb.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 4),
             thumb.centerYAnchor.constraint(equalTo: centerYAnchor),
             thumb.widthAnchor.constraint(equalToConstant: 38),
             thumb.heightAnchor.constraint(equalToConstant: 26),
             title.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 8),
-            title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             title.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }

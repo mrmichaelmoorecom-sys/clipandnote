@@ -429,18 +429,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Export all markups
 
-    /// Status-panel "Export" button. `indices` references the same recents list
-    /// the menu shows (newest first via `MarkupLibrary.recent(60)`). Empty
-    /// indices = "Export All".
+    /// Status-panel "Export" button.
+    /// - Empty `indices` (button title is just "Export"): open the
+    ///   MergeSelectionWindowController thumbnail picker — same workflow as the
+    ///   old File ▸ Export All menu — so the user can re-confirm the set
+    ///   visually before exporting.
+    /// - Non-empty `indices` (button title "Export N"): they've already chosen
+    ///   in the menu; go straight to the PDF / Folder format dialog scoped to
+    ///   those picks.
     private func exportRecents(at indices: [Int]) {
         let recents = MarkupLibrary.shared.recent(60)
-        let chosen = indices.isEmpty
-            ? recents
-            : indices.compactMap { i in (i >= 0 && i < recents.count) ? recents[i] : nil }
-        guard !chosen.isEmpty else {
-            let a = NSAlert(); a.messageText = "No markups to export yet."; a.runModal(); return
+
+        if indices.isEmpty {
+            exportAllMarkups(nil)   // shares the thumbnail-picker path
+            return
         }
-        // Same dialog the Export-All menu used, but pre-scoped to the picks.
+
+        let chosen = indices.compactMap { i in (i >= 0 && i < recents.count) ? recents[i] : nil }
+        guard !chosen.isEmpty else { return }
+
         let alert = NSAlert()
         alert.messageText = "Export \(chosen.count) Markup\(chosen.count == 1 ? "" : "s")"
         alert.informativeText = "Combine into one multi-page PDF, or write a folder of individual files."
