@@ -47,15 +47,9 @@ final class ToolValuePopover: NSObject {
         slider.controlSize = .small
         slider.translatesAutoresizingMaskIntoConstraints = false
 
-        // Label that always shows the tool's tweakable name — "Opacity",
-        // "Width", "Size" — so the popover reads as that thing's control,
-        // not a generic slider.
-        let label = NSTextField(labelWithString: config.label)
-        label.font = .systemFont(ofSize: 11, weight: .semibold)
-        label.textColor = .secondaryLabelColor
-        label.translatesAutoresizingMaskIntoConstraints = false
-
-        var rows: [NSView] = [label]
+        // No descriptor label — the floating value bubble shows the unit on
+        // every drag (e.g. "38%", "12pt"), which is enough context.
+        var rows: [NSView] = []
         if let accessory { rows.append(accessory) }
         rows.append(slider)
 
@@ -76,7 +70,6 @@ final class ToolValuePopover: NSObject {
             // Slider width gets pinned so the popover settles at a stable
             // 160pt-wide footprint regardless of the accessory's intrinsic size.
             slider.widthAnchor.constraint(equalToConstant: 160),
-            label.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 0),
         ])
         host.layoutSubtreeIfNeeded()
         host.frame = NSRect(origin: .zero, size: host.fittingSize)
