@@ -40,11 +40,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// Tools in palette order: (tool, SF Symbol, label, shortcut key).
     private let tools: [(tool: Tool, symbol: String, label: String, key: String)] = [
         (.select, "cursorarrow", "Select", "V"),
-        (.ruler, "ruler", "Ruler / Angle — measure", "M"),
         (.ocr, "text.viewfinder", "Grab Text  (OCR)", "I"),
         (.crop, "crop", "Crop", "C"),
         (.pixelate, "mosaic", "Pixelate", "X"),
         (.arrow, "arrow.up.left", "Arrow", "A"),
+        (.ruler, "ruler", "Ruler / Angle — measure", "M"),
         (.doubleArrow, "arrow.left.and.right", "Curved Double Arrow", "D"),
         (.line, "line.diagonal", "Line", "L"),
         (.freehand, "scribble", "Pen", "P"),
@@ -142,7 +142,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case .highlighter: return "highlighter"
         case .pixelate: return "pixelate"
         case .doubleArrow: return "doublearrow"
-        case .select, .crop, .arrow, .ocr, .ruler: return nil   // keep their built-in glyphs
+        case .ruler: return "ruler"
+        case .select, .crop, .arrow, .ocr: return nil   // keep their built-in glyphs
         }
     }
 
@@ -206,19 +207,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             if t.tool == .arrow {
                 b.fillProvider = { [weak self] in self?.canvas?.strokeColor ?? .labelColor }
             }
-            // Ruler has no SVG icon — tint its SF symbol in the active colour
-            // so it previews like the other coloured tools.
-            if t.tool == .ruler {
-                b.customRender = { [weak self] _ in
-                    guard let self else { return nil }
-                    let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
-                        .applying(.init(paletteColors: [self.canvas.strokeColor]))
-                    let img = NSImage(systemSymbolName: "ruler", accessibilityDescription: nil)?
-                        .withSymbolConfiguration(conf)
-                    img?.isTemplate = false
-                    return img
-                }
-            }
             // For the SVG-driven tools whose output is a colored mark, the tool
             // icon previews that mark in the active color (with a thin contrast
             // outline that stays visible whether selected or not).
@@ -252,8 +240,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             }
             toolButtons.append(b)
             toolStack.addArrangedSubview(b)
-            // Order: Select, Ruler, then the crosshair grab.
-            if t.tool == .ruler {
+            // Crosshair grab sits right after Select.
+            if t.tool == .select {
                 toolStack.addArrangedSubview(grabButton)
             }
             // Visual divider between the "image-editing" tools (select / grab /

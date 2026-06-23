@@ -80,9 +80,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var rulerMode: RulerMode = .ruler {
         didSet { if rulerMode != oldValue { cancelAngleInProgress() } }
     }
-    /// Angle-tool interaction is multi-stage: drag the first leg, release, move
-    /// to sweep the second leg, click to finalize.
-    private enum AnglePhase { case idle, draggingFirstLeg, awaitingSecondLeg }
+    /// Angle-tool interaction supports two styles, unified in one state machine:
+    ///   • Drag: press the vertex, drag out the first leg, release; move to
+    ///     sweep the second leg; click to finalize.
+    ///   • Click: click the vertex, click the first-leg end, click the
+    ///     second-leg end (each click placed with a live preview on move).
+    /// `pressed` is the brief ambiguous window between mouse-down and either a
+    /// drag (→ first leg) or a release with no movement (→ click style).
+    private enum AnglePhase { case idle, pressed, draggingFirstLeg, awaitingA, awaitingB }
     private var anglePhase: AnglePhase = .idle
     private var angleInProgressID: UUID?
     /// Document state from before the angle began, so finalize undoes the
@@ -419,39 +424,42 @@ final class CanvasView: NSView, NSTextViewDelegate {
         dragStart = p
     }
 
-    // MARK: Angle tool (drag first leg → release → sweep → click)
+    // MARK: Angle tool (drag, or three clicks — vertex, leg-1 end, leg-2 end)
 
     private func angleMouseDown(_ p: CGPoint) {
-        // Awaiting second leg → this click finalizes the angle.
-        if anglePhase == .awaitingSecondLeg, let id = angleInProgressID, let idx = indexOf(id) {
+        switch anglePhase {
+        case .idle:
+            // Begin: vertex = p (points[1]). Drag-vs-click decided at mouse-up.
+            angleUndoSnapshot = snapshot()
+            var stroke = RGBAColor(strokeColor); stroke.a *= strokeOpacity
+            var obj = MarkupObject(kind: .angle, stroke: stroke, lineWidth: lineWidth)
+            obj.points = [p, p, p]   // [A, V, B]
+            document.objects.append(obj)
+            selectedID = obj.id
+            angleInProgressID = obj.id
+            anglePhase = .pressed
+            dragStart = p            // vertex
+            needsDisplay = true
+        case .awaitingA:
+            guard let idx = angleIdx() else { cancelAngleInProgress(); return }
+            document.objects[idx].points[0] = p
+            document.objects[idx].recomputeBounds()
+            anglePhase = .awaitingB
+            needsDisplay = true
+        case .awaitingB:
+            guard let id = angleInProgressID, let idx = angleIdx() else { cancelAngleInProgress(); return }
             document.objects[idx].points[2] = p
             document.objects[idx].recomputeBounds()
-            anglePhase = .idle
-            angleInProgressID = nil
-            selectedID = id
-            // Undo back to before the angle started (the whole thing).
-            undoSnapshot = angleUndoSnapshot
-            angleUndoSnapshot = nil
-            commitUndo()
-            needsDisplay = true
-            return
+            finishAngle(id)
+        case .pressed, .draggingFirstLeg:
+            break   // mouse already down
         }
-        // Idle → start the first leg. Vertex = p (points[1]); A = points[0].
-        angleUndoSnapshot = snapshot()   // before the angle exists
-        var stroke = RGBAColor(strokeColor); stroke.a *= strokeOpacity
-        var obj = MarkupObject(kind: .angle, stroke: stroke, lineWidth: lineWidth)
-        obj.points = [p, p, p]
-        document.objects.append(obj)
-        selectedID = obj.id
-        angleInProgressID = obj.id
-        anglePhase = .draggingFirstLeg
-        dragStart = p
-        needsDisplay = true
     }
 
     private func angleMouseDragged(_ p: CGPoint) {
-        guard anglePhase == .draggingFirstLeg,
-              let id = angleInProgressID, let idx = indexOf(id) else { return }
+        guard anglePhase == .pressed || anglePhase == .draggingFirstLeg,
+              let idx = angleIdx() else { return }
+        anglePhase = .draggingFirstLeg
         document.objects[idx].points[0] = NSEvent.modifierFlags.contains(.shift)
             ? Self.constrained45(p, from: dragStart) : p
         document.objects[idx].recomputeBounds()
@@ -459,22 +467,50 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     private func angleMouseUp() {
-        guard anglePhase == .draggingFirstLeg else { return }
-        anglePhase = .awaitingSecondLeg
-        needsDisplay = true
+        switch anglePhase {
+        case .draggingFirstLeg:
+            // Real drag → first leg placed, await the second. A tiny "drag"
+            // (jitter) is treated as a click → await the first-leg end.
+            if let idx = angleIdx() {
+                let v = document.objects[idx].points[1], a = document.objects[idx].points[0]
+                anglePhase = hypot(a.x - v.x, a.y - v.y) > 5 ? .awaitingB : .awaitingA
+            } else { anglePhase = .awaitingA }
+            needsDisplay = true
+        case .pressed:
+            anglePhase = .awaitingA   // plain click on the vertex
+            needsDisplay = true
+        default:
+            break
+        }
     }
 
-    /// Returns true if the move was consumed (sweeping the second leg).
+    /// Live preview of the next point as the mouse moves between clicks.
+    /// Returns true if consumed.
     private func angleMouseMoved(_ p: CGPoint) -> Bool {
-        guard anglePhase == .awaitingSecondLeg,
-              let id = angleInProgressID, let idx = indexOf(id) else { return false }
+        guard let idx = angleIdx() else { return false }
         let vertex = document.objects[idx].points[1]
-        document.objects[idx].points[2] = NSEvent.modifierFlags.contains(.shift)
-            ? Self.constrained45(p, from: vertex) : p
+        let q = NSEvent.modifierFlags.contains(.shift) ? Self.constrained45(p, from: vertex) : p
+        switch anglePhase {
+        case .awaitingA: document.objects[idx].points[0] = q
+        case .awaitingB: document.objects[idx].points[2] = q
+        default: return false
+        }
         document.objects[idx].recomputeBounds()
         needsDisplay = true
         NSCursor.crosshair.set()
         return true
+    }
+
+    private func angleIdx() -> Int? { angleInProgressID.flatMap(indexOf) }
+
+    private func finishAngle(_ id: UUID) {
+        anglePhase = .idle
+        angleInProgressID = nil
+        selectedID = id
+        undoSnapshot = angleUndoSnapshot   // undo removes the whole angle
+        angleUndoSnapshot = nil
+        commitUndo()
+        needsDisplay = true
     }
 
     /// Drop an unfinished angle (tool switch, Esc, mode change).
@@ -632,7 +668,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        if tool == .ruler, rulerMode == .angle, anglePhase == .draggingFirstLeg {
+        if tool == .ruler, rulerMode == .angle {
             angleMouseDragged(convert(event.locationInWindow, from: nil)); return
         }
         guard let drag else { return }
@@ -712,7 +748,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if tool == .ruler, rulerMode == .angle, anglePhase == .draggingFirstLeg {
+        if tool == .ruler, rulerMode == .angle {
             angleMouseUp(); return
         }
         if case .crop = drag {
