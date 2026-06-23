@@ -139,18 +139,25 @@ enum SVGExporter {
             out += line(CGPoint(x: pt.x + nx*capHalf, y: pt.y + ny*capHalf),
                         CGPoint(x: pt.x - nx*capHalf, y: pt.y - ny*capHalf), lw)
         }
-        // Graduated tick hatches (tiny every 5px, taller at 10/50/100).
+        // Graduated tick hatches (taller at 10/50/100); spacing scales with
+        // length so long rulers don't blob, with a thin contrast halo.
         let tickW = max(1, lw * 0.6)
-        var nTick = 5
+        func tickLine(_ p0: CGPoint, _ p1: CGPoint) -> String {
+            let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""
+            return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(tickW + 0.75))\" stroke-linecap=\"round\"/>\n"
+                + "\(g) stroke=\"\(color)\" stroke-width=\"\(num(tickW))\" stroke-linecap=\"round\"/>\n"
+        }
+        let step = MarkupRenderer.rulerTickStep(length)
+        var nTick = step
         while CGFloat(nTick) < length {
             if CGFloat(nTick) > 2, length - CGFloat(nTick) > 2,
                let frac = MarkupRenderer.rulerTickFraction(nTick) {
                 let h = capHalf * frac
                 let m = CGPoint(x: a.x + ux*CGFloat(nTick), y: a.y + uy*CGFloat(nTick))
-                out += line(CGPoint(x: m.x + nx*h, y: m.y + ny*h),
-                            CGPoint(x: m.x - nx*h, y: m.y - ny*h), tickW)
+                out += tickLine(CGPoint(x: m.x + nx*h, y: m.y + ny*h),
+                                CGPoint(x: m.x - nx*h, y: m.y - ny*h))
             }
-            nTick += 5
+            nTick += step
         }
         // Label above the midpoint.
         let fontSize = max(13, lw * 3.5)

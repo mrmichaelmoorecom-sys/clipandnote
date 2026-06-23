@@ -95,6 +95,14 @@ enum MarkupRenderer {
         return nil
     }
 
+    /// Spacing between ruler ticks, scaled to length so long rulers don't blob:
+    /// 5px on short rulers, 10px on medium, 50px on long.
+    static func rulerTickStep(_ length: CGFloat) -> Int {
+        if length > 400 { return 50 }
+        if length > 150 { return 10 }
+        return 5
+    }
+
     /// A dimension ruler: baseline a→b, perpendicular end caps, graduated tick
     /// hatches (tiny every 5px, taller at 10/50/100), a direction arrowhead
     /// just past the end, and a "<N> px" length label above the midpoint. N is
@@ -146,7 +154,8 @@ enum MarkupRenderer {
         }
 
         // Graduated tick hatches along the baseline, centered, with a thin
-        // contrast halo. Skip ticks too close to either end cap.
+        // contrast halo. Tick spacing scales with length so long rulers don't
+        // blob; skip ticks too close to either end cap.
         let tickW = max(1, lw * 0.6)
         func tick(_ n: Int) {
             guard CGFloat(n) > 2, length - CGFloat(n) > 2,
@@ -156,11 +165,12 @@ enum MarkupRenderer {
             let t0 = CGPoint(x: m.x + nx * h, y: m.y + ny * h)
             let t1 = CGPoint(x: m.x - nx * h, y: m.y - ny * h)
             let p = NSBezierPath(); p.move(to: t0); p.line(to: t1); p.lineCapStyle = .round
-            p.lineWidth = tickW + 1.5; contrast.setStroke(); p.stroke()
+            p.lineWidth = tickW + 0.75; contrast.setStroke(); p.stroke()
             p.lineWidth = tickW; color.setStroke(); p.stroke()
         }
-        var n = 5
-        while CGFloat(n) < length { tick(n); n += 5 }
+        let step = rulerTickStep(length)
+        var n = step
+        while CGFloat(n) < length { tick(n); n += step }
 
         // Length label above the midpoint.
         drawRulerLabel("\(Int(length.rounded())) px",
