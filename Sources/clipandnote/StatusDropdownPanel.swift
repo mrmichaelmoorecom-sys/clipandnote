@@ -32,6 +32,13 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         // With a transparent content tree, vibrancy comes through edge-to-
         // edge including the tail.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
+        // Explicitly opt out of layer-backing. NSPopover's window is layer-
+        // backed, which can implicitly promote its contentViewController.view
+        // to layer-backed too — and a backing layer here introduces a
+        // separate compositing surface that disturbs how the popover's
+        // vibrancy material composites under our content. Same fix
+        // clipandcue applies to its NSHostingController's view.
+        host.wantsLayer = false
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
