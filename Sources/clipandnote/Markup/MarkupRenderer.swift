@@ -159,7 +159,9 @@ enum MarkupRenderer {
         // Graduated tick hatches along the baseline, centered, with a thin
         // contrast halo. Tick spacing scales with length so long rulers don't
         // blob; skip ticks too close to either end cap.
-        let tickW = max(0.75, lw * 0.45)
+        // Thin hash marks: ~3× thinner above 4px stroke; ≤4px keeps its
+        // current weight (and the 0.75 floor stops them vanishing).
+        let tickW = max(0.75, lw <= 4 ? lw * 0.45 : lw * 0.15)
         func tick(_ n: Int) {
             guard CGFloat(n) > 2, length - CGFloat(n) > 2,
                   let frac = rulerTickFraction(n) else { return }

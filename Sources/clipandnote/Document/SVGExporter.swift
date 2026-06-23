@@ -141,7 +141,8 @@ enum SVGExporter {
         }
         // Graduated tick hatches (taller at 10/50/100); spacing scales with
         // length so long rulers don't blob, with a thin contrast halo.
-        let tickW = max(0.75, lw * 0.45)
+        // Thin hash marks: ~3× thinner above 4px stroke; ≤4px keeps its weight.
+        let tickW = max(0.75, lw <= 4 ? lw * 0.45 : lw * 0.15)
         func tickLine(_ p0: CGPoint, _ p1: CGPoint) -> String {
             let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""
             return "\(g) stroke=\"\(contrast)\" stroke-width=\"\(num(tickW + 0.75))\"/>\n"
