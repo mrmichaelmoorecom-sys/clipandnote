@@ -31,10 +31,14 @@ final class ToolValuePopover: NSObject {
         popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
-    func show(from button: NSView, config: Config) {
+    /// `accessory` is an optional control (segmented toggle, font dropdown,
+    /// etc.) that stacks above the slider — so per-tool options that aren't
+    /// scalars (e.g. outline-vs-filled on shapes, font family on text) ride
+    /// along with the slider in the same popover instead of needing a
+    /// separate gesture.
+    func show(from button: NSView, config: Config, accessory: NSView? = nil) {
         cfg = config
         anchor = button
-        let host = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 26))
 
         slider = NSSlider(value: config.value(),
                           minValue: config.range.lowerBound,
@@ -42,17 +46,45 @@ final class ToolValuePopover: NSObject {
                           target: self, action: #selector(sliderChanged(_:)))
         slider.controlSize = .small
         slider.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(slider)
+
+        // Label that always shows the tool's tweakable name — "Opacity",
+        // "Width", "Size" — so the popover reads as that thing's control,
+        // not a generic slider.
+        let label = NSTextField(labelWithString: config.label)
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.textColor = .secondaryLabelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+
+        var rows: [NSView] = [label]
+        if let accessory { rows.append(accessory) }
+        rows.append(slider)
+
+        let stack = NSStackView(views: rows)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 6
+        stack.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let host = NSView()
+        host.addSubview(stack)
         NSLayoutConstraint.activate([
-            slider.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: 10),
-            slider.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -10),
-            slider.centerYAnchor.constraint(equalTo: host.centerYAnchor),
+            stack.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: host.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            // Slider width gets pinned so the popover settles at a stable
+            // 160pt-wide footprint regardless of the accessory's intrinsic size.
+            slider.widthAnchor.constraint(equalToConstant: 160),
+            label.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 0),
         ])
+        host.layoutSubtreeIfNeeded()
+        host.frame = NSRect(origin: .zero, size: host.fittingSize)
 
         let vc = NSViewController()
         vc.view = host
         popover.contentViewController = vc
-        popover.contentSize = host.frame.size
+        popover.contentSize = host.fittingSize
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
 
         // Bubble is owned by the popover's window so it can float a few pixels

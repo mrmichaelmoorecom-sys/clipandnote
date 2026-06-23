@@ -622,8 +622,26 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// Tap the ▼ on a stroke-based tool (arrow, line, freehand, rect, ellipse,
-    /// doubleArrow): tiny width slider with a value bubble.
+    /// doubleArrow): tiny width slider with a value bubble. Rectangle and
+    /// ellipse also get an outline-vs-filled segmented toggle riding above
+    /// the slider so they don't lose that option.
     private func showWidthSlider(from button: ToolButton) {
+        var accessory: NSView?
+        let tool = button.tool
+        if tool == .rectangle || tool == .ellipse {
+            let isFilled = (tool == .rectangle) ? canvas.rectFilled : canvas.ellipseFilled
+            let seg = NSSegmentedControl(labels: ["Outline", "Filled"],
+                                         trackingMode: .selectOne,
+                                         target: self,
+                                         action: #selector(accessoryShapeStyleChanged(_:)))
+            seg.selectedSegment = isFilled ? 1 : 0
+            seg.segmentDistribution = .fillEqually
+            seg.tag = (tool == .rectangle) ? 0 : 1   // 0 = rect, 1 = ellipse
+            seg.controlSize = .small
+            seg.translatesAutoresizingMaskIntoConstraints = false
+            seg.widthAnchor.constraint(equalToConstant: 160).isActive = true
+            accessory = seg
+        }
         toolValuePopover.show(from: button, config: .init(
             label: "Width", unit: "pt", range: 1...30,
             value: { [weak self] in Double(self?.canvas?.lineWidth ?? 4) },
@@ -634,7 +652,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 self.toolButtons.forEach { $0.refreshIcon() }
             },
             onCommit: nil,
-            isInteger: true))
+            isInteger: true), accessory: accessory)
+    }
+
+    @objc private func accessoryShapeStyleChanged(_ sender: NSSegmentedControl) {
+        let filled = (sender.selectedSegment == 1)
+        if sender.tag == 0 { canvas.rectFilled = filled } else { canvas.ellipseFilled = filled }
+        toolButtons.forEach { $0.refreshIcon() }
     }
 
     /// Tap the ▼ on the highlighter: opacity slider (0–100%).
@@ -651,10 +675,31 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             isInteger: true))
     }
 
-    /// Tap the ▼ on the text tool: font-size slider. New text objects pull
-    /// fontSize from canvas.lineWidth * 6, so sliding here scales lineWidth
-    /// accordingly to land at the displayed pt size.
+    /// Tap the ▼ on the text tool: font-family dropdown + font-size slider in
+    /// one popover. New text objects pull fontSize from canvas.lineWidth * 6,
+    /// so sliding here scales lineWidth to land at the displayed pt size.
     private func showFontSizeSlider(from button: ToolButton) {
+        let picker = NSPopUpButton(frame: .zero, pullsDown: false)
+        picker.translatesAutoresizingMaskIntoConstraints = false
+        picker.controlSize = .small
+        picker.addItem(withTitle: "System Font")
+        picker.lastItem?.representedObject = ""
+        picker.menu?.addItem(.separator())
+        let currentFamily = canvas.fontName ?? ""
+        for family in NSFontManager.shared.availableFontFamilies {
+            let item = NSMenuItem(title: family,
+                                  action: nil, keyEquivalent: "")
+            item.representedObject = family
+            if let f = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: 12) {
+                item.attributedTitle = NSAttributedString(string: family, attributes: [.font: f])
+            }
+            picker.menu?.addItem(item)
+            if family == currentFamily { picker.select(item) }
+        }
+        picker.target = self
+        picker.action = #selector(accessoryFontFamilyChanged(_:))
+        picker.widthAnchor.constraint(equalToConstant: 160).isActive = true
+
         toolValuePopover.show(from: button, config: .init(
             label: "Size", unit: "pt", range: 12...96,
             value: { [weak self] in Double((self?.canvas?.lineWidth ?? 4) * 6) },
@@ -664,7 +709,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 self.widthSlider.doubleValue = Double(self.canvas.lineWidth)
             },
             onCommit: nil,
-            isInteger: true))
+            isInteger: true), accessory: picker)
+    }
+
+    @objc private func accessoryFontFamilyChanged(_ sender: NSPopUpButton) {
+        let family = sender.selectedItem?.representedObject as? String ?? ""
+        canvas.setActiveFont(family.isEmpty ? nil : family)
     }
 
     /// Tap the ▼ on the text tool: pick a font family.
