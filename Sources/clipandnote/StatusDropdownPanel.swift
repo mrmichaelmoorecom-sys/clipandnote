@@ -62,14 +62,14 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
 
     override init() {
         super.init()
+        // Match clipandcue's setup verbatim: NSHostingController +
+        // sizingOptions, nothing else. In particular DON'T touch
+        // `view.wantsLayer` — an NSHostingView needs to stay layer-backed to
+        // composite SwiftUI's vibrancy correctly. Forcing it off (a stale
+        // tip meant for a plain NSView) made the dropdown render flat/opaque
+        // instead of the translucent frosted-glass material clipandcue shows.
         hostingController = NSHostingController(rootView: StatusDropdownContentView(model: content))
-        // Lets NSPopover read the SwiftUI view's .frame(...) as its size.
         hostingController.sizingOptions = [.preferredContentSize]
-        // NSPopover's window is layer-backed and can implicitly promote
-        // contentViewController.view too. A backing layer here introduces a
-        // separate compositing surface that disturbs the popover's vibrancy
-        // — same opt-out clipandcue uses.
-        hostingController.view.wantsLayer = false
         popover.contentViewController = hostingController
         popover.behavior = .transient
         popover.animates = true
@@ -77,8 +77,8 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         // No appearance override. With the deployment target lowered to
         // macOS 13 (matching clipandcue), NSPopover follows the system
         // appearance and renders the dark vibrant material under Dark Mode
-        // automatically — exactly like clipandcue. The macOS-14 deployment
-        // target was the sole cause of the previously-light dropdown.
+        // automatically. The macOS-14 deployment target was the sole cause of
+        // the previously-light dropdown.
     }
 
     var isShown: Bool { popover.isShown }
