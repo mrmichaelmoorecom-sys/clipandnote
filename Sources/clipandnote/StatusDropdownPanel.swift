@@ -31,18 +31,36 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         // entry point AppKit gives us into NSPopover's private chrome view.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
 
-        // NO custom backdrop view inside. NSPopover's arrow tail is drawn
-        // OUTSIDE the content view's bounds, so any NSVisualEffectView or
-        // coloured fill we add fills only the body — leaving a fully
-        // transparent arrow tail (which is what the body's previous
-        // .menu-material + black-tint backdrop produced visually). Letting
-        // NSPopover render its native .popover material on both body and
-        // tail is the only way to get a tail that matches the body. The
-        // pinned .vibrantDark appearance (below) ensures both render in
-        // dark mode regardless of system theme.
+        // Dark NSVisualEffectView backdrop INSIDE our content. NSPopover's
+        // chrome in modern macOS doesn't expose an NSVisualEffectView we can
+        // override from the outside (popoverDidShow finds nothing), so we
+        // make the body dark ourselves by stacking .menu material at .active
+        // state inside the popover's content.
+        let backdrop = NSVisualEffectView()
+        backdrop.material = .menu
+        backdrop.blendingMode = .behindWindow
+        backdrop.state = .active
+        backdrop.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(backdrop)
+        // Tint over the vibrancy — pushes the dark from "Apple's dark .menu"
+        // toward the saturated dark-blue look in your clipandcue reference.
+        let tint = NSView()
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        tint.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(tint)
+
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            backdrop.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            backdrop.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            backdrop.topAnchor.constraint(equalTo: host.topAnchor),
+            backdrop.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            tint.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            tint.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            tint.topAnchor.constraint(equalTo: host.topAnchor),
+            tint.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
