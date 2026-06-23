@@ -105,64 +105,53 @@ final class ToolButton: NSView {
             NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
         }
         let tint = NSColor.labelColor
+        // When the button owns a menu, shift everything up so the icon sits
+        // above the ▼ indicator instead of overlapping it.
+        let menuShift: CGFloat = hasMenu ? 3 : 0
 
         // Custom SVG render takes precedence so the toolbar can show colored
         // previews that match the tool's actual output.
         if let make = customRender, let img = make(isSelected) {
             let s = img.size
             img.draw(in: NSRect(x: (bounds.width - s.width) / 2,
-                                y: (bounds.height - s.height) / 2,
+                                y: (bounds.height - s.height) / 2 + menuShift,
                                 width: s.width, height: s.height))
-            return
-        }
-
-        // The arrow tool previews the *actual* rendered arrow shape (tapered
-        // shaft, swept-back head). Tip points upper-right; the toolbar feeds
-        // the active color in so the icon matches what the tool draws.
-        if tool == .arrow {
+        } else if tool == .arrow {
+            // The arrow tool previews the *actual* rendered arrow shape (tapered
+            // shaft, swept-back head). Tip points upper-right; the toolbar feeds
+            // the active color in so the icon matches what the tool draws.
             let inset: CGFloat = 7
             let obj = MarkupObject(kind: .arrow,
                                    points: [CGPoint(x: inset, y: bounds.maxY - inset),
                                             CGPoint(x: bounds.maxX - inset, y: inset + 1)],
                                    lineWidth: 4.5)
             let pts = MarkupRenderer.arrowPolygon(obj)
-            guard pts.count >= 3 else { return }
-            let path = NSBezierPath()
-            path.move(to: pts[0])
-            for p in pts.dropFirst() { path.line(to: p) }
-            path.close()
-            path.lineJoinStyle = .round
+            if pts.count >= 3 {
+                let path = NSBezierPath()
+                path.move(to: pts[0])
+                for p in pts.dropFirst() { path.line(to: p) }
+                path.close()
+                path.lineJoinStyle = .round
 
-            // Outline matches MarkupRenderer.contrastColor for the fill, so it
-            // mirrors the contrasting edge the canvas paints around an arrow
-            // marked in this color (dark fill → white outline, and vice versa).
-            let fillColor = fillProvider?() ?? tint
-            MarkupRenderer.contrastColor(for: fillColor).setStroke()
-            path.lineWidth = 1.4
-            path.stroke()
-            fillColor.setFill()
-            path.fill()
-            return
-        }
-
-        if let symbol {
+                let fillColor = fillProvider?() ?? tint
+                MarkupRenderer.contrastColor(for: fillColor).setStroke()
+                path.lineWidth = 1.4
+                path.stroke()
+                fillColor.setFill()
+                path.fill()
+            }
+        } else if let symbol {
             let conf = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
                 .applying(.init(paletteColors: [tint]))
             let img = symbol.withSymbolConfiguration(conf) ?? symbol
             let s = img.size
-            // Shift the icon up by half the indicator's height so it stays
-            // visually centred above the ▼.
-            let yOffset: CGFloat = hasMenu ? 3 : 0
             img.draw(in: NSRect(x: (bounds.width - s.width) / 2,
-                                y: (bounds.height - s.height) / 2 + yOffset,
+                                y: (bounds.height - s.height) / 2 + menuShift,
                                 width: s.width, height: s.height))
         }
 
-        // The ▼ indicator at the bottom-center of the button when this tool
-        // has a menu (rectangle, ellipse, text). Click it to open the menu.
-        if hasMenu {
-            drawMenuIndicator()
-        }
+        // ▼ indicator at the bottom-center of the button for tools with a menu.
+        if hasMenu { drawMenuIndicator() }
     }
 
     /// Small downward triangle centred at the bottom of the button.
