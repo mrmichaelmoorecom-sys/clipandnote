@@ -526,14 +526,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             if canvas.tool == .select { return event }
             canvas.expandToInclude(point: canvasPoint)
             self.updateSizeLabel()
-            // Force layout so the canvas's new frame.origin is applied before
-            // AppKit hit-tests. Critically we DO NOT consume the event here:
-            // returning it lets AppKit dispatch the mouseDown to the canvas
-            // through its normal path, which engages the system drag-tracking
-            // loop. Manually calling `canvas.mouseDown(_:)` would fire the
-            // handler but skip drag tracking — so dragged events never reach
-            // the canvas and you'd just see a single dot at the click point.
-            canvas.superview?.layoutSubtreeIfNeeded()
+            // Don't run a layout pass — NSClipView re-positions the
+            // documentView during its own layout pass, which would undo the
+            // setFrameOrigin shift expandToInclude just applied and pull the
+            // canvas back to the centered position. Returning the event lets
+            // AppKit hit-test against the just-updated canvas.frame (size +
+            // origin) and deliver mouseDown through the normal responder
+            // path, which engages the system drag-tracking loop.
             return event
         }
     }
