@@ -41,7 +41,19 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var document: MarkupDocument { didSet { needsDisplay = true; onMutated?() } }
     /// Fired on any change to the document, so the editor can mark itself edited.
     var onMutated: (() -> Void)?
-    var tool: Tool = .select { didSet { if tool != .select { selectedID = nil; needsDisplay = true } } }
+    var tool: Tool = .select {
+        didSet {
+            if tool != .select { selectedID = nil }
+            if tool == .ocr {
+                ensureOCRRegions()      // scan the screenshot once on entry
+            } else {
+                ocrRegions = []         // free memory; clear visible boxes
+                ocrSelected = []
+                ocrBaseImageKey = nil
+            }
+            needsDisplay = true
+        }
+    }
     var strokeColor: NSColor = RGBAColor.red.nsColor
     var lineWidth: CGFloat = 4
 
@@ -100,11 +112,23 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// Pre-drag snapshot of every selected object, for moving a group together.
     private var preDragGroup: [UUID: MarkupObject] = [:]
     private var cropRect: CGRect = .zero
-    /// In-progress OCR-grab rectangle (text-grab tool).
+    /// In-progress OCR drag-select rectangle (text-grab tool).
     private var ocrRect: CGRect = .zero
     /// Briefly-shown HUD ("Copied 47 chars", etc.). Reset by hideOCRHud(_:).
     private var ocrHudMessage: String?
     private var ocrHudOk: Bool = true
+
+    /// One recognised text region (Vision observation, projected to canvas
+    /// coords). The grab-text tool surfaces these as Preview-style selectable
+    /// boxes so the user can drag-highlight individual lines.
+    private struct OCRRegion {
+        let id = UUID()
+        let bounds: CGRect    // canvas-space rectangle
+        let text: String
+    }
+    private var ocrRegions: [OCRRegion] = []
+    private var ocrSelected: Set<UUID> = []
+    private var ocrBaseImageKey: ObjectIdentifier?    // re-OCR when the base image swaps
 
     /// Fired after a crop changes the canvas size (so the toolbar can refit).
     var onCropped: (() -> Void)?
@@ -172,6 +196,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseMoved(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        // Grab-Text tool: I-beam over recognised text regions, otherwise
+        // crosshair (you can still rubber-band-select multiple lines on
+        // empty canvas between them).
+        if tool == .ocr {
+            if ocrRegions.contains(where: { $0.bounds.contains(p) }) {
+                NSCursor.iBeam.set()
+            } else {
+                NSCursor.crosshair.set()
+            }
+            return
+        }
         // Over a modify-handle on the current selection (any tool) → the
         // regular arrow cursor so the user knows the next click will tweak
         // the existing object rather than start a new one.
@@ -229,13 +264,33 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let border = NSBezierPath(rect: cropRect); border.lineWidth = 1.5; border.stroke()
         }
 
-        // OCR selection rectangle (lighter than crop — we're just grabbing
-        // text, not destructively modifying the canvas).
-        if case .ocr = drag, ocrRect.width > 0, ocrRect.height > 0 {
-            NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
-            NSBezierPath(rect: ocrRect).fill()
-            NSColor.controlAccentColor.setStroke()
-            let border = NSBezierPath(rect: ocrRect); border.lineWidth = 1.5; border.stroke()
+        // Grab-Text overlay (Preview-style): each recognised line gets a
+        // subtle outline so the user can see what's grabbable; selected ones
+        // get a solid blue fill. The drag rect itself stays light so it
+        // doesn't fight the selection highlights underneath.
+        if tool == .ocr {
+            for region in ocrRegions {
+                let r = region.bounds.insetBy(dx: -1, dy: -1)
+                if ocrSelected.contains(region.id) {
+                    NSColor.systemBlue.withAlphaComponent(0.35).setFill()
+                    NSBezierPath(rect: r).fill()
+                } else {
+                    NSColor.systemBlue.withAlphaComponent(0.45).setStroke()
+                    let outline = NSBezierPath(rect: r)
+                    outline.lineWidth = 1
+                    outline.setLineDash([2, 2], count: 2, phase: 0)
+                    outline.stroke()
+                }
+            }
+            if case .ocr = drag, ocrRect.width > 0 || ocrRect.height > 0 {
+                NSColor.systemBlue.withAlphaComponent(0.08).setFill()
+                NSBezierPath(rect: ocrRect).fill()
+                NSColor.systemBlue.withAlphaComponent(0.5).setStroke()
+                let band = NSBezierPath(rect: ocrRect)
+                band.lineWidth = 1
+                band.setLineDash([4, 3], count: 2, phase: 0)
+                band.stroke()
+            }
         }
 
         // Brief "Copied N chars" / "No text found" HUD after an OCR grab.
@@ -402,6 +457,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
             dragStart = p
             ocrRect = CGRect(origin: p, size: .zero)
             selectedID = nil
+            // Click on a recognised region selects just that one to start; an
+            // empty-canvas click clears the previous selection.
+            if let hit = ocrRegions.first(where: { $0.bounds.contains(p) }) {
+                ocrSelected = [hit.id]
+            } else {
+                ocrSelected = []
+            }
             needsDisplay = true
             return
         }
@@ -471,6 +533,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return
         case .ocr:
             ocrRect = rect(from: dragStart, to: p)
+            // Live-update the selection: every region touched by the rubber band.
+            ocrSelected = Set(ocrRegions
+                .filter { $0.bounds.intersects(ocrRect) }
+                .map { $0.id })
             needsDisplay = true
             return
         case .marquee:
@@ -537,9 +603,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
         if case .ocr = drag {
             drag = nil
-            let r = ocrRect.standardized
             ocrRect = .zero
-            runOCR(on: r)
+            commitOCRSelection()
             needsDisplay = true
             return
         }
@@ -769,6 +834,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     @objc func copy(_ sender: Any?) {
+        // In Grab-Text mode the highlighted regions ARE the selection — copy
+        // them as plain text instead of duping any markup objects.
+        if tool == .ocr, !ocrSelected.isEmpty {
+            commitOCRSelection()
+            return
+        }
         let pb = NSPasteboard.general
         pb.clearContents()
         // A marquee group is selected → copy all of them (paste re-creates them).
@@ -792,6 +863,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     @objc func delete(_ sender: Any?) { deleteSelection() }
+
+    /// Cmd+A in Grab-Text mode selects every recognised line.
+    @objc override func selectAll(_ sender: Any?) {
+        if tool == .ocr {
+            ocrSelected = Set(ocrRegions.map { $0.id })
+            needsDisplay = true
+            return
+        }
+        // No general select-all elsewhere — leave the responder chain alone.
+    }
 
     // MARK: Active color / width (apply to selection + future objects)
 
@@ -996,55 +1077,85 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Crop the canvas to `rect` (canvas coords): shift the base image + objects,
     /// drop objects that fall entirely outside, and resize the canvas.
-    // MARK: OCR (text grab)
+    // MARK: OCR (Grab Text — Preview-style text selection)
 
-    /// Run Vision OCR on the base-image region under `rect` (canvas coords) and
-    /// drop the recognised text on the clipboard. Cancellable and non-blocking.
-    private func runOCR(on rect: CGRect) {
-        guard rect.width >= 8, rect.height >= 8 else { return }
+    /// Scan the entire base image once when the OCR tool is selected, so the
+    /// user can drag through the recognised text regions instead of having to
+    /// draw a precise rectangle. Skips if we already have regions for this base
+    /// image. Vision request happens off the main thread; results land on main.
+    private func ensureOCRRegions() {
         guard let base = document.baseImage,
               let baseCG = base.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             showOCRHud("No screenshot to read.", ok: false); return
         }
-        // Canvas coords → base-image pixel coords.
+        let key = ObjectIdentifier(base)
+        if key == ocrBaseImageKey, !ocrRegions.isEmpty { return }
+        ocrBaseImageKey = key
+        ocrRegions = []
+        ocrSelected = []
         let baseFrame = document.baseImageFrame
-        let sx = base.size.width  / max(1, baseFrame.width)
-        let sy = base.size.height / max(1, baseFrame.height)
-        let imgX = (rect.minX - baseFrame.minX) * sx
-        let imgY = (rect.minY - baseFrame.minY) * sy
-        let imgW = rect.width  * sx
-        let imgH = rect.height * sy
-        // CGImage is top-left origin in pixel space, same as our flipped canvas.
-        let cropRect = CGRect(x: imgX, y: imgY, width: imgW, height: imgH)
-            .intersection(CGRect(origin: .zero, size: base.size))
-        guard cropRect.width >= 4, cropRect.height >= 4,
-              let cropped = baseCG.cropping(to: cropRect) else {
-            showOCRHud("Outside the screenshot.", ok: false); return
-        }
+        let imgW = base.size.width, imgH = base.size.height
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
-            try? VNImageRequestHandler(cgImage: cropped, options: [:]).perform([request])
-            let lines = (request.results ?? []).compactMap { (o: VNRecognizedTextObservation) in
-                o.topCandidates(1).first?.string
-            }
-            let text = lines.joined(separator: "\n")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if text.isEmpty {
-                    self.showOCRHud("No text found.", ok: false)
-                } else {
-                    let pb = NSPasteboard.general
-                    pb.clearContents()
-                    pb.setString(text, forType: .string)
-                    self.showOCRHud("Copied \(text.count) char\(text.count == 1 ? "" : "s")",
-                                     ok: true)
+            try? VNImageRequestHandler(cgImage: baseCG, options: [:]).perform([request])
+
+            let observations = (request.results ?? [])
+                .compactMap { (o: VNRecognizedTextObservation) -> OCRRegion? in
+                    guard let cand = o.topCandidates(1).first, cand.confidence > 0.3 else { return nil }
+                    let text = cand.string.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return nil }
+                    // Vision's boundingBox is normalised, bottom-left origin.
+                    // Flip Y and scale to image pixels, then map to canvas coords
+                    // via the base-image frame.
+                    let nb = o.boundingBox
+                    let px = nb.minX * imgW
+                    let py = (1 - nb.maxY) * imgH
+                    let pw = nb.width * imgW
+                    let ph = nb.height * imgH
+                    let scaleX = baseFrame.width  / max(1, imgW)
+                    let scaleY = baseFrame.height / max(1, imgH)
+                    let canvas = CGRect(x: baseFrame.minX + px * scaleX,
+                                        y: baseFrame.minY + py * scaleY,
+                                        width:  pw * scaleX,
+                                        height: ph * scaleY)
+                    return OCRRegion(bounds: canvas, text: text)
                 }
+
+            DispatchQueue.main.async {
+                guard let self, self.tool == .ocr else { return }
+                self.ocrRegions = observations
+                if observations.isEmpty { self.showOCRHud("No text found.", ok: false) }
+                self.needsDisplay = true
             }
         }
+    }
+
+    /// Compute the current text selection in reading order (top → bottom,
+    /// left → right) so paste reads naturally.
+    private func ocrSelectionText() -> String {
+        let chosen = ocrRegions.filter { ocrSelected.contains($0.id) }
+            .sorted { a, b in
+                // Group by line (within a small Y tolerance), then sort by X.
+                let lineEps: CGFloat = max(a.bounds.height, b.bounds.height) * 0.4
+                if abs(a.bounds.minY - b.bounds.minY) > lineEps {
+                    return a.bounds.minY < b.bounds.minY
+                }
+                return a.bounds.minX < b.bounds.minX
+            }
+        return chosen.map { $0.text }.joined(separator: "\n")
+    }
+
+    /// Copy whatever's currently selected (called on mouseUp) and HUD-confirm.
+    private func commitOCRSelection() {
+        let text = ocrSelectionText()
+        guard !text.isEmpty else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        showOCRHud("Copied \(text.count) char\(text.count == 1 ? "" : "s")", ok: true)
     }
 
     /// Show the OCR HUD label and auto-hide it after 1.6 s.
