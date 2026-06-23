@@ -19,11 +19,11 @@ enum CaptureCommand: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .crosshair:    return "Crosshair Snapshot"
-        case .previousArea: return "Previous Snapshot Area"
-        case .fullscreen:   return "Fullscreen Snapshot"
-        case .window:       return "Window Snapshot…"
-        case .menu:         return "Menu Snapshot"
+        case .crosshair:    return "Crosshair Clip"
+        case .previousArea: return "Previous Clip Area"
+        case .fullscreen:   return "Fullscreen Clip"
+        case .window:       return "Window Clip…"
+        case .menu:         return "Menu Clip"
         }
     }
 

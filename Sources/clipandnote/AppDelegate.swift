@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
         sc.onOpenGallery = { [weak self] in self?.openGallery(nil) }
+        sc.onNewWindow = { [weak self] in self?.showHome() }
         sc.onExportSelected = { [weak self] indices in self?.exportRecents(at: indices) }
         sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc

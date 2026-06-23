@@ -21,7 +21,7 @@ enum SnapshotNamer {
     /// Compute a name off the main thread; call back on the main thread.
     static func contextualName(for image: NSImage, completion: @escaping (String) -> Void) {
         guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            DispatchQueue.main.async { completion("Snapshot") }
+            DispatchQueue.main.async { completion("clipandnote") }
             return
         }
         DispatchQueue.global(qos: .userInitiated).async {
@@ -37,7 +37,7 @@ enum SnapshotNamer {
     private static func compose(ocr: String?, visual: VisualLabel?) -> String {
         if let ocr { return ocr }
         if let visual, visual.score > 0.25 { return visual.text }
-        return "Snapshot"
+        return "clipandnote"
     }
 
     // MARK: OCR
@@ -81,6 +81,6 @@ enum SnapshotNamer {
         if collapsed.count > 32 {
             return String(collapsed.prefix(32)).trimmingCharacters(in: .whitespaces) + "…"
         }
-        return collapsed.isEmpty ? "Snapshot" : collapsed
+        return collapsed.isEmpty ? "clipandnote" : collapsed
     }
 }

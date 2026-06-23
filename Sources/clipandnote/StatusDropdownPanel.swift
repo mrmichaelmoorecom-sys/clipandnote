@@ -29,6 +29,8 @@ final class StatusDropdownModel: ObservableObject {
     var onPickRecent: ((Int) -> Void)?
     var onOpenGallery: (() -> Void)?
     var onPreferences: (() -> Void)?
+    /// Open a fresh blank editor window ("New clipandnote").
+    var onNewWindow: (() -> Void)?
     /// Export Selected (indices into the current recents list). Empty array =
     /// "export all" (the button title flips when nothing's checked).
     var onExport: (([Int]) -> Void)?
@@ -171,6 +173,15 @@ struct StatusDropdownContentView: View {
                     }
                 )
             }
+            // Open a fresh blank editor — sits under the capture commands.
+            CaptureCommandRowView(
+                title: "New clipandnote",
+                equiv: "",
+                onClick: {
+                    model.onNewWindow?()
+                    model.onClose?()
+                }
+            )
         }
         .padding(.vertical, 4)
     }

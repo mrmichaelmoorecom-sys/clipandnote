@@ -39,7 +39,24 @@ final class DropZoneView: NSView {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         highlighted = false
-        let pb = sender.draggingPasteboard
+        return consume(pasteboard: sender.draggingPasteboard)
+    }
+
+    // MARK: Paste (⌘V / Edit ▸ Paste)
+
+    // Accept first responder so the menu Paste command + ⌘V route here. The
+    // editor makes this view first responder when the empty state is shown.
+    override var acceptsFirstResponder: Bool { true }
+
+    @objc func paste(_ sender: Any?) {
+        _ = consume(pasteboard: .general)
+    }
+
+    /// Read a `.can` file or an image out of `pb` and fire the matching
+    /// callback. Shared by drag-drop and paste. Returns whether anything was
+    /// consumed.
+    @discardableResult
+    private func consume(pasteboard pb: NSPasteboard) -> Bool {
         if let urls = pb.readObjects(forClasses: [NSURL.self],
                                      options: [.urlReadingFileURLsOnly: true]) as? [URL] {
             if let can = urls.first(where: { $0.pathExtension.lowercased() == "can" }) {

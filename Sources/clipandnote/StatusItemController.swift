@@ -12,6 +12,8 @@ final class StatusItemController: NSObject {
     /// "export everything" — the action bar's Export button title reflects that.
     var onExportSelected: (([Int]) -> Void)?
     var onPreferences: (() -> Void)?
+    /// Open a fresh blank editor window ("New clipandnote").
+    var onNewWindow: (() -> Void)?
 
     private let statusItem: NSStatusItem
     private let panel = StatusDropdownPanel()
@@ -36,6 +38,7 @@ final class StatusItemController: NSObject {
         panel.content.onCapture       = { [weak self] kind in self?.onCapture?(kind) }
         panel.content.onPickRecent    = { [weak self] idx  in self?.onPickRecent?(idx) }
         panel.content.onOpenGallery   = { [weak self]      in self?.onOpenGallery?() }
+        panel.content.onNewWindow     = { [weak self]      in self?.onNewWindow?() }
         panel.content.onPreferences   = { [weak self]      in self?.onPreferences?() }
         panel.content.onExport        = { [weak self] is_  in self?.onExportSelected?(is_) }
         panel.content.onQuit          = {                     NSApp.terminate(nil) }

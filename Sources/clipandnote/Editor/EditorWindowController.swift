@@ -615,6 +615,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             zone.bottomAnchor.constraint(equalTo: footerView.topAnchor),
         ])
         emptyState = zone
+        // Make the drop zone first responder so ⌘V / Edit ▸ Paste land on it
+        // and paste an image straight into the blank window.
+        DispatchQueue.main.async { [weak self, weak zone] in
+            self?.window?.makeFirstResponder(zone)
+        }
     }
 
     @objc private func emptyOpen() { onRequestOpen?() }
