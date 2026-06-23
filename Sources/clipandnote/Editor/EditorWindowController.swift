@@ -596,7 +596,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         openBtn.bezelStyle = .rounded; openBtn.keyEquivalent = "\r"
         let captureBtn = NSButton(title: "Capture", target: self, action: #selector(emptyCapture))
         captureBtn.bezelStyle = .rounded
-        let buttons = NSStackView(views: [openBtn, captureBtn]); buttons.spacing = 10
+        let blankBtn = NSButton(title: "New Blank Clip", target: self, action: #selector(emptyBlank))
+        blankBtn.bezelStyle = .rounded
+        let buttons = NSStackView(views: [openBtn, captureBtn, blankBtn]); buttons.spacing = 10
 
         let stack = NSStackView(views: [icon, title, subtitle, buttons])
         stack.orientation = .vertical; stack.alignment = .centerX; stack.spacing = 10
@@ -624,6 +626,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func emptyOpen() { onRequestOpen?() }
     @objc private func emptyCapture() { onRequestCapture?() }
+
+    /// Dismiss the empty state to reveal the blank white canvas this editor was
+    /// created with, ready to draw on — a "from scratch" markup with no
+    /// screenshot behind it.
+    @objc private func emptyBlank() {
+        dismissEmptyState()
+        window?.isDocumentEdited = true
+        updateFileNameLabel()
+        DispatchQueue.main.async { [weak self] in
+            self?.resizeWindowToCanvas(); self?.updateSizeLabel()
+        }
+    }
 
     private func dismissEmptyState() {
         emptyState?.removeFromSuperview()
