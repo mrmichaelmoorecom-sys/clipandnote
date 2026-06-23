@@ -101,14 +101,6 @@ final class ColorPaletteView: NSView {
         dropper.widthAnchor.constraint(equalToConstant: 13).isActive = true
         dropper.heightAnchor.constraint(equalToConstant: 13).isActive = true
 
-        // Picker + eyedropper sit side-by-side as a row at the TOP of the side
-        // column; an editable hex field sits directly below them.
-        let pickerRow = NSStackView(views: [well, dropper])
-        pickerRow.orientation = .horizontal
-        pickerRow.spacing = 10
-        pickerRow.alignment = .centerY
-        pickerRow.translatesAutoresizingMaskIntoConstraints = false
-
         // Editable hex value — type "#RRGGBB" (or "RRGGBB") and press Return to
         // set the active colour precisely. Reflects the selected colour live.
         hexField.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
@@ -116,20 +108,20 @@ final class ColorPaletteView: NSView {
         hexField.alignment = .left
         hexField.isBezeled = true
         hexField.bezelStyle = .roundedBezel
+        hexField.controlSize = .small
         hexField.focusRingType = .none
         hexField.target = self
         hexField.action = #selector(hexEntered(_:))
         hexField.translatesAutoresizingMaskIntoConstraints = false
-        hexField.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        hexField.widthAnchor.constraint(equalToConstant: 68).isActive = true
         hexField.toolTip = "Hex colour — type #RRGGBB and press Return"
 
-        // Side column: picker row on top, hex field below; top-aligned so the
-        // controls sit at the top of the palette (level with the first swatch
-        // row) rather than vertically centred.
-        let sideCol = NSStackView(views: [pickerRow, hexField])
-        sideCol.orientation = .vertical
-        sideCol.spacing = 4
-        sideCol.alignment = .leading
+        // Picker well + eyedropper side-by-side (original layout), with the hex
+        // field next to them.
+        let sideCol = NSStackView(views: [well, dropper, hexField])
+        sideCol.orientation = .horizontal
+        sideCol.spacing = 8
+        sideCol.alignment = .centerY
         sideCol.translatesAutoresizingMaskIntoConstraints = false
 
         // Wider gap between the preset grid and the custom-colour tools so the
@@ -137,8 +129,8 @@ final class ColorPaletteView: NSView {
         // swatch grid.
         let outer = NSStackView(views: [grid, sideCol])
         outer.orientation = .horizontal
-        outer.spacing = 18
-        outer.alignment = .top
+        outer.spacing = 16
+        outer.alignment = .centerY
         outer.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(outer)

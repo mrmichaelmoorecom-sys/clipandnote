@@ -84,10 +84,21 @@ enum MarkupRenderer {
         strokeWithContrast(p, o)
     }
 
-    /// A dimension ruler: baseline a→b, perpendicular end caps, evenly-spaced
-    /// minor ticks, a direction arrowhead just past the end, and a "<N> px"
-    /// length label above the midpoint. N is the straight-line distance in
-    /// canvas pixels (the canvas is 1:1 with the snapshot, so it reads true).
+    /// Graduated ruler tick half-height for a tick `n` pixels from the start:
+    /// tiny every 5px, taller at 10 / 50 / 100. nil = no tick at `n`.
+    static func rulerTickFraction(_ n: Int) -> CGFloat? {
+        if n % 100 == 0 { return 0.85 }
+        if n % 50  == 0 { return 0.58 }
+        if n % 10  == 0 { return 0.40 }
+        if n % 5   == 0 { return 0.22 }
+        return nil
+    }
+
+    /// A dimension ruler: baseline a→b, perpendicular end caps, graduated tick
+    /// hatches (tiny every 5px, taller at 10/50/100), a direction arrowhead
+    /// just past the end, and a "<N> px" length label above the midpoint. N is
+    /// the straight-line distance in canvas pixels (the canvas is 1:1 with the
+    /// snapshot, so it reads true).
     private static func drawRuler(_ o: MarkupObject) {
         guard o.points.count >= 2 else { return }
         let a = o.points[0], b = o.points[1]
@@ -111,14 +122,30 @@ enum MarkupRenderer {
         // Baseline.
         stroked(width: lw) { $0.move(to: a); $0.line(to: b) }
 
-        // Perpendicular end caps at both ends — a clean dimension line (no
-        // minor ruler ticks; they read as arbitrary clutter at this scale).
+        // Perpendicular end caps at both ends.
         let capHalf = max(8, lw * 2.5)
         for pt in [a, b] {
             let c0 = CGPoint(x: pt.x + nx * capHalf, y: pt.y + ny * capHalf)
             let c1 = CGPoint(x: pt.x - nx * capHalf, y: pt.y - ny * capHalf)
             stroked(width: lw) { $0.move(to: c0); $0.line(to: c1) }
         }
+
+        // Graduated tick hatches along the baseline, centered, with a thin
+        // contrast halo. Skip ticks too close to either end cap.
+        let tickW = max(1, lw * 0.6)
+        func tick(_ n: Int) {
+            guard CGFloat(n) > 2, length - CGFloat(n) > 2,
+                  let frac = rulerTickFraction(n) else { return }
+            let h = capHalf * frac
+            let m = CGPoint(x: a.x + ux * CGFloat(n), y: a.y + uy * CGFloat(n))
+            let t0 = CGPoint(x: m.x + nx * h, y: m.y + ny * h)
+            let t1 = CGPoint(x: m.x - nx * h, y: m.y - ny * h)
+            let p = NSBezierPath(); p.move(to: t0); p.line(to: t1); p.lineCapStyle = .round
+            p.lineWidth = tickW + 1.5; contrast.setStroke(); p.stroke()
+            p.lineWidth = tickW; color.setStroke(); p.stroke()
+        }
+        var n = 5
+        while CGFloat(n) < length { tick(n); n += 5 }
 
         // Arrowhead just past the end, pointing along the measure direction.
         let headLen = max(12, lw * 3.5)

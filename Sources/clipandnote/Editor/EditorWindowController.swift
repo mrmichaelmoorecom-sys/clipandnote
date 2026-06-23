@@ -194,7 +194,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             switch t.tool {
             case .highlighter, .text,
                  .arrow, .doubleArrow, .line, .freehand,
-                 .rectangle, .ellipse:
+                 .rectangle, .ellipse, .ruler:
                 b.onShowMenu = { [weak self, weak b] in
                     if let b { self?.showOpacitySlider(from: b) }
                 }

@@ -129,6 +129,19 @@ enum SVGExporter {
             out += line(CGPoint(x: pt.x + nx*capHalf, y: pt.y + ny*capHalf),
                         CGPoint(x: pt.x - nx*capHalf, y: pt.y - ny*capHalf), lw)
         }
+        // Graduated tick hatches (tiny every 5px, taller at 10/50/100).
+        let tickW = max(1, lw * 0.6)
+        var nTick = 5
+        while CGFloat(nTick) < length {
+            if CGFloat(nTick) > 2, length - CGFloat(nTick) > 2,
+               let frac = MarkupRenderer.rulerTickFraction(nTick) {
+                let h = capHalf * frac
+                let m = CGPoint(x: a.x + ux*CGFloat(nTick), y: a.y + uy*CGFloat(nTick))
+                out += line(CGPoint(x: m.x + nx*h, y: m.y + ny*h),
+                            CGPoint(x: m.x - nx*h, y: m.y - ny*h), tickW)
+            }
+            nTick += 5
+        }
         // Arrowhead.
         let headLen = max(12, lw*3.5), headHalf = max(7, lw*2)
         let tip = CGPoint(x: b.x + ux*headLen, y: b.y + uy*headLen)
