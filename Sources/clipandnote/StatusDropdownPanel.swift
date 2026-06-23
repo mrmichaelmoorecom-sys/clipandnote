@@ -55,7 +55,7 @@ final class StatusDropdownModel: ObservableObject {
 /// edge-to-edge (body + arrow tail) exactly like clipandcue does. The earlier
 /// pure-AppKit content disturbed that compositing pipeline no matter how
 /// transparent we made it.
-final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
+final class StatusDropdownPanel: NSObject {
     let content = StatusDropdownModel()
     private let popover = NSPopover()
     private var hostingController: NSHostingController<StatusDropdownContentView>!
@@ -73,12 +73,9 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         popover.contentViewController = hostingController
         popover.behavior = .transient
         popover.animates = true
-        popover.delegate = self
-        // No appearance override. With the deployment target lowered to
-        // macOS 13 (matching clipandcue), NSPopover follows the system
-        // appearance and renders the dark vibrant material under Dark Mode
-        // automatically. The macOS-14 deployment target was the sole cause of
-        // the previously-light dropdown.
+        // No appearance override. With the deployment target at macOS 13
+        // (matching clipandcue), NSPopover follows the system appearance and
+        // renders its default vibrancy material automatically.
     }
 
     var isShown: Bool { popover.isShown }
@@ -199,38 +196,54 @@ struct StatusDropdownContentView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
+        // All buttons use `.buttonStyle(.plain)` like clipandcue's footer.
+        // The default Button style renders a bordered/glass capsule (lighter,
+        // blurrier on macOS 26 Liquid Glass) behind each control, which made
+        // clipandnote's dropdown read lighter than clipandcue's. Plain style
+        // is just the label, so the popover vibrancy shows through unchanged.
+        HStack(spacing: 12) {
             Button {
                 model.onOpenGallery?()
                 model.onClose?()
             } label: {
                 Label("Library", systemImage: "books.vertical")
+                    .font(.caption2)
             }
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
 
             Spacer()
 
-            Button(model.checked.isEmpty ? "Export" : "Export \(model.checked.count)") {
+            Button {
                 model.onExport?(Array(model.checked).sorted())
                 model.onClose?()
+            } label: {
+                Label(model.checked.isEmpty ? "Export" : "Export \(model.checked.count)",
+                      systemImage: "square.and.arrow.up")
+                    .font(.caption2)
             }
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
 
             Button {
                 model.onPreferences?()
                 model.onClose?()
             } label: {
                 Image(systemName: "gearshape")
+                    .font(.caption2)
             }
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
             .help("Preferences")
 
             Button {
                 model.onQuit?()
             } label: {
                 Image(systemName: "power")
+                    .font(.caption2)
             }
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
             .help("Quit clipandnote")
         }
         .padding(.horizontal, 10)
