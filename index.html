@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>clipandnote — capture it, mark it up, move on.</title>
-<meta name="description" content="A fast, native macOS screenshot-markup app — a modern, open take on Skitch. Capture from the menu bar, annotate with movable objects, and export real layered files (PDF, PNG, SVG).">
+<title>clipandnote: capture it, mark it up, move on.</title>
+<meta name="description" content="A fast, native macOS screenshot-markup app, a modern open take on Skitch. Capture from the menu bar, annotate with movable objects, and export real layered files (PDF, PNG, SVG).">
 <link rel="icon" href="img/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="img/appicon_256.png">
 <link rel="canonical" href="https://clipandnote.com/">
@@ -16,17 +16,17 @@
 <!-- Open Graph / Facebook / iMessage / Slack -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="clipandnote">
-<meta property="og:title" content="clipandnote — capture it, mark it up, move on.">
-<meta property="og:description" content="A native macOS screenshot-markup app — a modern, open take on Skitch. Capture from the menu bar, annotate with movable objects, and export layered PDF, PNG & SVG.">
+<meta property="og:title" content="clipandnote: capture it, mark it up, move on.">
+<meta property="og:description" content="A native macOS screenshot-markup app, a modern open take on Skitch. Capture from the menu bar, annotate with movable objects, and export layered PDF, PNG & SVG.">
 <meta property="og:url" content="https://clipandnote.com/">
 <meta property="og:image" content="https://clipandnote.com/img/og-image.png?v=1">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="clipandnote — macOS screenshot-markup app">
+<meta property="og:image:alt" content="clipandnote, a macOS screenshot-markup app">
 
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="clipandnote — capture it, mark it up, move on.">
+<meta name="twitter:title" content="clipandnote: capture it, mark it up, move on.">
 <meta name="twitter:description" content="A native macOS screenshot-markup app. Capture from the menu bar, annotate with movable objects, and export layered PDF, PNG & SVG.">
 <meta name="twitter:image" content="https://clipandnote.com/img/og-image.png?v=1">
 
@@ -39,7 +39,7 @@
   "operatingSystem": "macOS 13.0 or later",
   "applicationCategory": "DesignApplication",
   "applicationSubCategory": "Screenshot Markup",
-  "description": "A fast, native macOS screenshot-markup app — a modern, open take on Skitch. Capture from the menu bar, annotate with movable objects (arrows, boxes, text, highlighter, ruler, blur), grab text with on-device OCR, and export editable documents or layered PDF, PNG and SVG.",
+  "description": "A fast, native macOS screenshot-markup app, a modern open take on Skitch. Capture from the menu bar, annotate with movable objects (arrows, boxes, text, highlighter, ruler, blur), grab text with on-device OCR, and export editable documents or layered PDF, PNG and SVG.",
   "url": "https://clipandnote.com/",
   "image": "https://clipandnote.com/img/og-image.png?v=1",
   "screenshot": "https://clipandnote.com/img/og-image.png?v=1",
@@ -54,7 +54,7 @@
   "publisher": { "@type": "Person", "name": "Michael Moore" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "featureList": [
-    "Capture from the menu bar — crosshair, previous area, window, or fullscreen",
+    "Capture from the menu bar: crosshair, previous area, window, or fullscreen",
     "Annotate with movable objects: arrows, lines, boxes, ellipses, freehand, text, highlighter",
     "Ruler and angle tools for precise pixel and degree measurements",
     "Grab Text (OCR) and automatic snapshot naming run 100% on-device",
@@ -133,9 +133,10 @@ nav .brand svg{width:30px;height:30px}
 
 .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   padding:120px 24px 80px;background:radial-gradient(120% 90% at 50% 0%,rgba(208,188,213,.55) 0%,rgba(255,253,254,0) 62%);overflow:hidden}
-.heromark{width:124px;height:124px;margin:0 auto 6px;display:block}
+.heromark{width:128px;height:128px;margin:0 auto 8px;display:block;filter:drop-shadow(0 10px 20px rgba(82,76,97,.32))}
 .hero h1{font-size:clamp(40px,7vw,76px);font-weight:800}
-.hero .tag{font-size:clamp(22px,3vw,30px);color:var(--grape);margin-top:16px}
+.herodiv{width:clamp(280px,42vw,460px);height:4px;border-radius:3px;background:var(--grape);margin:18px auto 0;opacity:.85}
+.hero .tag{font-size:clamp(22px,3vw,30px);color:var(--grape);margin-top:18px}
 .hero .sub{font-size:clamp(18px,2.4vw,22px);color:var(--ink-soft);margin:18px auto 0;max-width:580px}
 .hero .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
 .hero .meta{margin-top:18px;font-size:14px;color:var(--ink-soft)}
@@ -275,10 +276,11 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 
 <header class="hero">
   <div class="hero-inner">
-    <svg class="heromark" data-speed="0.07" viewBox="0 0 512 512" role="img" aria-label="clipandnote logo"><use href="#cnmark"/></svg>
+    <img class="heromark" data-speed="0.07" src="img/appicon_1024.png" alt="clipandnote app icon">
     <h1>clipandnote</h1>
+    <div class="herodiv" aria-hidden="true"></div>
     <p class="tag serif">capture it, mark it up, move on.</p>
-    <p class="sub">A fast, native macOS <strong>screenshot-markup</strong> app — a modern, open take on Skitch. Snap from the menu bar, annotate with movable objects, and keep every markup one tap away.</p>
+    <p class="sub">A fast, native macOS <strong>screenshot-markup</strong> app, a modern open take on Skitch. Snap from the menu bar, mark it up with movable objects, then copy, share, or export multi-page PDFs.</p>
     <div class="cta-row">
       <a href="#download" class="btn">Download for macOS</a>
       <a href="#how" class="btn ghost">See how it works</a>
@@ -295,23 +297,24 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     <div class="shead reveal">
       <div class="kicker">what it does</div>
       <h2>Screenshots, actually worth keeping.</h2>
-      <p>Grab a shot, draw on it, and find it again later — without ever opening a heavyweight editor.</p>
+      <p>Grab a shot, draw on it, and find it again later,<br>without ever opening a heavyweight editor.</p>
     </div>
     <div class="cards">
-      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/></svg></div><h3>Capture from the menu bar</h3><p>Crosshair, previous area, timed, fullscreen, window, or a menu — one click from the bar.</p></div>
-      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.586 7.586"/></svg></div><h3>Annotate with real objects</h3><p>Arrows, boxes, text, highlighter, blur — every mark is selectable and movable, not baked in.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/></svg></div><h3>Capture from the menu bar</h3><p>Crosshair, previous area, timed, fullscreen, window, or a menu. One click from the bar.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.586 7.586"/></svg></div><h3>Annotate with real objects</h3><p>Arrows, boxes, text, highlighter, blur. Every mark is selectable and movable, not baked in.</p></div>
       <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div><h3>Automatic history</h3><p>Every markup is saved automatically, with your recent shots one tap away in the menu bar.</p></div>
-      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M7 3h8l5 5v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 13h6M9 17h4"/></svg></div><h3>Export real layered files</h3><p>Save an editable document, or export layered PDF, PNG, and SVG — nothing flattened by surprise.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M7 3h8l5 5v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 13h6M9 17h4"/></svg></div><h3>Export real layered files</h3><p>Save an editable document, or export layered PDF, PNG, and SVG. Nothing flattened by surprise.</p></div>
+      <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="11" height="15" rx="1.5"/><path d="M8 21h11a1.5 1.5 0 0 0 1.5-1.5V7"/><path d="M8 8h5M8 11h5"/></svg></div><h3>Output multi-page PDFs</h3><p>Tick the markups you want, drag them into order, and export one PDF with optional page numbers.</p></div>
     </div>
   </div>
 </section>
 
 <section id="how" class="pad pad-tint">
   <div class="wrap">
-    <div class="shead reveal"><div class="kicker">how it works</div><h2>Three steps, no friction</h2><p>It lives in your menu bar and stays out of the way until you need to grab something.</p></div>
+    <div class="shead reveal"><div class="kicker">how it works</div><h2>Three steps, no friction</h2><p>It lives in your menu bar and stays out of the way<br>until you need to grab something.</p></div>
 
     <div class="step reveal">
-      <div class="copy"><div class="stepnum">1</div><h3>Capture from the bar</h3><p>Pick a capture mode from the menu bar — crosshair for a region, or grab a whole window. Your shot opens straight in a zoomable editor.</p></div>
+      <div class="copy"><div class="stepnum">1</div><h3>Capture from the bar</h3><p>Pick a capture mode from the menu bar (Crosshair Clip is <span class="kbd">⌥⌘4</span>), or grab a whole window. Your shot opens straight in a zoomable editor.</p></div>
       <div class="demo">
         <div class="macwin" id="capdemo">
           <div class="macbar"><span class="dotmac r"></span><span class="dotmac y"></span><span class="dotmac g"></span><span class="ttl">clipandnote</span></div>
@@ -324,7 +327,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     </div>
 
     <div class="step rev reveal">
-      <div class="copy"><div class="stepnum">2</div><h3>Mark it up</h3><p>Drop arrows, boxes, text and highlights — each one stays a live object you can move, restyle, or delete. Blur the bits that shouldn't be public.</p></div>
+      <div class="copy"><div class="stepnum">2</div><h3>Mark it up</h3><p>Drop arrows, boxes, text and highlights. Each one stays a live object you can move, restyle, or delete. Blur the bits that shouldn't be public.</p></div>
       <div class="demo">
         <div class="editor">
           <div class="toolbar">
@@ -349,7 +352,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     </div>
 
     <div class="step reveal">
-      <div class="copy"><div class="stepnum">3</div><h3>Copy, save, or export</h3><p>Send it straight to the clipboard for a quick paste, save an editable document, or export a layered file. It hands off to <strong>clipandcue</strong> as your latest copy — without flooding its history.</p></div>
+      <div class="copy"><div class="stepnum">3</div><h3>Copy, save, or export</h3><p>Send it straight to the clipboard for a quick paste, save an editable document, or export a layered file. It hands off to <strong>clipandcue</strong> as your latest copy, without flooding its history.</p></div>
       <div class="demo">
         <div class="macwin" style="max-width:360px">
           <div class="macbar"><span class="dotmac r"></span><span class="dotmac y"></span><span class="dotmac g"></span><span class="ttl">Export</span></div>
@@ -382,7 +385,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     </div>
     <div class="callout reveal">
       <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Private by design</h4>
-      <p>The smart stuff — <strong>Grab Text (OCR)</strong> and automatic on-device snapshot naming — runs <strong>100% on your Mac</strong>. There's no account and nothing is uploaded; your screenshots never leave your machine.</p>
+      <p>The smart stuff (<strong>Grab Text (OCR)</strong> and automatic on-device snapshot naming) runs <strong>100% on your Mac</strong>. There's no account and nothing is uploaded; your screenshots never leave your machine.</p>
     </div>
   </div>
 </section>
@@ -405,7 +408,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
             <li>You're free to <strong>use, share and adapt</strong> it for <strong>non-commercial</strong> purposes, with attribution.</li>
             <li><strong>Commercial use is not permitted</strong> without permission.</li>
             <li>The software is provided <strong>“as is”</strong>, with no warranty, and the author is not liable for any damages or data loss.</li>
-            <li>The app is <strong>signed with a Developer ID and notarized by Apple</strong>, so it opens normally — no Gatekeeper workaround needed.</li>
+            <li>The app is <strong>signed with a Developer ID and notarized by Apple</strong>, so it opens normally, with no Gatekeeper workaround needed.</li>
           </ul>
           <p style="margin-top:12px"><a href="LICENSE" target="_blank" rel="noopener" class="tlink">Read the full license text &#8599;</a></p>
         </div>
@@ -451,7 +454,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   var px=[].slice.call(document.querySelectorAll('[data-speed]'));
   if(!reduce&&px.length){var t=false;window.addEventListener('scroll',function(){if(!t){t=true;requestAnimationFrame(function(){var y=window.pageYOffset;for(var i=0;i<px.length;i++){px[i].style.transform='translate3d(0,'+(y*parseFloat(px[i].getAttribute('data-speed'))).toFixed(2)+'px,0)';}t=false;});}},{passive:true});}
   var agree=document.getElementById('agree'),btn=document.getElementById('dlbtn'),note=document.getElementById('dlnote'),wrap=document.getElementById('dlwrap');
-  function setEnabled(on){if(on){btn.removeAttribute('disabled');btn.setAttribute('aria-disabled','false');btn.href=btn.dataset.href;note.textContent='Thanks! Your download will begin — drag clipandnote.app into Applications.';}else{btn.setAttribute('disabled','');btn.setAttribute('aria-disabled','true');btn.removeAttribute('href');note.textContent='Tick the box to enable the download.';}}
+  function setEnabled(on){if(on){btn.removeAttribute('disabled');btn.setAttribute('aria-disabled','false');btn.href=btn.dataset.href;note.textContent='Thanks! Your download will begin. Drag clipandnote.app into Applications.';}else{btn.setAttribute('disabled','');btn.setAttribute('aria-disabled','true');btn.removeAttribute('href');note.textContent='Tick the box to enable the download.';}}
   agree.addEventListener('change',function(){setEnabled(agree.checked);});
   btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}});
   setEnabled(false);
