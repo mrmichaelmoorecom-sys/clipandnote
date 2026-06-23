@@ -13,3 +13,4 @@ DerivedData/
 .venv-mc/
 Resources/*.pt
 Resources/*.mlpackage/
+Resources/dmg-background.png
