@@ -74,9 +74,14 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        // No popover.appearance override and no popover.contentSize — the
-        // dropdown follows the system light / dark theme and sizes itself
-        // from the SwiftUI .frame(...), matching clipandcue.
+        // Pin .vibrantDark explicitly. clipandcue targets macOS 13 and inherits
+        // a dark NSPopover under system Dark Mode automatically; clipandnote
+        // targets macOS 14, where NSPopover's default `.popover` material
+        // appears to ignore system dark and render light unless the appearance
+        // is set explicitly. Pinning vibrantDark forces NSPopover's chrome
+        // (body + arrow tail) into the dark vibrant material that matches
+        // clipandcue in all conditions, regardless of system theme.
+        popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
     var isShown: Bool { popover.isShown }
