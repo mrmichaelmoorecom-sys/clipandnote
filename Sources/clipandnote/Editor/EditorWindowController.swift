@@ -293,6 +293,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
+        // Custom clip view so clicks in the empty grey backdrop (with a drawing
+        // tool active) auto-expand the canvas to that point. Bounds aren't
+        // touched — just mouseDown handling — so the previous "shifted bounds
+        // origin broke event mapping" issue doesn't apply.
+        let clip = ExpandingClipView()
+        clip.canvas = canvas
+        scroll.contentView = clip
         scroll.documentView = canvas
         // Padded backdrop around the canvas card. Dynamic so light mode reads
         // as a light grey instead of the dark surround we use in dark mode.

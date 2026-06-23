@@ -1049,6 +1049,26 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     // MARK: Auto-expand
 
+    /// Grow the canvas so it includes `point` (in canvas coords). Used when the
+    /// user clicks beyond the current canvas with a drawing tool — the canvas
+    /// stretches out to that area so the next stroke has room. Mirrors
+    /// `expandCanvasIfNeeded` but seeds the union with `point` instead of the
+    /// existing objects.
+    func expandToInclude(point: CGPoint) {
+        var union = CGRect(origin: .zero, size: document.canvasSize)
+        union = union.union(CGRect(x: point.x, y: point.y, width: 0, height: 0))
+        let m: CGFloat = 24
+        let newSize = CGSize(width: union.width + m * 2, height: union.height + m * 2)
+        let offset = CGSize(width: m - union.minX, height: m - union.minY)
+        document.baseImageFrame = document.baseImageFrame.offsetBy(dx: offset.width, dy: offset.height)
+        for i in document.objects.indices { document.objects[i].move(by: offset) }
+        document.canvasSize = newSize
+        setFrameSize(newSize)
+        onCanvasResized?()
+        needsDisplay = true
+        onMutated?()
+    }
+
     /// When an object moves past the snapshot edges, grow the canvas to fit it
     /// (with a margin) and re-center the content so nothing is clipped.
     func expandCanvasIfNeeded() {
