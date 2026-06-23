@@ -1,8 +1,16 @@
 import AppKit
 
+/// One recent-markup row's data shown in the menu-bar list.
+struct RecentRowItem {
+    let title: String
+    let subtitle: String?      // "Markup · 1000 × 640", etc.
+    let thumbnail: NSImage?
+}
+
 /// A scrollable list of recent markups, embedded as a custom NSMenuItem view in
-/// the status-bar menu. Gives a real vertical scrollbar (NSMenu can't show one
-/// natively) so every recent is reachable in one continuous list.
+/// the status-bar menu. Rich rows (numbered badge + thumbnail + two-line text)
+/// to match clipandcue's clipboard list look. NSMenu can't show its own
+/// scrollbar, so we host an NSScrollView inside.
 final class RecentsMenuView: NSView {
     private let scroll = NSScrollView()
     private let stack = NSStackView()
@@ -10,11 +18,9 @@ final class RecentsMenuView: NSView {
     /// opens the entry.
     var onPick: ((Int) -> Void)?
 
-    /// Width matches the rest of the status menu; height is capped so the
-    /// scrollbar appears when there are more than ~8 entries.
-    private let listWidth: CGFloat = 280
-    private let rowHeight: CGFloat = 38
-    private let visibleRows: CGFloat = 8
+    private let listWidth: CGFloat = 320
+    private let rowHeight: CGFloat = 52
+    private let visibleRows: CGFloat = 7
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: listWidth,
@@ -26,7 +32,7 @@ final class RecentsMenuView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         scroll.hasVerticalScroller = true
-        scroll.scrollerStyle = .legacy   // always-visible scrollbar, like the screenshot
+        scroll.scrollerStyle = .legacy
         scroll.autohidesScrollers = false
         scroll.drawsBackground = false
         scroll.borderType = .noBorder
@@ -47,10 +53,10 @@ final class RecentsMenuView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
 
-    func setRecents(_ items: [(title: String, thumbnail: NSImage?)]) {
+    func setRecents(_ items: [RecentRowItem]) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for (i, item) in items.enumerated() {
-            let row = RecentRow(index: i, title: item.title, thumbnail: item.thumbnail)
+            let row = RecentRow(index: i, item: item)
             row.onClick = { [weak self] idx in
                 self?.enclosingMenuItem?.menu?.cancelTracking()
                 self?.onPick?(idx)
@@ -59,52 +65,87 @@ final class RecentsMenuView: NSView {
             row.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
-        // Resize the view's own frame to the cap (NSMenu uses the view's frame
-        // for the row height — without this it can collapse to 0).
         let visible = min(CGFloat(items.count), visibleRows)
         frame.size = NSSize(width: listWidth, height: max(rowHeight, rowHeight * visible))
     }
 }
 
-/// One row in the recents list: thumbnail + title, with hover highlight.
+/// One row in the recents list: numbered badge + thumbnail + two-line text.
 private final class RecentRow: NSView {
     let index: Int
     var onClick: ((Int) -> Void)?
     private var hovered = false { didSet { needsDisplay = true } }
     private var trackingArea: NSTrackingArea?
 
-    init(index: Int, title: String, thumbnail: NSImage?) {
+    init(index: Int, item: RecentRowItem) {
         self.index = index
         super.init(frame: .zero)
         wantsLayer = true
 
+        // Numbered badge on the left (1, 2, 3, …) — matches clipandcue's style.
+        let badge = NSTextField(labelWithString: "\(index + 1)")
+        badge.font = .systemFont(ofSize: 13, weight: .medium)
+        badge.textColor = .secondaryLabelColor
+        badge.alignment = .center
+        badge.translatesAutoresizingMaskIntoConstraints = false
+        let badgeBg = NSView()
+        badgeBg.wantsLayer = true
+        badgeBg.layer?.cornerRadius = 6
+        badgeBg.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.5).cgColor
+        badgeBg.translatesAutoresizingMaskIntoConstraints = false
+        badgeBg.addSubview(badge)
+        NSLayoutConstraint.activate([
+            badge.centerXAnchor.constraint(equalTo: badgeBg.centerXAnchor),
+            badge.centerYAnchor.constraint(equalTo: badgeBg.centerYAnchor),
+        ])
+
         let thumb = NSImageView()
         thumb.imageScaling = .scaleProportionallyUpOrDown
         thumb.wantsLayer = true
-        thumb.layer?.cornerRadius = 2
+        thumb.layer?.cornerRadius = 4
         thumb.layer?.borderWidth = 1
         thumb.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
         thumb.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        thumb.image = thumbnail
+        thumb.image = item.thumbnail
         thumb.translatesAutoresizingMaskIntoConstraints = false
 
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 13)
-        label.lineBreakMode = .byTruncatingMiddle
-        label.cell?.usesSingleLineMode = true
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let title = NSTextField(labelWithString: item.title)
+        title.font = .systemFont(ofSize: 13, weight: .medium)
+        title.lineBreakMode = .byTruncatingMiddle
+        title.cell?.usesSingleLineMode = true
+        title.translatesAutoresizingMaskIntoConstraints = false
+        title.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
+        let subtitle = NSTextField(labelWithString: item.subtitle ?? "")
+        subtitle.font = .systemFont(ofSize: 11)
+        subtitle.textColor = .secondaryLabelColor
+        subtitle.lineBreakMode = .byTruncatingMiddle
+        subtitle.cell?.usesSingleLineMode = true
+        subtitle.translatesAutoresizingMaskIntoConstraints = false
+
+        let text = NSStackView(views: [title, subtitle])
+        text.orientation = .vertical
+        text.spacing = 1
+        text.alignment = .leading
+        text.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(badgeBg)
         addSubview(thumb)
-        addSubview(label)
+        addSubview(text)
         NSLayoutConstraint.activate([
-            thumb.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            badgeBg.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            badgeBg.centerYAnchor.constraint(equalTo: centerYAnchor),
+            badgeBg.widthAnchor.constraint(equalToConstant: 26),
+            badgeBg.heightAnchor.constraint(equalToConstant: 26),
+
+            thumb.leadingAnchor.constraint(equalTo: badgeBg.trailingAnchor, constant: 10),
             thumb.centerYAnchor.constraint(equalTo: centerYAnchor),
-            thumb.widthAnchor.constraint(equalToConstant: 36),
-            thumb.heightAnchor.constraint(equalToConstant: 24),
-            label.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 10),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            thumb.widthAnchor.constraint(equalToConstant: 44),
+            thumb.heightAnchor.constraint(equalToConstant: 30),
+
+            text.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 10),
+            text.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            text.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }

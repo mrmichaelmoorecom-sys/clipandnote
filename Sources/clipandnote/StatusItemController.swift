@@ -13,8 +13,9 @@ final class StatusItemController {
     var onPreferences: (() -> Void)?
 
     private let statusItem: NSStatusItem
-    /// Recent markups shown at the bottom of the menu (thumbnail + title).
-    private var recents: [(title: String, thumbnail: NSImage?)] = []
+    /// Recent markups shown at the bottom of the menu (thumbnail + title +
+    /// subtitle, like clipandcue's clipboard list).
+    private var recents: [RecentRowItem] = []
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -72,7 +73,7 @@ final class StatusItemController {
     }
 
     /// Replace the recent-markups list and rebuild the menu.
-    func updateRecents(_ items: [(title: String, thumbnail: NSImage?)]) {
+    func updateRecents(_ items: [RecentRowItem]) {
         recents = Array(items.prefix(60))
         rebuildMenu()
     }

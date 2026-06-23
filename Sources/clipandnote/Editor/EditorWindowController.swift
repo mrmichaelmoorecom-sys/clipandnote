@@ -183,6 +183,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             }
             toolButtons.append(b)
             toolStack.addArrangedSubview(b)
+            // Visual divider between the "image-editing" tools (select / OCR
+            // / crop / pixelate) and the "marker" tools (arrow → text).
+            if t.tool == .pixelate {
+                toolStack.addArrangedSubview(toolbarDivider())
+            }
         }
 
         // Layer up/down controls.
@@ -289,7 +294,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.documentView = canvas
-        scroll.backgroundColor = NSColor(white: 0.17, alpha: 1)
+        // Padded backdrop around the canvas card. Dynamic so light mode reads
+        // as a light grey instead of the dark surround we use in dark mode.
+        scroll.backgroundColor = NSColor(name: nil) { appearance in
+            let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return dark ? NSColor(white: 0.17, alpha: 1) : NSColor(white: 0.92, alpha: 1)
+        }
         // Zoom-to-fit large captures via plain scroll-view magnification (no
         // custom clip view — that shifted the bounds origin and broke event
         // mapping). Centering + even margins come from dynamic contentInsets,
@@ -307,9 +317,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         // An opaque toolbar bar that fully owns the top band and catches every
         // click there — otherwise clicks fall through to the canvas behind it.
-        let bar = NSView()
-        bar.wantsLayer = true
-        bar.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        // Uses the dynamic background view so it tracks light/dark mode flips.
+        let bar = WindowBackgroundView()
         bar.translatesAutoresizingMaskIntoConstraints = false
         bar.addSubview(palette)
 
@@ -358,14 +367,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// separates it from the canvas, mirroring the top toolbar): centered brand
     /// mark (links to clipandnote.com), file name, Export menu, and share.
     private func makeFooter() -> NSView {
-        // Brand: logo placeholder + wordmark, clickable → clipandnote.com.
-        let logo = NSView()
-        logo.wantsLayer = true
-        logo.layer?.cornerRadius = 5
-        logo.layer?.backgroundColor = NSColor.systemGreen.cgColor
+        // Brand: the clipandnote paperclip mark (same template image used in
+        // the menu bar) + wordmark, clickable → clipandnote.com.
+        let logo = NSImageView()
+        if let url = Bundle.main.url(forResource: "menubarTemplate", withExtension: "png"),
+           let img = NSImage(contentsOf: url) {
+            img.isTemplate = true   // tinted to match label color in both modes
+            logo.image = img
+        }
+        logo.imageScaling = .scaleProportionallyUpOrDown
+        logo.contentTintColor = .labelColor
         logo.translatesAutoresizingMaskIntoConstraints = false
-        logo.widthAnchor.constraint(equalToConstant: 18).isActive = true
-        logo.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        logo.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        logo.heightAnchor.constraint(equalToConstant: 14).isActive = true
         logo.toolTip = "clipandnote.com"
 
         let wordmark = NSTextField(labelWithString: "clipandnote")
@@ -410,9 +424,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let footer = NSView()
-        footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        let footer = WindowBackgroundView()
         footer.translatesAutoresizingMaskIntoConstraints = false
 
         let topLine = NSView()

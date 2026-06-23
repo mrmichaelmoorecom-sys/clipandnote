@@ -397,8 +397,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Recents (the menu-bar cue)
 
     private func refreshRecents() {
-        let items = MarkupLibrary.shared.recent(60).map {
-            (title: $0.name, thumbnail: MarkupLibrary.shared.thumbnail($0.id))
+        let items = MarkupLibrary.shared.recent(60).map { entry -> RecentRowItem in
+            // Subtitle reads like clipandcue's "Image · 826×98": kind label
+            // + canvas dimensions, separated by a thin dot.
+            let dims = "\(entry.width) × \(entry.height)"
+            return RecentRowItem(title: entry.name,
+                                 subtitle: "Markup · \(dims)",
+                                 thumbnail: MarkupLibrary.shared.thumbnail(entry.id))
         }
         statusController.updateRecents(items)
     }
