@@ -23,11 +23,27 @@ final class StatusDropdownPanel: NSObject {
     override init() {
         super.init()
         // NSPopover needs a view-controller whose .view fills the popover.
-        // We hand it a sized container that hosts our content edge-to-edge.
+        // We sandwich:
+        //   1. NSVisualEffectView (`.menu` material) — gives the saturated
+        //      dark/translucent backdrop like clipandcue. The popover's own
+        //      chrome is lighter and washed out by default.
+        //   2. Our StatusDropdownContent on top, edge-to-edge.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
+
+        let blur = NSVisualEffectView()
+        blur.material = .menu
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(blur)
+
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            blur.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            blur.topAnchor.constraint(equalTo: host.topAnchor),
+            blur.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
@@ -37,10 +53,8 @@ final class StatusDropdownPanel: NSObject {
         popover.contentViewController = hostController
         popover.contentSize = Self.dropdownSize
         popover.behavior = .transient        // outside-click dismisses
-        // Force dark vibrant chrome so the dropdown reads like clipandcue's
-        // (dark translucent backdrop) instead of following the user's system
-        // theme. Labels in here are already dynamic colours, so they invert
-        // correctly against the dark backdrop.
+        // Force dark vibrant chrome so labels in here read correctly against
+        // the dark backdrop regardless of the system theme.
         popover.appearance = NSAppearance(named: .vibrantDark)
     }
 
@@ -147,10 +161,12 @@ final class StatusDropdownContent: NSView {
     private func build() {
         translatesAutoresizingMaskIntoConstraints = false
 
-        // -- Capture column header + commands --
-        let captureHeader = NSTextField(labelWithString: "Capture")
-        captureHeader.font = .systemFont(ofSize: 11, weight: .semibold)
-        captureHeader.textColor = .secondaryLabelColor
+        // -- App title header + capture commands --
+        // Matches clipandcue's pattern of putting the app name at the very top
+        // of the dropdown instead of a generic section label.
+        let captureHeader = NSTextField(labelWithString: "clipandnote")
+        captureHeader.font = .systemFont(ofSize: 13, weight: .semibold)
+        captureHeader.textColor = .labelColor
         captureColumn.orientation = .vertical
         captureColumn.spacing = 0
         captureColumn.alignment = .leading
