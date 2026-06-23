@@ -525,7 +525,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             // empty-canvas marquee-deselect behaviour intact.
             if canvas.tool == .select { return event }
             canvas.expandToInclude(point: canvasPoint)
-            return nil   // consume; the click was on empty backdrop anyway
+            self.updateSizeLabel()
+            // Force layout so the canvas's new frame.origin is fully applied
+            // before we re-dispatch the click; otherwise canvas.mouseDown's
+            // window→canvas conversion would still see the old origin.
+            canvas.superview?.layoutSubtreeIfNeeded()
+            // Re-dispatch the mouseDown to the canvas — now that the canvas
+            // has grown out to include this window point, its own
+            // convert(locationInWindow:) lands inside-bounds and the draw
+            // starts at the user's click instead of needing a second tap.
+            canvas.mouseDown(with: event)
+            return nil   // consume; we've forwarded it ourselves
         }
     }
 

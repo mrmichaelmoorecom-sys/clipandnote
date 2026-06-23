@@ -101,12 +101,12 @@ final class ColorPaletteView: NSView {
         dropper.heightAnchor.constraint(equalToConstant: 13).isActive = true
 
         // Picker + eyedropper sit side-by-side as a single row (not stacked) so
-        // they read as two peer controls instead of a tall pill. Generous gap
-        // between them so the well doesn't look like it's swallowing the
-        // eyedropper icon.
+        // they read as two peer controls instead of a tall pill. Big gap
+        // between them — a few times the 13pt control width — so they read
+        // as clearly distinct controls rather than a paired pill.
         let sideCol = NSStackView(views: [well, dropper])
         sideCol.orientation = .horizontal
-        sideCol.spacing = 10
+        sideCol.spacing = 28
         sideCol.alignment = .centerY
         sideCol.translatesAutoresizingMaskIntoConstraints = false
 

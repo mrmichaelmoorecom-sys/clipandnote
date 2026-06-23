@@ -1051,9 +1051,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     /// Grow the canvas so it includes `point` (in canvas coords). Used when the
     /// user clicks beyond the current canvas with a drawing tool — the canvas
-    /// stretches out to that area so the next stroke has room. Mirrors
-    /// `expandCanvasIfNeeded` but seeds the union with `point` instead of the
-    /// existing objects.
+    /// stretches out to that area so the next stroke has room.
+    ///
+    /// To preserve the visual position of the existing content (and so the
+    /// triggering click can be re-dispatched as a draw starting at the same
+    /// screen position), we shift the view's frame origin in its superview by
+    /// `-offset` after `setFrameSize`. Without that, the canvas would grow only
+    /// rightward/downward and the click point in window coords would still map
+    /// outside the new canvas bounds.
     func expandToInclude(point: CGPoint) {
         var union = CGRect(origin: .zero, size: document.canvasSize)
         union = union.union(CGRect(x: point.x, y: point.y, width: 0, height: 0))
@@ -1063,10 +1068,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
         document.baseImageFrame = document.baseImageFrame.offsetBy(dx: offset.width, dy: offset.height)
         for i in document.objects.indices { document.objects[i].move(by: offset) }
         document.canvasSize = newSize
+        let oldOrigin = self.frame.origin
         setFrameSize(newSize)
-        onCanvasResized?()
+        setFrameOrigin(NSPoint(x: oldOrigin.x - offset.width,
+                                y: oldOrigin.y - offset.height))
         needsDisplay = true
         onMutated?()
+        // Note: deliberately skipping `onCanvasResized?()` here — the editor's
+        // `fitCanvas()` re-centers via `contentInsets`, which would undo the
+        // frame.origin shift above and make the existing content visually
+        // jump. The size label refreshes on the next mutation anyway.
     }
 
     /// When an object moves past the snapshot edges, grow the canvas to fit it
