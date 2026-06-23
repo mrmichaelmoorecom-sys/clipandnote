@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Release / Developer ID entitlements. Intentionally empty: clipandnote
+         v0.1 doesn't use CloudKit yet (AppSettings.syncEnabled is false by
+         default and nothing imports the CloudKit framework). Shipping with
+         iCloud entitlements but no embedded .provisionprofile causes AMFI to
+         refuse to launch (POSIX 163 / "Launch failed") on a Developer-ID
+         signed build, even though notarisation succeeds — ad-hoc local builds
+         work fine because they bypass entitlement enforcement.
+
+         When CloudKit support lands, switch back to entitlements.plist AND
+         embed a Developer ID provisioning profile generated from the Apple
+         Developer portal for the com.clipandnote.app App ID + the
+         iCloud.com.clipandnote.shared container. -->
+</dict>
+</plist>

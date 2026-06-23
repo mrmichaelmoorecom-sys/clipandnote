@@ -49,8 +49,14 @@ if [ -d "Resources/toolicons" ]; then
 fi
 
 if [ -n "$IDENTITY" ]; then
-  codesign --force --options runtime --entitlements entitlements.plist --sign "$IDENTITY" "$APP"
-  echo "  signed: $IDENTITY (entitlements applied)"
+  # Use the minimal release entitlements file (no iCloud yet — needs an
+  # embedded provisioning profile from the Apple Developer portal, and
+  # AppSettings.syncEnabled is still false). Without this, AMFI refuses to
+  # launch the signed app with POSIX 163 even after notarisation.
+  ENT="entitlements-release.plist"
+  [ -f "$ENT" ] || ENT="entitlements.plist"
+  codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" "$APP"
+  echo "  signed: $IDENTITY (entitlements: $ENT)"
 else
   codesign --force --sign - "$APP"          # ad-hoc — local runs only
   echo "  ad-hoc signed (local). Pass a Developer ID as the 2nd arg for release."
