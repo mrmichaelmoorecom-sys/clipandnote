@@ -933,6 +933,35 @@ final class CanvasView: NSView, NSTextViewDelegate {
         needsDisplay = true
     }
 
+    /// Set the active tool's opacity. Mirrors setActiveWidth/setActiveColor:
+    /// updates the canvas-wide default for the next mark, AND — if an object
+    /// is currently selected — pushes the change into that object's stroke
+    /// (and fill for highlighter / filled shapes) so editing reads as live.
+    /// Highlighter has its own opacity backing; everything else uses
+    /// strokeOpacity.
+    func setActiveOpacity(_ a: CGFloat) {
+        if tool == .highlighter { highlighterOpacity = a } else { strokeOpacity = a }
+        guard let id = selectedID, let idx = indexOf(id) else {
+            needsDisplay = true; return
+        }
+        undoSnapshot = snapshot()
+        if document.objects[idx].kind == .highlighter {
+            // Highlighter: stroke + fill share the translucent colour.
+            var c = document.objects[idx].stroke; c.a = a
+            document.objects[idx].stroke = c
+            document.objects[idx].fill = c
+        } else {
+            var s = document.objects[idx].stroke; s.a = a
+            document.objects[idx].stroke = s
+            if var f = document.objects[idx].fill {
+                f.a = a
+                document.objects[idx].fill = f
+            }
+        }
+        commitUndo()
+        needsDisplay = true
+    }
+
     func setActiveWidth(_ w: CGFloat) {
         lineWidth = w
         // Live-update the size of text that's currently being typed.

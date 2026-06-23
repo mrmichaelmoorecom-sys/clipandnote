@@ -48,6 +48,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var toolButtons: [ToolButton] = []
     private var colors: ColorPaletteView!
     private var widthSlider: NSSlider!
+    /// Opacity for the active tool's output, stacked under widthSlider in the
+    /// toolbar. Also live-updates the currently-selected object's alpha so
+    /// the toolbar reads as "edit the selection" when something's selected,
+    /// "edit the next mark" otherwise.
+    private var opacitySlider: NSSlider!
     private var sizeLabel: NSTextField!
     private var bgWell: NSColorWell!
     private var scrollView: NSScrollView!
@@ -227,8 +232,27 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         slider.toolTip = "Stroke / text size"
         slider.translatesAutoresizingMaskIntoConstraints = false
         slider.widthAnchor.constraint(equalToConstant: 104).isActive = true
-        slider.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        slider.heightAnchor.constraint(equalToConstant: 16).isActive = true
         self.widthSlider = slider
+
+        // Opacity slider, stacked directly under the size slider. Edits the
+        // selected object's alpha when something's selected (live), or the
+        // canvas-wide default for the next mark when nothing is.
+        let opacity = NSSlider(value: 100, minValue: 10, maxValue: 100,
+                               target: self, action: #selector(opacityChanged(_:)))
+        opacity.isContinuous = true
+        opacity.controlSize = .small
+        opacity.toolTip = "Opacity"
+        opacity.translatesAutoresizingMaskIntoConstraints = false
+        opacity.widthAnchor.constraint(equalToConstant: 104).isActive = true
+        opacity.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        self.opacitySlider = opacity
+
+        let sliderColumn = NSStackView(views: [slider, opacity])
+        sliderColumn.orientation = .vertical
+        sliderColumn.spacing = 4
+        sliderColumn.alignment = .leading
+        sliderColumn.translatesAutoresizingMaskIntoConstraints = false
 
         // Canvas background fill (shows wherever the canvas has grown past the
         // snapshot). Labelled so it reads as the canvas-color control, not a swatch.
@@ -270,7 +294,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             toolbarDivider(), toolStack,
             toolbarDivider(), layerStack,
             toolbarDivider(), colors,
-            toolbarDivider(), slider,
+            toolbarDivider(), sliderColumn,
             toolbarDivider(), bgGroup,
             NSView(), sizeLabel, copyButton,
         ])
@@ -294,6 +318,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 : obj.stroke.nsColor
             self.colors.reflect(c)
             self.widthSlider.doubleValue = Double(obj.kind == .text ? obj.fontSize / 5 : obj.lineWidth)
+            // Reflect the selected object's alpha in the opacity slider. For
+            // highlighters the translucent fill is the source of truth.
+            let alpha = (obj.kind == .highlighter ? (obj.fill ?? obj.stroke).a : obj.stroke.a)
+            self.opacitySlider?.doubleValue = Double(alpha * 100)
             self.refreshColoredToolIcons()
         }
         canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
@@ -606,6 +634,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     /// User picked a tool in the palette.
     private func pickTool(_ tool: Tool) {
+        // Switching INTO the Select tool from a different tool drops the
+        // current selection — otherwise the just-drawn arrow / shape stays
+        // hot when you click Select, which feels like the wrong default
+        // (the more common intent is "I'm done with that mark, pick the
+        // next one"). Re-clicking Select while already on it is a no-op.
+        if tool == .select && canvas.tool != .select { canvas.deselectAll() }
         canvas.tool = tool
         setActiveTool(tool)
         window?.makeFirstResponder(canvas)
@@ -643,9 +677,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             },
             onChange: { [weak self] v in
                 guard let self else { return }
-                let a = CGFloat(v / 100)
-                if isHighlighter { self.canvas.highlighterOpacity = a }
-                else             { self.canvas.strokeOpacity = a }
+                self.canvas.setActiveOpacity(CGFloat(v / 100))
+                self.opacitySlider?.doubleValue = v
                 self.toolButtons.forEach { $0.refreshIcon() }
             },
             onCommit: nil,
@@ -778,6 +811,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func widthChanged(_ sender: NSSlider) {
         canvas.setActiveWidth(CGFloat(sender.doubleValue))
+    }
+
+    @objc private func opacityChanged(_ sender: NSSlider) {
+        canvas.setActiveOpacity(CGFloat(sender.doubleValue / 100))
+        toolButtons.forEach { $0.refreshIcon() }
     }
 
     @objc private func bgColorChanged(_ sender: NSColorWell) {
