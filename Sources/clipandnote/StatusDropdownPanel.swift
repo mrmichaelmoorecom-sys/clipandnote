@@ -74,21 +74,11 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        // Force the dark vibrant appearance on BOTH the popover AND the
-        // hosting view.
-        //
-        // Why both: clipandcue (macOS 13 SDK) inherits a dark NSPopover under
-        // system Dark Mode; clipandnote (macOS 14 SDK) renders the popover
-        // light by default. Setting `popover.appearance` alone darkens the
-        // chrome + arrow tail, but the SwiftUI content stays light — because
-        // an NSHostingController resolves its SwiftUI `colorScheme` from its
-        // own view's `effectiveAppearance`, NOT from the enclosing popover
-        // window. So the body kept rendering light over a dark tail. Pinning
-        // the appearance on `hostingController.view` too makes the SwiftUI
-        // environment dark, so body + tail finally match.
-        let dark = NSAppearance(named: .vibrantDark)
-        popover.appearance = dark
-        hostingController.view.appearance = dark
+        // No appearance override. With the deployment target lowered to
+        // macOS 13 (matching clipandcue), NSPopover follows the system
+        // appearance and renders the dark vibrant material under Dark Mode
+        // automatically — exactly like clipandcue. The macOS-14 deployment
+        // target was the sole cause of the previously-light dropdown.
     }
 
     var isShown: Bool { popover.isShown }

@@ -98,10 +98,12 @@ final class ToolButton: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelected {
-            // A neutral grey highlight that reads in both light + dark mode
-            // (system fill colors automatically pick a tone with enough contrast
-            // against the toolbar background).
-            NSColor.tertiarySystemFill.setFill()
+            // A neutral grey highlight that reads in both light + dark mode.
+            // `.unemphasizedSelectedContentBackgroundColor` (available since
+            // macOS 10.14) is the dynamic system tone for an unfocused
+            // selection — same adaptive behaviour as the old macOS-14-only
+            // `.tertiarySystemFill`, without forcing a macOS 14 deployment.
+            NSColor.unemphasizedSelectedContentBackgroundColor.setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
         }
         let tint = NSColor.labelColor
