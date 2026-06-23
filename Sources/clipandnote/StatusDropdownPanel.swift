@@ -30,9 +30,37 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
         // inside to .menu material (see popoverDidShow). That's the only
         // entry point AppKit gives us into NSPopover's private chrome view.
         let host = NSView(frame: NSRect(origin: .zero, size: Self.dropdownSize))
+
+        // Dark NSVisualEffectView backdrop INSIDE our content. NSPopover's
+        // chrome in modern macOS doesn't expose an NSVisualEffectView we can
+        // override from the outside (popoverDidShow finds nothing), so we
+        // make the body dark ourselves by stacking .menu material at .active
+        // state inside the popover's content.
+        let backdrop = NSVisualEffectView()
+        backdrop.material = .menu
+        backdrop.blendingMode = .behindWindow
+        backdrop.state = .active
+        backdrop.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(backdrop)
+        // Tint over the vibrancy — pushes the dark from "Apple's dark .menu"
+        // toward the saturated dark-blue look in your clipandcue reference.
+        let tint = NSView()
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        tint.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(tint)
+
         host.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            backdrop.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            backdrop.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            backdrop.topAnchor.constraint(equalTo: host.topAnchor),
+            backdrop.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            tint.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            tint.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            tint.topAnchor.constraint(equalTo: host.topAnchor),
+            tint.bottomAnchor.constraint(equalTo: host.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             content.topAnchor.constraint(equalTo: host.topAnchor),
