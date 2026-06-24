@@ -174,8 +174,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         pageIndex = i
         canvas.deselectAll()
         canvas.document = pages[i]
+        canvas.setFrameSize(pages[i].canvasSize)   // resize the doc view to the new page…
         canvas.needsDisplay = true
-        fitCanvas()          // re-fit/center the new page (sizes can differ)
+        fitCanvas()                                // …then re-fit/center it
         updateSizeLabel()
         refreshPageNav()
     }
