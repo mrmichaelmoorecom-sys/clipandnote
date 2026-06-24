@@ -354,6 +354,9 @@ private struct RecentRowView: View {
 
     var body: some View {
         HStack(spacing: 6) {
+            // The checkbox owns its own taps. The row-open tap is scoped to the
+            // thumbnail + title only — if the whole row (incl. the checkbox) takes
+            // the tap, SwiftUI nondeterministically eats the checkbox toggle.
             Toggle("", isOn: Binding(
                 get: { isChecked },
                 set: { onToggle($0) }
@@ -361,14 +364,18 @@ private struct RecentRowView: View {
             .toggleStyle(.checkbox)
             .labelsHidden()
 
-            thumbnail
+            HStack(spacing: 6) {
+                thumbnail
 
-            Text(item.title)
-                .font(.system(size: 12))
-                .lineLimit(1)
-                .truncationMode(.middle)
+                Text(item.title)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onTap() }
         }
         .padding(.horizontal, 6)
         .frame(height: 32)
@@ -378,9 +385,7 @@ private struct RecentRowView: View {
                 .padding(.horizontal, 2)
                 .padding(.vertical, 1)
         )
-        .contentShape(Rectangle())
         .onHover { hovered = $0 }
-        .onTapGesture { onTap() }
     }
 
     @ViewBuilder
