@@ -257,77 +257,56 @@ struct StatusDropdownContentView: View {
         // blurrier on macOS 26 Liquid Glass) behind each control, which made
         // clipandnote's dropdown read lighter than clipandcue's. Plain style
         // is just the label, so the popover vibrancy shows through unchanged.
-        HStack(spacing: 12) {
-            Button {
-                model.onOpenGallery?()
-                model.onClose?()
-            } label: {
-                Label("Library", systemImage: "books.vertical")
-                    .font(.caption2)
+        // Icon-only so all six controls fit the narrow popover; names are in the
+        // tooltips. Delete/Export show the checked count beside the icon.
+        HStack(spacing: 15) {
+            footerButton("books.vertical", help: "Library") {
+                model.onOpenGallery?(); model.onClose?()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-
-            Button {
-                model.onOpenFile?()
+            footerButton("folder", help: "Open an image or .can file") {
+                // Close the popover first, then open the panel on the next tick so
+                // it gets key focus (a panel raised behind the closing popover
+                // can't be interacted with).
                 model.onClose?()
-            } label: {
-                Label("Open", systemImage: "folder")
-                    .font(.caption2)
+                DispatchQueue.main.async { model.onOpenFile?() }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Open an image or .can file")
 
             Spacer()
 
-            Button {
-                model.onDelete?(Array(model.checked).sorted())
-                model.onClose?()
-            } label: {
-                Label(model.checked.isEmpty ? "Delete" : "Delete \(model.checked.count)",
-                      systemImage: "trash")
-                    .font(.caption2)
+            footerButton("trash", count: model.checked.count,
+                         help: model.checked.isEmpty ? "Open the library to delete markups"
+                                                     : "Delete the checked markups") {
+                model.onDelete?(Array(model.checked).sorted()); model.onClose?()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(model.checked.isEmpty ? "Open the library to delete markups"
-                                        : "Delete the checked markups")
-
-            Button {
-                model.onExport?(Array(model.checked).sorted())
-                model.onClose?()
-            } label: {
-                Label(model.checked.isEmpty ? "Export" : "Export \(model.checked.count)",
-                      systemImage: "square.and.arrow.up")
-                    .font(.caption2)
+            footerButton("square.and.arrow.up", count: model.checked.count,
+                         help: model.checked.isEmpty ? "Export all markups"
+                                                     : "Export the checked markups") {
+                model.onExport?(Array(model.checked).sorted()); model.onClose?()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-
-            Button {
-                model.onPreferences?()
-                model.onClose?()
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.caption2)
+            footerButton("gearshape", help: "Preferences") {
+                model.onPreferences?(); model.onClose?()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Preferences")
-
-            Button {
+            footerButton("power", help: "Quit clipandnote") {
                 model.onQuit?()
-            } label: {
-                Image(systemName: "power")
-                    .font(.caption2)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Quit clipandnote")
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private func footerButton(_ symbol: String, count: Int = 0, help: String,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: symbol)
+                if count > 0 { Text("\(count)") }
+            }
+            .font(.caption2)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(help)
     }
 }
 

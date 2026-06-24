@@ -292,12 +292,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Documents
 
     @objc private func openDocument(_ sender: Any?) {
+        // From the menu-bar dropdown the app may not be active, which leaves the
+        // open panel non-interactive — activate first, then run it modally.
+        NSApp.activate(ignoringOtherApps: true)
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.canDocument, .image]   // .can or any image
         panel.allowsMultipleSelection = false
-        panel.begin { [weak self] resp in
-            guard resp == .OK, let url = panel.url else { return }
-            self?.openFile(url)
+        if panel.runModal() == .OK, let url = panel.url {
+            openFile(url)
         }
     }
 
