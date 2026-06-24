@@ -548,7 +548,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func openWebsite() {
-        if let url = URL(string: "https://clipandnote.com") { NSWorkspace.shared.open(url) }
+        guard let url = URL(string: "https://clipandnote.com") else { return }
+        let alert = NSAlert()
+        alert.messageText = "Open clipandnote.com?"
+        alert.informativeText = "This opens clipandnote.com in your default browser."
+        alert.addButton(withTitle: "Open")
+        alert.addButton(withTitle: "Cancel")
+        let open: (NSApplication.ModalResponse) -> Void = { resp in
+            if resp == .alertFirstButtonReturn { NSWorkspace.shared.open(url) }
+        }
+        if let win = window { alert.beginSheetModal(for: win, completionHandler: open) }
+        else { open(alert.runModal()) }
     }
 
     @objc private func exportButtonClicked(_ sender: NSButton) { showExportMenu(from: sender) }

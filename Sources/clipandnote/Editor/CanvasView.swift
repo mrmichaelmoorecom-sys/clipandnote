@@ -1085,13 +1085,24 @@ final class CanvasView: NSView, NSTextViewDelegate {
             textView?.textColor = c
             return
         }
-        guard let id = selectedID, let idx = indexOf(id) else { return }
+        // Recolor every selected object (one or a whole shift/marquee group),
+        // mirroring setActiveOpacity. Preserve each object's existing alpha so a
+        // recolour changes hue without resetting opacity.
+        guard !selectedIDs.isEmpty else { return }
         undoSnapshot = snapshot()
-        if document.objects[idx].kind == .highlighter {
-            document.objects[idx].fill = highlighterFill(c)
-            document.objects[idx].stroke = highlighterFill(c)
-        } else {
-            document.objects[idx].stroke = RGBAColor(c)
+        for i in document.objects.indices where selectedIDs.contains(document.objects[i].id) {
+            if document.objects[i].kind == .highlighter {
+                var hf = RGBAColor(c); hf.a = document.objects[i].stroke.a
+                document.objects[i].stroke = hf
+                document.objects[i].fill = hf
+            } else {
+                var s = RGBAColor(c); s.a = document.objects[i].stroke.a
+                document.objects[i].stroke = s
+                if let f = document.objects[i].fill {   // filled shapes: fill follows stroke
+                    var nf = RGBAColor(c); nf.a = f.a
+                    document.objects[i].fill = nf
+                }
+            }
         }
         commitUndo()
         needsDisplay = true

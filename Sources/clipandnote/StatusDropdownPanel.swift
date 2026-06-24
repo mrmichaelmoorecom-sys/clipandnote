@@ -16,6 +16,19 @@ struct CaptureCommandItem: Identifiable {
     let equiv: String
 }
 
+extension CaptureKind {
+    /// SF Symbol shown beside the command in the menu-bar dropdown.
+    var iconName: String {
+        switch self {
+        case .crosshair:    return "plus.viewfinder"
+        case .previousArea: return "rectangle.dashed"
+        case .fullscreen:   return "display"
+        case .window:       return "macwindow"
+        case .menu:         return "menubar.rectangle"
+        }
+    }
+}
+
 /// Backing model the menu-bar dropdown observes. Carries the same callbacks
 /// and `setCaptureCommands` / `setRecents` surface the old AppKit
 /// StatusDropdownContent exposed, so `StatusItemController` doesn't need to
@@ -166,6 +179,7 @@ struct StatusDropdownContentView: View {
             ForEach(model.captureCommands) { cmd in
                 CaptureCommandRowView(
                     title: cmd.title,
+                    icon: cmd.kind.iconName,
                     equiv: cmd.equiv,
                     onClick: {
                         model.onCapture?(cmd.kind)
@@ -176,6 +190,7 @@ struct StatusDropdownContentView: View {
             // Open a fresh blank editor — sits under the capture commands.
             CaptureCommandRowView(
                 title: "New clipandnote",
+                icon: "square.and.pencil",
                 equiv: "",
                 onClick: {
                     model.onNewWindow?()
@@ -291,13 +306,18 @@ struct StatusDropdownContentView: View {
 
 private struct CaptureCommandRowView: View {
     let title: String
+    let icon: String
     let equiv: String
     let onClick: () -> Void
 
     @State private var hovered = false
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .frame(width: 16, alignment: .center)
+                .foregroundColor(.secondary)
             Text(title).font(.system(size: 12))
             Spacer()
             Text(equiv).font(.system(size: 11)).foregroundColor(.secondary)
