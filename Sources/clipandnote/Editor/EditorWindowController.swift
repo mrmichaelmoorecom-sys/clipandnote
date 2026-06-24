@@ -273,6 +273,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                                      action: #selector(outlineToggled(_:)))
         outlineToggle.state = .on
         outlineToggle.font = .systemFont(ofSize: 11)
+        outlineToggle.refusesFirstResponder = true   // don't steal key focus from the canvas
         outlineToggle.toolTip = "Draw a contrast outline on marks (applies to the selection too)"
         self.outlineCheckbox = outlineToggle
 
@@ -982,6 +983,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc private func outlineToggled(_ sender: NSButton) {
         canvas.setActiveOutline(sender.state == .on)
         toolButtons.forEach { $0.refreshIcon() }   // tool icons gain/lose their edge
+        window?.makeFirstResponder(canvas)         // keep ⌘C/⌘V/⌘D routing to the canvas
     }
 
     @objc private func bgColorChanged(_ sender: NSColorWell) {
