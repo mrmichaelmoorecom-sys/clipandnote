@@ -41,6 +41,11 @@ final class StatusDropdownModel: ObservableObject {
     var onCapture: ((CaptureKind) -> Void)?
     var onPickRecent: ((Int) -> Void)?
     var onOpenGallery: (() -> Void)?
+    /// Open an existing image / .can file via the system open panel.
+    var onOpenFile: (() -> Void)?
+    /// Delete Selected (indices into the recents list). Empty array = "open the
+    /// library to delete" (the button title flips when nothing's checked).
+    var onDelete: (([Int]) -> Void)?
     var onPreferences: (() -> Void)?
     /// Open a fresh blank editor window ("New clipandnote").
     var onNewWindow: (() -> Void)?
@@ -263,7 +268,31 @@ struct StatusDropdownContentView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
 
+            Button {
+                model.onOpenFile?()
+                model.onClose?()
+            } label: {
+                Label("Open", systemImage: "folder")
+                    .font(.caption2)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Open an image or .can file")
+
             Spacer()
+
+            Button {
+                model.onDelete?(Array(model.checked).sorted())
+                model.onClose?()
+            } label: {
+                Label(model.checked.isEmpty ? "Delete" : "Delete \(model.checked.count)",
+                      systemImage: "trash")
+                    .font(.caption2)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help(model.checked.isEmpty ? "Open the library to delete markups"
+                                        : "Delete the checked markups")
 
             Button {
                 model.onExport?(Array(model.checked).sorted())

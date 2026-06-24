@@ -22,8 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
         sc.onOpenGallery = { [weak self] in self?.openGallery(nil) }
+        sc.onOpenFile = { [weak self] in self?.openDocument(nil) }
         sc.onNewWindow = { [weak self] in self?.showHome() }
         sc.onExportSelected = { [weak self] indices in self?.exportRecents(at: indices) }
+        sc.onDeleteSelected = { [weak self] indices in self?.deleteRecents(at: indices) }
         sc.onPreferences = { [weak self] in self?.openPreferences() }
         statusController = sc
 
@@ -494,6 +496,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .alertSecondButtonReturn: exportAllFolder(chosen)
         default: break
         }
+    }
+
+    /// Delete button in the dropdown. Mirrors export: checked markups are
+    /// deleted (after a confirm); with nothing checked, open the library so the
+    /// user can pick what to remove there.
+    private func deleteRecents(at indices: [Int]) {
+        let recents = MarkupLibrary.shared.recent(60)
+        let chosen = indices.compactMap { i in (i >= 0 && i < recents.count) ? recents[i] : nil }
+        guard !chosen.isEmpty else { openGallery(nil); return }
+
+        let alert = NSAlert()
+        alert.messageText = "Delete \(chosen.count) Markup\(chosen.count == 1 ? "" : "s")?"
+        alert.informativeText = "This permanently removes \(chosen.count == 1 ? "it" : "them") from your library. This can't be undone."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        chosen.forEach { MarkupLibrary.shared.delete($0.id) }   // library onChange refreshes the list
     }
 
     @objc private func exportAllMarkups(_ sender: Any?) {

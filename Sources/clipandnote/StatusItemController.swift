@@ -8,9 +8,14 @@ final class StatusItemController: NSObject {
     /// Fired when the user clicks a recent markup (index into the recents list).
     var onPickRecent: ((Int) -> Void)?
     var onOpenGallery: (() -> Void)?
+    /// Open an existing image / .can file via the system open panel.
+    var onOpenFile: (() -> Void)?
     /// Fired with the indices of currently-checked recents. Empty array =
     /// "export everything" — the action bar's Export button title reflects that.
     var onExportSelected: (([Int]) -> Void)?
+    /// Fired with the indices of checked recents to delete. Empty = "open the
+    /// library to delete."
+    var onDeleteSelected: (([Int]) -> Void)?
     var onPreferences: (() -> Void)?
     /// Open a fresh blank editor window ("New clipandnote").
     var onNewWindow: (() -> Void)?
@@ -38,6 +43,8 @@ final class StatusItemController: NSObject {
         panel.content.onCapture       = { [weak self] kind in self?.onCapture?(kind) }
         panel.content.onPickRecent    = { [weak self] idx  in self?.onPickRecent?(idx) }
         panel.content.onOpenGallery   = { [weak self]      in self?.onOpenGallery?() }
+        panel.content.onOpenFile      = { [weak self]      in self?.onOpenFile?() }
+        panel.content.onDelete        = { [weak self] is_  in self?.onDeleteSelected?(is_) }
         panel.content.onNewWindow     = { [weak self]      in self?.onNewWindow?() }
         panel.content.onPreferences   = { [weak self]      in self?.onPreferences?() }
         panel.content.onExport        = { [weak self] is_  in self?.onExportSelected?(is_) }
