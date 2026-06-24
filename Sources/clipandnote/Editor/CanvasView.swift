@@ -1082,6 +1082,21 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     @objc func delete(_ sender: Any?) { deleteSelection() }
 
+    /// Duplicate the current selection in place (offset slightly), and select the
+    /// copies. Works in any tool as long as objects are selected — no clipboard
+    /// round-trip, no tool switch.
+    @objc func duplicate(_ sender: Any?) {
+        let originals = document.objects.filter { selectedIDs.contains($0.id) }
+        guard !originals.isEmpty else { return }
+        undoSnapshot = snapshot()
+        let copies = originals.map { $0.duplicated(offsetBy: CGSize(width: 18, height: 18)) }
+        document.objects.append(contentsOf: copies)
+        selectedIDs = Set(copies.map { $0.id })
+        expandCanvasIfNeeded()
+        commitUndo()
+        needsDisplay = true
+    }
+
     /// Cmd+A in Grab-Text mode selects every recognised line.
     @objc override func selectAll(_ sender: Any?) {
         if tool == .ocr {

@@ -249,6 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add("Cut", "cut:", "x")
         add("Copy", "copy:", "c")
         add("Paste", "paste:", "v")
+        add("Duplicate", "duplicate:", "d")
         add("Delete", "delete:", "")
         add("Select All", "selectAll:", "a")
         editItem.submenu = editMenu
