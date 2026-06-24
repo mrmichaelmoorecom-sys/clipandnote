@@ -145,6 +145,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var drag: DragKind?
     /// In-progress marquee rectangle (select tool, dragging over empty canvas).
     private var marqueeRect: CGRect = .zero
+    /// A ⇧-marquee adds to the selection that existed when the drag began.
+    private var marqueeAdditive = false
+    private var marqueeBase: Set<UUID> = []
     /// Pre-drag snapshot of every selected object, for moving a group together.
     private var preDragGroup: [UUID: MarkupObject] = [:]
     private var cropRect: CGRect = .zero
@@ -571,15 +574,27 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
 
         if tool == .select {
+            let additive = event.modifierFlags.contains(.shift)   // ⇧-click: add to selection
+            let removeOne = event.modifierFlags.contains(.command) // ⌘-click: drop from selection
             // Select / move an object, or start a marquee on empty canvas.
             if let hit = hitTestObject(at: p) {
-                // Click inside the existing multi-selection → move the whole group.
-                if !selectedIDs.contains(hit.id) {
-                    selectedIDs = [hit.id]
+                if removeOne {
+                    selectedIDs.remove(hit.id)   // ⌘-click an object → deselect just it
+                    needsDisplay = true
+                    return
+                }
+                if additive {
+                    selectedIDs.insert(hit.id)   // ⇧-click → add to the group
+                } else if !selectedIDs.contains(hit.id) {
+                    selectedIDs = [hit.id]       // plain click on a new object → select only it
                 }
                 beginMove(at: p)
             } else {
-                selectedID = nil
+                // Empty canvas: a plain click clears; ⇧/⌘ keep the selection so a
+                // marquee extends it. Marquee unions onto this base while dragging.
+                if !additive && !removeOne { selectedID = nil }
+                marqueeAdditive = additive
+                marqueeBase = selectedIDs
                 drag = .marquee
                 dragStart = p
                 marqueeRect = CGRect(origin: p, size: .zero)
@@ -694,10 +709,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
         case .marquee:
             marqueeRect = rect(from: dragStart, to: p)
             // Select every object the rubber-band touches (the base snapshot
-            // isn't an object, so it's never caught — as required).
-            selectedIDs = Set(document.objects
+            // isn't an object, so it's never caught — as required). A ⇧-marquee
+            // adds to whatever was selected when the drag began.
+            let inRect = Set(document.objects
                 .filter { $0.frame.standardized.intersects(marqueeRect) }
                 .map { $0.id })
+            selectedIDs = marqueeAdditive ? marqueeBase.union(inRect) : inRect
             needsDisplay = true
             return
         case .move:
@@ -1072,7 +1089,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
             needsDisplay = true
             return
         }
-        // No general select-all elsewhere — leave the responder chain alone.
+        // ⌘A selects every markup object. Switch to the Select tool so the
+        // selection is immediately movable / scalable / recolorable.
+        guard !document.objects.isEmpty else { return }
+        if tool != .select { selectTool(.select) }
+        selectedIDs = Set(document.objects.map { $0.id })
+        needsDisplay = true
     }
 
     // MARK: Active color / width (apply to selection + future objects)
