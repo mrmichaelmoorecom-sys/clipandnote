@@ -134,8 +134,9 @@ nav .brand svg{width:30px;height:30px}
 .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   padding:120px 24px 80px;background:radial-gradient(120% 90% at 50% 0%,rgba(208,188,213,.55) 0%,rgba(255,253,254,0) 62%);overflow:hidden}
 .herolock{transform:translateY(-40px)}
-.heromark{width:128px;height:128px;margin:0 auto 8px;display:block;filter:drop-shadow(0 10px 20px rgba(82,76,97,.32))}
-.hero h1{font-size:clamp(40px,7vw,76px);font-weight:800}
+.heromark{width:140px;height:140px;margin:0 auto 8px;display:block;filter:drop-shadow(0 10px 20px rgba(82,76,97,.32))}
+.hero h1{font-size:clamp(44px,7.6vw,84px);font-weight:800}
+.hero h1 .word{display:inline-block}
 .herodiv{width:clamp(280px,42vw,460px);height:4px;border-radius:3px;background:var(--grape);margin:0 auto;opacity:.85}
 .hero .herohead{font-size:clamp(30px,4.4vw,46px);margin-top:12px}
 .hero .sub{font-size:clamp(18px,2.4vw,22px);color:var(--ink-soft);margin:18px auto 0;max-width:580px}
@@ -151,6 +152,14 @@ nav .brand svg{width:30px;height:30px}
 .shead p{color:var(--ink-soft);font-size:18px;margin-top:14px}
 .pad{padding:100px 0}
 .pad-tint{background:rgba(208,188,213,.28)}
+.usecases{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+@media (max-width:900px){.usecases{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.usecases{grid-template-columns:1fr}}
+.ucard{background:var(--cream);border:1px dashed rgba(36,31,43,.18);border-radius:var(--r);padding:24px;min-height:182px;display:flex;flex-direction:column;gap:13px}
+.ucard .ucnum{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:14px;color:var(--grape);background:var(--tint)}
+.ucard h3{font-size:16.5px;color:var(--ink-soft);font-weight:600}
+.ucard .skel{height:9px;border-radius:5px;background:rgba(82,76,97,.10)}
+.ucard .skel.s2{width:82%}.ucard .skel.s3{width:62%}
 
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 @media (max-width:880px){.cards{grid-template-columns:repeat(2,1fr)}}
@@ -287,7 +296,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   <div class="hero-inner">
     <div class="herolock">
       <img class="heromark" data-speed="0.07" src="img/appicon_1024.png" alt="clipandnote app icon">
-      <h1>clipandnote</h1>
+      <h1><span class="word">clip</span> <span class="word">and</span> <span class="word">note</span></h1>
     </div>
     <div class="shead" style="margin:97px auto 0;max-width:none">
       <div class="herodiv" aria-hidden="true"></div>
@@ -378,6 +387,18 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="pad pad-tint">
+  <div class="wrap">
+    <div class="shead reveal"><div class="kicker">use cases</div><h2>Made to fit your day</h2><p>A few ways clipandnote earns its keep — we'll fill these in one by one.</p></div>
+    <div class="usecases reveal">
+      <div class="ucard"><div class="ucnum">1</div><h3>Use case one</h3><div class="skel"></div><div class="skel s2"></div><div class="skel s3"></div></div>
+      <div class="ucard"><div class="ucnum">2</div><h3>Use case two</h3><div class="skel"></div><div class="skel s2"></div><div class="skel s3"></div></div>
+      <div class="ucard"><div class="ucnum">3</div><h3>Use case three</h3><div class="skel"></div><div class="skel s2"></div><div class="skel s3"></div></div>
+      <div class="ucard"><div class="ucnum">4</div><h3>Use case four</h3><div class="skel"></div><div class="skel s2"></div><div class="skel s3"></div></div>
     </div>
   </div>
 </section>
