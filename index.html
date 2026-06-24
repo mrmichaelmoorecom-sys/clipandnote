@@ -209,12 +209,21 @@ nav .brand svg{width:30px;height:30px}
 .tool.on{background:var(--grape);color:#fff}
 .tool:hover{background:rgba(255,255,255,.1)}
 .sw{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.25)}
-.canvas{position:relative;height:200px;background:linear-gradient(135deg,#e9e3ee,#dce6e7);display:flex;align-items:center;justify-content:center}
-.canvas .shot{position:absolute;inset:18px;border-radius:8px;background:#fff;border:1px solid var(--line);overflow:hidden}
-.canvas .shot .barline{height:10px;background:#ece7ef;margin:14px 16px;border-radius:5px}
-.canvas .anno{position:absolute;color:var(--grape);stroke:var(--grape)}
-.annoarrow{top:54px;left:60px;width:120px;height:70px}
-.annobox{position:absolute;left:62%;top:46%;width:90px;height:46px;border:3px solid #c9476b;border-radius:6px}
+.canvas{position:relative;height:210px;background:linear-gradient(135deg,#211e29,#17151d);display:flex;align-items:center;justify-content:center}
+.canvas .shot{position:absolute;inset:18px;border-radius:8px;background:#2b2833;border:1px solid rgba(255,255,255,.07);overflow:hidden}
+.canvas .shot .barline{height:9px;background:rgba(255,255,255,.12);margin:13px 16px;border-radius:5px}
+.canvas .anno{position:absolute;color:#ed3330;stroke:#ed3330}
+.annoarrow{top:30px;left:120px;width:110px;height:64px}
+.annobox{position:absolute;left:58%;top:24%;width:96px;height:40px;border:3px solid #ed3330;border-radius:6px}
+.annohi{position:absolute;left:40px;top:120px;width:122px;height:13px;background:rgba(245,158,11,.55);border-radius:2px}
+.annoblur{position:absolute;left:172px;top:150px;width:78px;height:15px;border-radius:3px;background:#454150;background-image:linear-gradient(45deg,#5d5868 25%,transparent 25%,transparent 75%,#5d5868 75%),linear-gradient(45deg,#5d5868 25%,transparent 25%,transparent 75%,#5d5868 75%);background-size:7px 7px;background-position:0 0,3.5px 3.5px}
+.annotag{position:absolute;left:58%;top:9%;background:#ed3330;color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em;padding:2px 7px;border-radius:4px}
+.exportwrap{display:flex;flex-direction:column;align-items:flex-start;gap:9px}
+.exportbtn{display:inline-flex;align-items:center;gap:8px;padding:7px 15px;background:#2c2933;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;font-weight:600;color:#ece8f0;box-shadow:var(--shadow-lg)}
+.exportbtn .caret{font-size:9px;opacity:.6}
+.exportmenu{width:235px;background:rgba(43,41,48,.97);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:5px;box-shadow:var(--shadow-lg)}
+.emrow{padding:8px 11px;border-radius:5px;font-size:13px;color:#ece8f0}
+.emrow.on{background:var(--grape)}
 
 .capband{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
 .chip{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-weight:600;font-size:15px;transition:transform .3s}
@@ -344,7 +353,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     <div class="shead reveal"><div class="kicker">how it works</div><h2>Three steps, no friction</h2><p>It lives in your menu bar and stays out of the way<br>until you need to grab something.</p></div>
 
     <div class="step reveal">
-      <div class="copy"><div class="stepnum">1</div><h3>Capture from the bar</h3><p>Pick a capture mode from the menu bar (Crosshair Clip is <span class="kbd">⌥⌘4</span>), or grab a whole window. Your shot opens straight in a zoomable editor.</p></div>
+      <div class="copy"><div class="stepnum">1</div><h3>Capture from the bar</h3><p>Pick a capture mode from the menu bar (Crosshair Clip is <span class="kbd">⌥⌘4</span>), or grab a whole window. Your shot opens straight in the editor.</p></div>
       <div class="demo">
         <div class="macwin" id="capdemo">
           <div class="ddhead">clipandnote</div>
@@ -374,9 +383,12 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
             <span class="sw" style="background:#1c1c1e"></span><span class="sw" style="background:#ed3330"></span><span class="sw" style="background:#f59e0b"></span><span class="sw" style="background:#2c6e9e"></span>
           </div>
           <div class="canvas">
-            <div class="shot"><div class="barline" style="width:50%"></div><div class="barline" style="width:70%"></div><div class="barline" style="width:40%"></div></div>
-            <svg class="anno annoarrow" viewBox="0 0 120 70" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 62 Q40 20 104 14"/><path d="M80 8 L110 12 L102 40"/></svg>
+            <div class="shot"><div class="barline" style="width:58%"></div><div class="barline" style="width:80%"></div><div class="barline" style="width:46%"></div><div class="barline" style="width:70%"></div><div class="barline" style="width:38%"></div></div>
+            <div class="annotag">Fix this</div>
             <div class="annobox"></div>
+            <svg class="anno annoarrow" viewBox="0 0 110 64" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 Q70 18 60 52"/><path d="M40 44 L60 56 L74 40"/></svg>
+            <div class="annohi"></div>
+            <div class="annoblur"></div>
           </div>
         </div>
       </div>
@@ -385,12 +397,12 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     <div class="step reveal">
       <div class="copy"><div class="stepnum">3</div><h3>Copy, save, or export</h3><p>Send it straight to the clipboard for a quick paste, save an editable document, or export a layered file. It hands off to <a href="https://clipandcue.com" target="_blank" rel="noopener"><strong>clipandcue</strong></a> as your latest copy, without flooding its history.</p></div>
       <div class="demo">
-        <div class="macwin" style="max-width:360px">
-          <div class="macbar"><span class="dotmac r"></span><span class="dotmac y"></span><span class="dotmac g"></span><span class="ttl">Export</span></div>
-          <div style="padding:18px">
-            <div class="caprow" style="opacity:1;transform:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg> Layered PDF</div>
-            <div class="caprow" style="opacity:1;transform:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4"/></svg> PNG · SVG</div>
-            <div class="caprow" style="opacity:1;transform:none;border:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg> Copy to clipboard<span class="k">⌘C</span></div>
+        <div class="exportwrap">
+          <div class="exportbtn">Export <span class="caret">▾</span></div>
+          <div class="exportmenu">
+            <div class="emrow on">Export as PNG…</div>
+            <div class="emrow">Export as PDF…</div>
+            <div class="emrow">Export as SVG…</div>
           </div>
         </div>
       </div>
