@@ -1147,6 +1147,64 @@ final class CanvasView: NSView, NSTextViewDelegate {
         needsDisplay = true
     }
 
+    /// Number of currently-selected objects (drives the Scale slider's enabled
+    /// state — scaling is a multi-selection affordance).
+    var selectionCount: Int { selectedIDs.count }
+
+    // MARK: Scale slider (in-place group scaling)
+
+    /// Geometry of each selected object captured at the start of a scale drag,
+    /// so every slider value scales relative to the pre-drag state.
+    private var scaleBaseline: [UUID: MarkupObject] = [:]
+    private var scaleChanged = false
+
+    /// Begin a scale gesture — snapshot the selection's geometry for undo and
+    /// for relative scaling.
+    func beginScale() {
+        scaleBaseline = [:]
+        for obj in document.objects where selectedIDs.contains(obj.id) {
+            scaleBaseline[obj.id] = obj
+        }
+        scaleChanged = false
+        undoSnapshot = snapshot()
+    }
+
+    /// Scale every selected object about its own center by `factor` (1 = no
+    /// change), from the captured baseline — so objects stay put while their
+    /// size, line weight, and text size all conform to the slider.
+    func setScale(_ factor: CGFloat) {
+        guard !scaleBaseline.isEmpty else { return }
+        let f = max(0.1, factor)
+        scaleChanged = true
+        for i in document.objects.indices {
+            guard let base = scaleBaseline[document.objects[i].id] else { continue }
+            let c = CGPoint(x: base.frame.midX, y: base.frame.midY)
+            document.objects[i].lineWidth = max(0.5, base.lineWidth * f)
+            if base.kind == .text { document.objects[i].fontSize = max(6, base.fontSize * f) }
+            if base.isPathBased {
+                document.objects[i].points = base.points.map {
+                    CGPoint(x: c.x + ($0.x - c.x) * f, y: c.y + ($0.y - c.y) * f)
+                }
+                document.objects[i].recomputeBounds()
+            } else {
+                let w = base.frame.width * f, h = base.frame.height * f
+                document.objects[i].frame = CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h)
+            }
+        }
+        needsDisplay = true
+    }
+
+    /// Finish a scale gesture — commit one undo step for the whole drag.
+    func endScale() {
+        defer { scaleBaseline = [:]; scaleChanged = false }
+        guard !scaleBaseline.isEmpty else { return }
+        if scaleChanged {
+            expandCanvasIfNeeded()   // a scale-up may push objects past the edge
+            commitUndo()
+        } else { undoSnapshot = nil }
+        needsDisplay = true
+    }
+
     func setActiveWidth(_ w: CGFloat) {
         lineWidth = w
         // Live-update the size of text that's currently being typed.

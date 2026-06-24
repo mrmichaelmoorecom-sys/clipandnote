@@ -62,6 +62,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// "edit the next mark" otherwise.
     private var opacitySlider: NSSlider!
     private var sizeLabel: NSTextField!
+    /// While dragging the size slider with 2+ objects selected, it acts as a
+    /// scale control: this holds the slider value at the start of the drag so
+    /// each change scales the selection relative to it. nil = normal width edit.
+    private var scaleDragStart: Double?
+    /// Where the size slider parks when 2+ objects are selected (mid of its 1–30
+    /// range), giving a scale span of ~0.1×–3× per drag.
+    private static let scaleParkValue = 10.0
     private var bgWell: NSColorWell!
     private var scrollView: NSScrollView!
     private var fileNameLabel: NSTextField!
@@ -291,6 +298,21 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         opacity.heightAnchor.constraint(equalToConstant: 14).isActive = true
         self.opacitySlider = opacity
 
+        // The size slider doubles as a scale control: with 2+ objects selected,
+        // dragging it scales the whole selection in place (each object about its
+        // own center) instead of editing one object's stroke width.
+        slider.onBegin = { [weak self] in
+            guard let self, self.canvas.selectionCount >= 2 else { return }
+            self.scaleDragStart = self.widthSlider.doubleValue
+            self.canvas.beginScale()
+        }
+        slider.onEnd = { [weak self] in
+            guard let self, self.scaleDragStart != nil else { return }
+            self.scaleDragStart = nil
+            self.canvas.endScale()
+            self.widthSlider.doubleValue = Self.scaleParkValue   // re-park for the next drag
+        }
+
         let sliderColumn = NSStackView(views: [slider, opacity])
         sliderColumn.orientation = .vertical
         sliderColumn.spacing = 4
@@ -356,7 +378,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             self?.refreshColoredToolIcons()
         }
         canvas.onSelectionChanged = { [weak self] obj in
-            guard let self, let obj else { return }
+            guard let self else { return }
+            // With 2+ selected the size slider becomes a scale scrubber — park it
+            // mid-range so a drag can scale the group up or down from a known point.
+            if self.canvas.selectionCount >= 2 { self.widthSlider.doubleValue = Self.scaleParkValue }
+            guard let obj else { return }
             let c = obj.kind == .highlighter
                 ? (obj.fill ?? .highlighter).nsColor.withAlphaComponent(1)
                 : obj.stroke.nsColor
@@ -907,7 +933,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func widthChanged(_ sender: NSSlider) {
-        canvas.setActiveWidth(CGFloat(sender.doubleValue))
+        // Scale mode: when a drag began with 2+ objects selected, the size
+        // slider scales the whole selection in place relative to its start value.
+        if let start = scaleDragStart, start > 0 {
+            canvas.setScale(CGFloat(sender.doubleValue / start))
+        } else {
+            canvas.setActiveWidth(CGFloat(sender.doubleValue))
+        }
     }
 
     /// File ▸ Revert clipandnote — restore the canvas to the document state
@@ -1148,6 +1180,15 @@ final class RampSlider: NSSlider {
     override class var cellClass: AnyClass? {
         get { RampSliderCell.self }
         set { }
+    }
+    /// Fire at the start and end of a drag so a scale gesture can be captured as
+    /// one undoable transaction (the controller uses this when 2+ are selected).
+    var onBegin: (() -> Void)?
+    var onEnd: (() -> Void)?
+    override func mouseDown(with event: NSEvent) {
+        onBegin?()
+        super.mouseDown(with: event)   // runs the tracking loop until mouseUp
+        onEnd?()
     }
 }
 
