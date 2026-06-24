@@ -117,7 +117,7 @@ enum SVGExporter {
         let nx = -uy, ny = ux
         let color = hex(o.stroke.nsColor)
         let contrast = hex(MarkupRenderer.contrastColor(for: o.stroke.nsColor))
-        let lw = o.lineWidth, ow = MarkupRenderer.outlineWidth(o.lineWidth)
+        let lw = o.lineWidth
 
         func line(_ p0: CGPoint, _ p1: CGPoint, _ w: CGFloat) -> String {
             let g = "<line x1=\"\(num(p0.x))\" y1=\"\(num(p0.y))\" x2=\"\(num(p1.x))\" y2=\"\(num(p1.y))\""

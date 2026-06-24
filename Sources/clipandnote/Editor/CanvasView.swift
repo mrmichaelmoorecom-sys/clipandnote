@@ -442,13 +442,17 @@ final class CanvasView: NSView, NSTextViewDelegate {
             needsDisplay = true
         case .awaitingA:
             guard let idx = angleIdx() else { cancelAngleInProgress(); return }
-            document.objects[idx].points[0] = p
+            let vertexA = document.objects[idx].points[1]
+            document.objects[idx].points[0] = NSEvent.modifierFlags.contains(.shift)
+                ? Self.constrained45(p, from: vertexA) : p
             document.objects[idx].recomputeBounds()
             anglePhase = .awaitingB
             needsDisplay = true
         case .awaitingB:
             guard let id = angleInProgressID, let idx = angleIdx() else { cancelAngleInProgress(); return }
-            document.objects[idx].points[2] = p
+            let vertexB = document.objects[idx].points[1]
+            document.objects[idx].points[2] = NSEvent.modifierFlags.contains(.shift)
+                ? Self.constrained45(p, from: vertexB) : p
             document.objects[idx].recomputeBounds()
             finishAngle(id)
         case .pressed, .draggingFirstLeg:

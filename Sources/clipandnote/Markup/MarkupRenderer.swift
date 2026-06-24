@@ -135,8 +135,9 @@ enum MarkupRenderer {
 
         // Arrowhead FIRST (bottom layer), just past the end — so the end cap
         // and ticks render on top of it instead of the arrow covering them.
-        let headLen = max(12, lw * 3.5)
-        let headHalf = max(7, lw * 2)
+        // Clamp so a thick stroke (or a short ruler) doesn't balloon the head.
+        let headLen = min(min(max(12, lw * 3.5), 40), max(8, length * 0.6))
+        let headHalf = min(min(max(7, lw * 2), 24), headLen * 0.7)
         let tip = CGPoint(x: b.x + ux * headLen, y: b.y + uy * headLen)
         let left = CGPoint(x: b.x + nx * headHalf, y: b.y + ny * headHalf)
         let right = CGPoint(x: b.x - nx * headHalf, y: b.y - ny * headHalf)
@@ -186,14 +187,17 @@ enum MarkupRenderer {
     /// Horizontal (screen-aligned) length label with an 8-direction contrast
     /// halo so it reads on any background, offset above the baseline.
     private static func drawRulerLabel(_ text: String, mid: CGPoint, perp: CGPoint, o: MarkupObject) {
-        let font = NSFont.systemFont(ofSize: max(13, o.lineWidth * 3.5), weight: .bold)
+        // Clamp the font so a wide stroke doesn't render an enormous label.
+        let font = NSFont.systemFont(ofSize: min(max(13, o.lineWidth * 3.5), 30), weight: .bold)
         let fill = o.stroke.opaqueColor
         let outline = contrastColor(for: o.stroke.nsColor)
         let ns = text as NSString
         let size = ns.size(withAttributes: [.font: font])
         // Push above the line along the perpendicular. Canvas is flipped
-        // (top-left origin), so "above" = subtract the perpendicular.
-        let off = 14 + size.height / 2
+        // (top-left origin), so "above" = subtract the perpendicular. Clear the
+        // width-scaled end caps so the label never overlaps the ticks.
+        let capHalf = max(8, o.lineWidth * 2.5)
+        let off = capHalf + 12 + size.height / 2
         let center = CGPoint(x: mid.x - perp.x * off, y: mid.y - perp.y * off)
         let origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
         let r: CGFloat = 2.5
@@ -209,7 +213,7 @@ enum MarkupRenderer {
     /// Screen-aligned label centered at `center`, with the same 8-direction
     /// contrast halo (used by the angle tool).
     private static func drawHaloLabel(_ text: String, center: CGPoint, o: MarkupObject) {
-        let font = NSFont.systemFont(ofSize: max(13, o.lineWidth * 3.5), weight: .bold)
+        let font = NSFont.systemFont(ofSize: min(max(13, o.lineWidth * 3.5), 30), weight: .bold)
         let fill = o.stroke.opaqueColor
         let outline = contrastColor(for: o.stroke.nsColor)
         let ns = text as NSString
