@@ -67,6 +67,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// highlighter restores its Skitch-style 0.38 baseline instead of
     /// inheriting whatever opacity the user set for a different tool.
     var highlighterOpacity: CGFloat = 0.38
+    /// Whether new marks draw their contrast outline ("highlight"). Toggled by
+    /// the toolbar Outlines checkbox; also pushed onto the current selection.
+    var outlineEnabled: Bool = true
 
     /// Per-shape style toggles for newly-created objects. The user picks via
     /// the tool button's menu — existing marks aren't retroactively changed,
@@ -436,6 +439,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             angleUndoSnapshot = snapshot()
             var stroke = RGBAColor(strokeColor); stroke.a *= strokeOpacity
             var obj = MarkupObject(kind: .angle, stroke: stroke, lineWidth: lineWidth)
+            obj.outlined = outlineEnabled
             obj.points = [p, p, p]   // [A, V, B]
             document.objects.append(obj)
             selectedID = obj.id
@@ -649,6 +653,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             var obj = MarkupObject(kind: .text,
                                    frame: CGRect(x: p.x, y: p.y, width: 200, height: 40),
                                    stroke: stroke, lineWidth: lineWidth)
+            obj.outlined = outlineEnabled
             obj.fontSize = max(lineWidth * 6, 22)
             obj.fontName = fontName
             document.objects.append(obj)
@@ -661,6 +666,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         var obj = MarkupObject(kind: kind,
                                stroke: stroke,
                                lineWidth: lineWidth)
+        obj.outlined = outlineEnabled
         if kind == .highlighter {
             let f = highlighterFill(strokeColor); obj.fill = f; obj.stroke = f
         }
@@ -1041,6 +1047,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             var obj = MarkupObject(kind: .text,
                                    frame: CGRect(x: 40, y: 40, width: 300, height: 60),
                                    stroke: RGBAColor(strokeColor), text: str)
+            obj.outlined = outlineEnabled
             obj.fontSize = 28
             obj.fontName = fontName
             document.objects.append(obj)
@@ -1179,6 +1186,19 @@ final class CanvasView: NSView, NSTextViewDelegate {
                     document.objects[i].fill = f
                 }
             }
+        }
+        commitUndo()
+        needsDisplay = true
+    }
+
+    /// Toggle contrast outlines ("highlights") for new marks, and push the same
+    /// onto the current selection. Mirrors setActiveOpacity.
+    func setActiveOutline(_ on: Bool) {
+        outlineEnabled = on
+        guard !selectedIDs.isEmpty else { needsDisplay = true; return }
+        undoSnapshot = snapshot()
+        for i in document.objects.indices where selectedIDs.contains(document.objects[i].id) {
+            document.objects[i].outlined = on
         }
         commitUndo()
         needsDisplay = true

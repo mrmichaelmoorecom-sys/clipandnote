@@ -59,12 +59,19 @@ enum MarkupRenderer {
     /// Width of the contrasting outline drawn beneath a stroked mark.
     static func outlineWidth(_ lineWidth: CGFloat) -> CGFloat { lineWidth + max(lineWidth * 0.9, 3) }
 
+    /// The contrast outline color for a mark — or transparent when the mark has
+    /// its outline ("highlight") turned off, so the outline draws nothing while
+    /// the colored body still renders.
+    private static func outlineColor(_ o: MarkupObject, base: NSColor) -> NSColor {
+        o.outlined ? contrastColor(for: base) : .clear
+    }
+
     // MARK: Stroked shapes (outline underlay → colored stroke)
 
     private static func strokeWithContrast(_ path: NSBezierPath, _ o: MarkupObject) {
         if let fill = o.fill { fill.opaqueColor.setFill(); path.fill() }
         path.lineWidth = outlineWidth(o.lineWidth)
-        contrastColor(for: o.stroke.opaqueColor).setStroke(); path.stroke()
+        outlineColor(o, base: o.stroke.opaqueColor).setStroke(); path.stroke()
         path.lineWidth = o.lineWidth
         o.stroke.opaqueColor.setStroke(); path.stroke()
     }
@@ -121,7 +128,7 @@ enum MarkupRenderer {
 
         let lw = o.lineWidth
         let color = o.stroke.opaqueColor             // alpha handled by the layer
-        let contrast = contrastColor(for: o.stroke.nsColor)
+        let contrast = outlineColor(o, base: o.stroke.nsColor)
 
         // Stroke a tiny path with the contrast underlay, then the colour.
         // Flat (butt) caps — sharp ruler marks, no rounded bulge.
@@ -190,7 +197,7 @@ enum MarkupRenderer {
         // Clamp the font so a wide stroke doesn't render an enormous label.
         let font = NSFont.systemFont(ofSize: min(max(13, o.lineWidth * 3.5), 30), weight: .bold)
         let fill = o.stroke.opaqueColor
-        let outline = contrastColor(for: o.stroke.nsColor)
+        let outline = outlineColor(o, base: o.stroke.nsColor)
         let ns = text as NSString
         let size = ns.size(withAttributes: [.font: font])
         // Push above the line along the perpendicular. Canvas is flipped
@@ -215,7 +222,7 @@ enum MarkupRenderer {
     private static func drawHaloLabel(_ text: String, center: CGPoint, o: MarkupObject) {
         let font = NSFont.systemFont(ofSize: min(max(13, o.lineWidth * 3.5), 30), weight: .bold)
         let fill = o.stroke.opaqueColor
-        let outline = contrastColor(for: o.stroke.nsColor)
+        let outline = outlineColor(o, base: o.stroke.nsColor)
         let ns = text as NSString
         let size = ns.size(withAttributes: [.font: font])
         let origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
@@ -235,7 +242,7 @@ enum MarkupRenderer {
         let a = o.points[0], v = o.points[1], b = o.points[2]
         let lw = o.lineWidth
         let color = o.stroke.opaqueColor
-        let contrast = contrastColor(for: o.stroke.nsColor)
+        let contrast = outlineColor(o, base: o.stroke.nsColor)
 
         func stroked(width: CGFloat, _ build: (NSBezierPath) -> Void) {
             let p = NSBezierPath(); p.lineCapStyle = .round; build(p)
@@ -330,7 +337,7 @@ enum MarkupRenderer {
         path.close()
         path.lineJoinStyle = .round
 
-        contrastColor(for: o.stroke.opaqueColor).setStroke()
+        outlineColor(o, base: o.stroke.opaqueColor).setStroke()
         path.lineWidth = 3
         path.stroke()
         o.stroke.opaqueColor.setFill()
@@ -451,7 +458,7 @@ enum MarkupRenderer {
         path.lineJoinStyle = .round
 
         // Contrasting outline, then the colored fill.
-        contrastColor(for: o.stroke.opaqueColor).setStroke()
+        outlineColor(o, base: o.stroke.opaqueColor).setStroke()
         path.lineWidth = 3
         path.stroke()
         o.stroke.opaqueColor.setFill()
@@ -473,7 +480,7 @@ enum MarkupRenderer {
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
         let fill = o.stroke.opaqueColor
-        let outline = contrastColor(for: fill)
+        let outline = outlineColor(o, base: fill)
 
         // Outline radius: a sensible % of font size, clamped so tiny text still
         // gets a readable contour and giant text doesn't get cartoonish.

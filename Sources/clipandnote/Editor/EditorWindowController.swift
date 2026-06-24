@@ -61,6 +61,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// the toolbar reads as "edit the selection" when something's selected,
     /// "edit the next mark" otherwise.
     private var opacitySlider: NSSlider!
+    /// Toggles the white contrast outline on new marks + the current selection.
+    private var outlineCheckbox: NSButton!
     private var sizeLabel: NSTextField!
     /// While dragging the size slider with 2+ objects selected, it acts as a
     /// scale control: this holds the slider value at the start of the drag so
@@ -230,7 +232,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                     // same contrasting edge the canvas paints around a mark in
                     // this color. So the tool icon literally previews how the
                     // rendered mark will look on the canvas.
-                    let outline: NSColor? = colored
+                    let outline: NSColor? = (colored && self.canvas.outlineEnabled)
                         ? MarkupRenderer.contrastColor(for: fill) : nil
                     // Filled state flips the rect/ellipse icon between
                     // outlined and solid silhouette to mirror the long-press
@@ -265,7 +267,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let backward = IconButton(symbolName: "square.3.layers.3d.bottom.filled",
                                   tooltip: "Send Backward  (⌘[)")
         backward.onClick = { [weak self] in self?.canvas.sendBackward(nil) }
-        let layerStack = NSStackView(views: [forward, backward])
+        // Outlines toggle — strips the white contrast edge from new marks, the
+        // tool icons, and the current selection. On by default.
+        let outlineToggle = NSButton(checkboxWithTitle: "Outlines", target: self,
+                                     action: #selector(outlineToggled(_:)))
+        outlineToggle.state = .on
+        outlineToggle.font = .systemFont(ofSize: 11)
+        outlineToggle.toolTip = "Draw a contrast outline on marks (applies to the selection too)"
+        self.outlineCheckbox = outlineToggle
+
+        let layerStack = NSStackView(views: [forward, backward, outlineToggle])
         layerStack.orientation = .horizontal
         layerStack.spacing = 4
 
@@ -392,6 +403,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             // highlighters the translucent fill is the source of truth.
             let alpha = (obj.kind == .highlighter ? (obj.fill ?? obj.stroke).a : obj.stroke.a)
             self.opacitySlider?.doubleValue = Double(alpha * 100)
+            self.outlineCheckbox?.state = obj.outlined ? .on : .off
             self.refreshColoredToolIcons()
         }
         canvas.onToolChanged = { [weak self] t in self?.setActiveTool(t) }
@@ -965,6 +977,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc private func opacityChanged(_ sender: NSSlider) {
         canvas.setActiveOpacity(CGFloat(sender.doubleValue / 100))
         toolButtons.forEach { $0.refreshIcon() }
+    }
+
+    @objc private func outlineToggled(_ sender: NSButton) {
+        canvas.setActiveOutline(sender.state == .on)
+        toolButtons.forEach { $0.refreshIcon() }   // tool icons gain/lose their edge
     }
 
     @objc private func bgColorChanged(_ sender: NSColorWell) {

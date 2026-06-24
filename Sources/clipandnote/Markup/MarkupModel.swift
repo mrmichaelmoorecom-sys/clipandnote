@@ -69,6 +69,10 @@ struct MarkupObject: Identifiable, Codable, Equatable {
     /// PNG bytes for `.image` objects (pasted or dropped images).
     var imageData: Data?
 
+    /// Whether this mark draws its contrast outline ("highlight"). Toggled per
+    /// object via the toolbar Outlines checkbox; defaults on.
+    var outlined: Bool = true
+
     init(kind: MarkupKind,
          id: UUID = UUID(),
          frame: CGRect = .zero,
@@ -79,7 +83,8 @@ struct MarkupObject: Identifiable, Codable, Equatable {
          text: String = "",
          fontSize: CGFloat = 28,
          fontName: String? = nil,
-         imageData: Data? = nil) {
+         imageData: Data? = nil,
+         outlined: Bool = true) {
         self.id = id
         self.kind = kind
         self.frame = frame
@@ -91,6 +96,28 @@ struct MarkupObject: Identifiable, Codable, Equatable {
         self.fontSize = fontSize
         self.fontName = fontName
         self.imageData = imageData
+        self.outlined = outlined
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, frame, points, stroke, fill, lineWidth, text, fontSize, fontName, imageData, outlined
+    }
+
+    // Custom decode so older `.can` files (no `outlined` key) still open.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        kind = try c.decode(MarkupKind.self, forKey: .kind)
+        frame = try c.decode(CGRect.self, forKey: .frame)
+        points = try c.decode([CGPoint].self, forKey: .points)
+        stroke = try c.decode(RGBAColor.self, forKey: .stroke)
+        fill = try c.decodeIfPresent(RGBAColor.self, forKey: .fill)
+        lineWidth = try c.decode(CGFloat.self, forKey: .lineWidth)
+        text = try c.decode(String.self, forKey: .text)
+        fontSize = try c.decode(CGFloat.self, forKey: .fontSize)
+        fontName = try c.decodeIfPresent(String.self, forKey: .fontName)
+        imageData = try c.decodeIfPresent(Data.self, forKey: .imageData)
+        outlined = try c.decodeIfPresent(Bool.self, forKey: .outlined) ?? true
     }
 
     /// The resolved AppKit font for a text object (family + size), falling back
@@ -135,7 +162,8 @@ struct MarkupObject: Identifiable, Codable, Equatable {
                      frame: frame.offsetBy(dx: d.width, dy: d.height),
                      points: points.map { CGPoint(x: $0.x + d.width, y: $0.y + d.height) },
                      stroke: stroke, fill: fill, lineWidth: lineWidth,
-                     text: text, fontSize: fontSize, fontName: fontName, imageData: imageData)
+                     text: text, fontSize: fontSize, fontName: fontName, imageData: imageData,
+                     outlined: outlined)
     }
 
     /// Translate the whole object by a delta.
