@@ -27,6 +27,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private(set) var libraryID: UUID?
     private var autosaveWork: DispatchWorkItem?
 
+    /// Multi-page documents (e.g. an opened PDF). One markup canvas per page;
+    /// the current page is live in `canvas.document`. Empty/1 element = single
+    /// page (the nav bar stays hidden).
+    private var pages: [MarkupDocument] = []
+    private var pageIndex = 0
+    private var pageNavStack: NSStackView?
+    private var pageLabel: NSTextField?
+    var isMultiPage: Bool { pages.count > 1 }
+
     /// Empty-state actions (the blank "home" window).
     var onRequestOpen: (() -> Void)?
     var onRequestCapture: (() -> Void)?
@@ -133,6 +142,44 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         buildUI(document: document)
         self.originalDocument = revertableSnapshot
+    }
+
+    /// A multi-page window (one markup canvas per page). Shows page 1 with a
+    /// prev/next nav bar; export-to-PDF writes every page as one PDF.
+    convenience init(pages: [MarkupDocument]) {
+        let first = pages.first ?? MarkupDocument(baseImage: nil, objects: [],
+                                                  canvasSize: CGSize(width: 720, height: 560))
+        self.init(document: first, revertableSnapshot: first)
+        self.pages = pages
+        self.pageIndex = 0
+        refreshPageNav()
+    }
+
+    // MARK: - Multi-page navigation
+
+    /// Capture the live canvas back into the current page before navigating away.
+    private func syncCurrentPage() {
+        guard pages.indices.contains(pageIndex) else { return }
+        pages[pageIndex] = canvas.document
+    }
+
+    func goToPage(_ i: Int) {
+        guard isMultiPage, pages.indices.contains(i), i != pageIndex else { return }
+        syncCurrentPage()
+        pageIndex = i
+        canvas.deselectAll()
+        canvas.document = pages[i]
+        canvas.needsDisplay = true
+        updateSizeLabel()
+        refreshPageNav()
+    }
+    @objc private func nextPage() { goToPage(pageIndex + 1) }
+    @objc private func prevPage() { goToPage(pageIndex - 1) }
+
+    private func refreshPageNav() {
+        pageNavStack?.isHidden = !isMultiPage
+        guard isMultiPage else { return }
+        pageLabel?.stringValue = "Page \(pageIndex + 1) / \(pages.count)"
     }
 
     /// Tools whose icon previews the colored mark they'll draw on the canvas.
@@ -542,11 +589,28 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         shareButton.imageScaling = .scaleProportionallyDown
         shareButton.toolTip = "Share…"
 
+        // Page navigation — only shown for multi-page documents (e.g. a PDF).
+        // The leading divider lives inside this stack so it hides with the nav.
+        let prevBtn = NSButton(image: NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Previous page")!,
+                               target: self, action: #selector(prevPage))
+        let nextBtn = NSButton(image: NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Next page")!,
+                               target: self, action: #selector(nextPage))
+        [prevBtn, nextBtn].forEach {
+            $0.bezelStyle = .texturedRounded; $0.controlSize = .small; $0.imageScaling = .scaleProportionallyDown
+        }
+        let pageLbl = NSTextField(labelWithString: "Page 1 / 1")
+        pageLbl.font = .systemFont(ofSize: 12); pageLbl.textColor = .secondaryLabelColor
+        self.pageLabel = pageLbl
+        let pageNav = NSStackView(views: [notchDivider(), prevBtn, pageLbl, nextBtn])
+        pageNav.orientation = .horizontal; pageNav.alignment = .centerY; pageNav.spacing = 6
+        pageNav.isHidden = true
+        self.pageNavStack = pageNav
+
         // Dimensions readout — moved here from the toolbar. sizeLabel is
         // created during the toolbar build (which runs before makeFooter), so
         // it already exists; we just reparent it into the footer row.
         let stack = NSStackView(views: [brand, notchDivider(), nameLabel, notchDivider(),
-                                        sizeLabel, notchDivider(),
+                                        sizeLabel, pageNav, notchDivider(),
                                         exportButton, shareButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY
@@ -1054,7 +1118,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         exportData(ext: "png", type: .png) { MarkupExporter.png(self.canvas.document) }
     }
     @objc func exportPDF(_ sender: Any?) {
-        exportData(ext: "pdf", type: .pdf) { MarkupExporter.pdf(self.canvas.document) }
+        if isMultiPage {
+            syncCurrentPage()
+            exportData(ext: "pdf", type: .pdf) { MarkupExporter.multiPagePDF(self.pages) }
+        } else {
+            exportData(ext: "pdf", type: .pdf) { MarkupExporter.pdf(self.canvas.document) }
+        }
     }
     @objc func exportSVG(_ sender: Any?) {
         exportData(ext: "svg", type: .svg) { SVGExporter.svg(self.canvas.document).data(using: .utf8) }

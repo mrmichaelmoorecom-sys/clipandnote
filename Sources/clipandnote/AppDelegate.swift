@@ -1,5 +1,6 @@
 import AppKit
 import UniformTypeIdentifiers
+import PDFKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let capture = CaptureEngine()
@@ -296,7 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // open panel non-interactive — activate first, then run it modally.
         NSApp.activate(ignoringOtherApps: true)
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.canDocument, .image]   // .can or any image
+        panel.allowedContentTypes = [.canDocument, .image, .pdf]   // .can, image, or PDF
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
             openFile(url)
@@ -308,6 +309,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func openFile(_ url: URL) {
         // Focus an already-open window for this file rather than duplicating it.
         if let existing = editors.first(where: { $0.fileURL == url }) { existing.show(); return }
+        if url.pathExtension.lowercased() == "pdf" {
+            if openPDF(url) { return }
+            // fall through to the generic error if the PDF couldn't be read
+        }
         if url.pathExtension.lowercased() == CanFile.ext {
             do {
                 let document = try CanFile.read(url)
@@ -333,6 +338,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         urls.forEach(openFile)
+    }
+
+    /// Open a (possibly multi-page) PDF: render each page to a crisp image and
+    /// hand them to one multi-page editor window. Export-to-PDF writes them all
+    /// back as a single PDF. Returns false if the file isn't a readable PDF.
+    @discardableResult
+    func openPDF(_ url: URL) -> Bool {
+        guard let pdf = PDFDocument(url: url), pdf.pageCount > 0 else { return false }
+        let scale: CGFloat = 2
+        var docs: [MarkupDocument] = []
+        for i in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: i) else { continue }
+            let box = page.bounds(for: .mediaBox)
+            let w = Int((box.width * scale).rounded()), h = Int((box.height * scale).rounded())
+            guard w > 0, h > 0, let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h,
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { continue }
+            rep.size = box.size   // point size + 2× pixel rep = retina-crisp; the
+            NSGraphicsContext.saveGraphicsState()              // context already maps points→pixels, so
+            let ctx = NSGraphicsContext(bitmapImageRep: rep)!  // we must NOT scale again here.
+            NSGraphicsContext.current = ctx
+            let cg = ctx.cgContext
+            cg.translateBy(x: -box.minX, y: -box.minY)
+            NSColor.white.setFill()
+            NSRect(origin: box.origin, size: box.size).fill()
+            page.draw(with: .mediaBox, to: cg)
+            NSGraphicsContext.restoreGraphicsState()
+            let img = NSImage(size: box.size)
+            img.addRepresentation(rep)
+            docs.append(MarkupDocument(baseImage: img, objects: [], canvasSize: box.size))
+        }
+        guard !docs.isEmpty else { return false }
+        let editor = EditorWindowController(pages: docs)
+        editor.setSnapshotTitle("\(url.deletingPathExtension().lastPathComponent) (\(docs.count) page\(docs.count == 1 ? "" : "s"))")
+        registerEditor(editor)
+        editor.show()
+        return true
     }
 
     private func runCapture(_ kind: CaptureKind) {
@@ -408,11 +451,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openInto(_ editor: EditorWindowController) {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.canDocument, .image]   // .can or any image
+        panel.allowedContentTypes = [.canDocument, .image, .pdf]
         panel.allowsMultipleSelection = false
         panel.begin { [weak self] resp in
             guard resp == .OK, let url = panel.url else { return }
-            if url.pathExtension.lowercased() == CanFile.ext {
+            if url.pathExtension.lowercased() == "pdf" {
+                self?.openPDF(url)   // multi-page PDFs open in their own window
+            } else if url.pathExtension.lowercased() == CanFile.ext {
                 if let doc = try? CanFile.read(url) { editor.loadCan(doc, url: url) }
             } else if let image = NSImage(contentsOf: url) {
                 self?.finishCapture(image, in: editor, replacingBlank: true)
