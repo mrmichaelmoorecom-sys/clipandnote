@@ -152,6 +152,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.init(document: first, revertableSnapshot: first)
         self.pages = pages
         self.pageIndex = 0
+        // Scrolling the canvas flips pages (in addition to the footer ◀ ▶).
+        canvas.onScrollPage = { [weak self] dir in
+            guard let self else { return }
+            self.goToPage(self.pageIndex + dir)
+        }
         refreshPageNav()
     }
 
@@ -170,6 +175,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvas.deselectAll()
         canvas.document = pages[i]
         canvas.needsDisplay = true
+        fitCanvas()          // re-fit/center the new page (sizes can differ)
         updateSizeLabel()
         refreshPageNav()
     }

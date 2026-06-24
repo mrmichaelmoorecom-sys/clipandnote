@@ -105,6 +105,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// so the toolbar can update its highlight.
     var onToolChanged: ((Tool) -> Void)?
 
+    /// Set on multi-page documents: scrolling the canvas flips pages (+1 next /
+    /// −1 prev) instead of panning. nil = normal scroll/zoom.
+    var onScrollPage: ((Int) -> Void)?
+    private var scrollAccum: CGFloat = 0
+    private var lastPageFlip: TimeInterval = 0
+
     /// Active font family for new text objects; nil = default system font.
     var fontName: String?
 
@@ -531,6 +537,21 @@ final class CanvasView: NSView, NSTextViewDelegate {
         document.objects.remove(at: idx)
         if selectedID == id { selectedID = nil }
         needsDisplay = true
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        // Multi-page documents: a scroll flips pages instead of panning. Ignore
+        // the inertial tail so one swipe = one page; small cooldown + threshold
+        // keep momentum from over-flipping.
+        guard let onScrollPage else { super.scrollWheel(with: event); return }
+        guard event.momentumPhase == [] else { return }
+        scrollAccum += event.scrollingDeltaY
+        if abs(scrollAccum) >= 40, event.timestamp - lastPageFlip > 0.3 {
+            onScrollPage(scrollAccum < 0 ? 1 : -1)   // scroll down → next page
+            scrollAccum = 0
+            lastPageFlip = event.timestamp
+        }
+        if event.phase == .ended { scrollAccum = 0 }
     }
 
     override func mouseDown(with event: NSEvent) {
