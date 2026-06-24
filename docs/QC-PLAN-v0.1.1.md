@@ -122,14 +122,17 @@ as a group-scale control **when 2+ objects are selected**.
 - A **filled** rectangle/ellipse in the selection keeps its **fill** in sync
   with the new stroke color.
 
-### U. Duplicate — ⌘D (any tool)
+### U. Duplicate — ⌘D (works whenever something is selected)
 - Select one object → **⌘D** → an offset copy (~18px down-right) appears and the
   **copy** becomes selected. The original is untouched.
 - Select **several** → **⌘D** duplicates the whole set, offset, all copies
   selected.
-- **Any-tool check:** with an object selected, switch to a **draw tool** (e.g.
-  Rectangle) and press **⌘D** — it still duplicates the selection and **does not
-  change the active tool**.
+- **Just-drawn object:** right after drawing (still selected in its draw tool),
+  **⌘D** duplicates it without changing the active tool.
+- **By design:** switching tools **clears the selection** (clean slate for the
+  next mark). So *select → switch to a different tool → ⌘D* correctly does
+  **nothing** — you're no longer in a selection state. This is intended, not a
+  bug (decided after the first re-QC).
 - ⌘D and the plain **D** key (double-arrow tool) must not collide.
 - ⌘Z reverts a duplicate in one step.
 

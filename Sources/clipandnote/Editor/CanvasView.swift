@@ -45,7 +45,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     var tool: Tool = .select {
         didSet {
             if tool != .select { selectedID = nil }
-            if oldValue == .ruler && tool != .ruler { cancelAngleInProgress() }
+            if tool != .ruler { cancelAngleInProgress() }   // drop any unfinished angle
             if tool == .ocr {
                 ensureOCRRegions()      // scan the screenshot once on entry
             } else {
@@ -1353,9 +1353,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private func commitTextEditing() {
         guard let id = editingID, let tv = textView, let idx = indexOf(id) else { return }
         let value = tv.string
-        tv.removeFromSuperview()
-        textView = nil
         editingID = nil
+        textView = nil
+        // Hand focus back to the canvas while the field is still in the hierarchy,
+        // so it resigns cleanly and the next keystroke is a tool shortcut — not
+        // another character appended to the just-committed text.
+        window?.makeFirstResponder(self)
+        tv.removeFromSuperview()
 
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             document.objects.remove(at: idx)   // empty text → discard
@@ -1366,7 +1370,6 @@ final class CanvasView: NSView, NSTextViewDelegate {
                                                       height: measured.height + 6)
             expandCanvasIfNeeded()
         }
-        window?.makeFirstResponder(self)
         needsDisplay = true
     }
 
