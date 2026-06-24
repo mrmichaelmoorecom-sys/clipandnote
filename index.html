@@ -160,6 +160,11 @@ nav .brand svg{width:30px;height:30px}
 .ucard h3{font-size:16.5px;color:var(--ink-soft);font-weight:600}
 .ucard .skel{height:9px;border-radius:5px;background:rgba(82,76,97,.10)}
 .ucard .skel.s2{width:82%}.ucard .skel.s3{width:62%}
+.secbreak{display:flex;align-items:center;justify-content:center;max-width:var(--max);margin:0 auto;padding:4px 24px}
+.secbreak .ln{flex:1;height:1px;max-width:220px}
+.secbreak .ln.l{background:linear-gradient(90deg,transparent,rgba(82,76,97,.2))}
+.secbreak .ln.r{background:linear-gradient(90deg,rgba(82,76,97,.2),transparent)}
+.secbreak svg{flex:none;width:30px;height:30px;margin:0 16px;opacity:.9}
 
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 @media (max-width:880px){.cards{grid-template-columns:repeat(2,1fr)}}
@@ -332,6 +337,8 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   </div>
 </section>
 
+<div class="secbreak reveal" aria-hidden="true"><span class="ln l"></span><svg viewBox="0 0 512 512"><use href="#cnmark"/></svg><span class="ln r"></span></div>
+
 <section id="how" class="pad pad-tint">
   <div class="wrap">
     <div class="shead reveal"><div class="kicker">how it works</div><h2>Three steps, no friction</h2><p>It lives in your menu bar and stays out of the way<br>until you need to grab something.</p></div>
@@ -403,6 +410,8 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   </div>
 </section>
 
+<div class="secbreak reveal" aria-hidden="true"><span class="ln l"></span><svg viewBox="0 0 512 512"><use href="#cnmark"/></svg><span class="ln r"></span></div>
+
 <section class="pad">
   <div class="wrap">
     <div class="shead reveal"><div class="kicker">the toolkit</div><h2>Simple tools for complex notes</h2><p>And a capture mode for whatever's on screen.</p></div>
@@ -426,6 +435,8 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     </div>
   </div>
 </section>
+
+<div class="secbreak reveal" aria-hidden="true"><span class="ln l"></span><svg viewBox="0 0 512 512"><use href="#cnmark"/></svg><span class="ln r"></span></div>
 
 <section id="download" class="pad">
   <div class="wrap">
