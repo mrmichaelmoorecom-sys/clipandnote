@@ -196,10 +196,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // File — open/save .can documents.
         let fileItem = NSMenuItem()
         let fileMenu = NSMenu(title: "File")
-        let newItem = NSMenuItem(title: "New Clip and Note",
+        let newItem = NSMenuItem(title: "New clipandnote",
                                  action: #selector(newClipAndNote(_:)), keyEquivalent: "n")
         newItem.target = self
         fileMenu.addItem(newItem)
+        // Add a blank page to the key editor (turns a single page into a
+        // multi-page document). Travels the responder chain like Save.
+        let addPageItem = NSMenuItem(title: "Add Page",
+                                     action: #selector(EditorWindowController.addPage(_:)),
+                                     keyEquivalent: "n")
+        addPageItem.keyEquivalentModifierMask = [.command, .shift]
+        fileMenu.addItem(addPageItem)
         fileMenu.addItem(.separator())
         let openItem = NSMenuItem(title: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o")
         openItem.target = self

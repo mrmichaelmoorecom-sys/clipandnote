@@ -35,6 +35,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private var pageNavStack: NSStackView?
     private var pageLabel: NSTextField?
     var isMultiPage: Bool { pages.count > 1 }
+    /// Thumbnail navigator (numbered, reorderable) for multi-page documents.
+    /// `pageThumbs` parallels `pages`; only the page being left is re-rendered on
+    /// navigation, so switching pages stays cheap.
+    private var pageStrip: PageStripView?
+    private var pageStripScroll: NSScrollView?
+    private var pageStripWidthC: NSLayoutConstraint?
+    private var pageThumbs: [NSImage] = []
 
     /// Empty-state actions (the blank "home" window).
     var onRequestOpen: (() -> Void)?
@@ -152,12 +159,20 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.init(document: first, revertableSnapshot: first)
         self.pages = pages
         self.pageIndex = 0
-        // Scrolling the canvas flips pages (in addition to the footer ◀ ▶).
+        enableMultiPageScroll()
+        pageThumbs = pages.map { pageThumb($0) }
+        refreshPageNav()
+        refreshPageStrip()
+    }
+
+    /// Wire scroll-to-flip on the canvas (the footer ◀ ▶ and the thumbnail strip
+    /// are the other ways to navigate pages). Idempotent — also called when a
+    /// single-page window gains its first extra page via Add Page.
+    private func enableMultiPageScroll() {
         canvas.onScrollPage = { [weak self] dir in
             guard let self else { return }
             self.goToPage(self.pageIndex + dir)
         }
-        refreshPageNav()
     }
 
     // MARK: - Multi-page navigation
@@ -171,6 +186,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     func goToPage(_ i: Int) {
         guard isMultiPage, pages.indices.contains(i), i != pageIndex else { return }
         syncCurrentPage()
+        regenThumb(at: pageIndex)   // the page we're leaving may have changed
+        showPage(i)
+    }
+    @objc private func nextPage() { goToPage(pageIndex + 1) }
+    @objc private func prevPage() { goToPage(pageIndex - 1) }
+
+    /// Swap the live canvas to page `i` (caller has already synced the old page).
+    private func showPage(_ i: Int) {
+        guard pages.indices.contains(i) else { return }
         pageIndex = i
         canvas.deselectAll()
         canvas.document = pages[i]
@@ -179,14 +203,81 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         fitCanvas()                                // …then re-fit/center it
         updateSizeLabel()
         refreshPageNav()
+        refreshPageStrip()
     }
-    @objc private func nextPage() { goToPage(pageIndex + 1) }
-    @objc private func prevPage() { goToPage(pageIndex - 1) }
 
     private func refreshPageNav() {
         pageNavStack?.isHidden = !isMultiPage
         guard isMultiPage else { return }
         pageLabel?.stringValue = "Page \(pageIndex + 1) / \(pages.count)"
+    }
+
+    // MARK: - Add / reorder pages, thumbnail strip
+
+    /// File ▸ Add Page (⌘⇧N). Append a blank page the size of the current one,
+    /// turning a single-page window into a multi-page document, and jump to it.
+    @objc func addPage(_ sender: Any?) {
+        if pages.isEmpty { pages = [canvas.document] } else { syncCurrentPage() }
+        let ref = canvas.document
+        pages.append(MarkupDocument(baseImage: nil, objects: [],
+                                    canvasSize: ref.canvasSize,
+                                    backgroundColor: ref.backgroundColor))
+        pageThumbs = pages.map { pageThumb($0) }
+        enableMultiPageScroll()
+        dismissEmptyState()
+        showPage(pages.count - 1)
+        window?.isDocumentEdited = true
+        scheduleAutosave()
+    }
+
+    /// Drag-reorder from the thumbnail strip: move page `from` to insertion slot
+    /// `insertion` (0…count). Keeps the viewed page selected.
+    private func movePage(from: Int, to insertion: Int) {
+        guard pages.indices.contains(from) else { return }
+        let dest = min(max(from < insertion ? insertion - 1 : insertion, 0), pages.count - 1)
+        guard dest != from else { return }
+        syncCurrentPage()
+        regenThumb(at: pageIndex)
+        let moved = pages.remove(at: from)
+        pages.insert(moved, at: dest)
+        let movedThumb = pageThumbs.remove(at: from)
+        pageThumbs.insert(movedThumb, at: dest)
+        // Track which page stays on screen.
+        var idx = pageIndex
+        if idx == from { idx = dest }
+        else {
+            if from < idx { idx -= 1 }
+            if dest <= idx { idx += 1 }
+        }
+        showPage(min(max(idx, 0), pages.count - 1))
+        window?.isDocumentEdited = true
+        scheduleAutosave()
+    }
+
+    private func refreshPageStrip() {
+        guard let strip = pageStrip, let widthC = pageStripWidthC else { return }
+        if isMultiPage {
+            widthC.constant = PageStripView.barWidth
+            pageStripScroll?.isHidden = false
+            strip.configure(thumbs: pageThumbs, current: pageIndex)
+        } else {
+            widthC.constant = 0
+            pageStripScroll?.isHidden = true
+        }
+        window?.contentView?.layoutSubtreeIfNeeded()
+        fitCanvas()
+    }
+
+    private func regenThumb(at i: Int) {
+        guard pages.indices.contains(i), pageThumbs.indices.contains(i) else { return }
+        pageThumbs[i] = pageThumb(pages[i])
+    }
+
+    /// A small flattened preview of a page for the navigator strip.
+    private func pageThumb(_ doc: MarkupDocument) -> NSImage {
+        let scale = max(0.05, min(1, 110 / max(doc.canvasSize.height, 1)))
+        if let data = MarkupExporter.png(doc, scale: scale), let img = NSImage(data: data) { return img }
+        return NSImage(size: NSSize(width: 60, height: 78))
     }
 
     /// Tools whose icon previews the colored mark they'll draw on the canvas.
@@ -505,8 +596,30 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let footer = makeFooter()
         self.footerView = footer
 
+        // The page-thumbnail navigator: a left sidebar spanning the height
+        // between toolbar and footer. Collapsed (width 0, hidden) until the
+        // document is multi-page. Overlay scrollers float over the thumbnails
+        // and auto-hide, so they never reserve layout or obscure a page.
+        let stripScroll = NSScrollView()
+        stripScroll.hasVerticalScroller = true
+        stripScroll.hasHorizontalScroller = false
+        stripScroll.scrollerStyle = .overlay
+        stripScroll.autohidesScrollers = true
+        stripScroll.drawsBackground = false
+        stripScroll.translatesAutoresizingMaskIntoConstraints = false
+        stripScroll.isHidden = true
+        let strip = PageStripView()
+        strip.onSelect = { [weak self] i in self?.goToPage(i) }
+        strip.onReorder = { [weak self] from, to in self?.movePage(from: from, to: to) }
+        stripScroll.documentView = strip
+        self.pageStrip = strip
+        self.pageStripScroll = stripScroll
+        let stripWidth = stripScroll.widthAnchor.constraint(equalToConstant: 0)
+        self.pageStripWidthC = stripWidth
+
         // Scroll first (behind), bar + footer in front so they win hit-testing.
         container.addSubview(scroll)
+        container.addSubview(stripScroll)
         container.addSubview(bar)
         container.addSubview(footer)
         NSLayoutConstraint.activate([
@@ -525,8 +638,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             footer.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             footer.heightAnchor.constraint(equalToConstant: 38),
 
+            stripScroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stripScroll.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            stripScroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            stripWidth,
+
             scroll.topAnchor.constraint(equalTo: bar.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            scroll.leadingAnchor.constraint(equalTo: stripScroll.trailingAnchor),
             scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
         ])
