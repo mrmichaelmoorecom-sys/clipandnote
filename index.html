@@ -678,7 +678,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
         </a>
       </div>
       <p class="dlnote" id="dlnote">Tick the box to enable the download.</p>
-      <p class="dlver">v0.1.3 &middot; released June 24, 2026</p>
+      <p class="dlver" id="dlver">v0.1.3 &middot; released June 24, 2026</p>
     </div>
   </div>
 </section>
@@ -718,6 +718,21 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}});
   setEnabled(false);
   document.getElementById('yr').textContent=new Date().getFullYear();
+  // Keep the version line in sync with the latest GitHub release (falls back to
+  // the hard-coded text if the API is unreachable). Date is shown in the
+  // visitor's local time.
+  fetch('https://api.github.com/repos/mrmichaelmoorecom-sys/clipandnote/releases/latest')
+    .then(function(r){return r.ok?r.json():Promise.reject();})
+    .then(function(d){
+      var el=document.getElementById('dlver');
+      if(!el||!d.tag_name)return;
+      var txt=d.tag_name;
+      if(d.published_at){
+        var dt=new Date(d.published_at);
+        if(!isNaN(dt))txt+=' · released '+dt.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      }
+      el.textContent=txt;
+    }).catch(function(){});
 })();
 </script>
 <!-- GoatCounter — privacy-friendly analytics (no cookies, no PII) -->
