@@ -302,8 +302,8 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 /* interactive feature tour — callouts overlaid on real app screenshots */
 .toursec .tourw{position:relative;overflow:visible}
 .toursec .tourw img{display:block;width:100%;border-radius:13px;box-shadow:0 30px 80px -34px rgba(40,30,55,.55)}
-.toursec .editor-tour{max-width:1120px;margin:28px auto 0}
-.toursec .menu-block{max-width:760px;margin:56px auto 0;display:flex;justify-content:center}
+.toursec .editor-tour{max-width:1120px;margin:60px auto 0}
+.toursec .menu-block{max-width:760px;margin:30px auto 0;display:flex;justify-content:center}
 .toursec .menu-tour{width:300px;flex:none}
 .toursec .menu-tour img{box-shadow:0 26px 64px -30px rgba(40,30,55,.5)}
 .toursec .thot{position:absolute;transform:translate(-50%,-50%);border-radius:7px;cursor:pointer;z-index:3;transition:box-shadow .15s,background .15s}
@@ -461,8 +461,8 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 <section class="pad toursec">
   <div class="wrap">
     <div class="shead reveal"><div class="kicker">a quick tour</div><h2>Every tool, one tap away</h2><p>The callouts cycle on their own — hover any tool or menu item to read what it does.</p></div>
-    <div class="tourw editor-tour reveal" id="editorTour"><img src="explainer/editor.png" alt="The clipandnote editor toolbar"></div>
     <div class="menu-block reveal"><div class="tourw menu-tour" id="menuTour"><img src="explainer/menu.png" alt="The clipandnote menu-bar dropdown"></div></div>
+    <div class="tourw editor-tour reveal" id="editorTour"><img src="explainer/editor.png" alt="The clipandnote editor toolbar"></div>
   </div>
 </section>
 
@@ -585,38 +585,38 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 // Interactive feature tour: callouts cycle over the real app screenshots, and
 // hovering any tool/menu item pauses the cycle to show that one.
 (function(){
-  var TBAR={side:'bottom',band:{cy:4.8,h:6.6,w:2.3},items:[
-    [9.0,"Select","Move, resize & restyle any mark — ⇧ keeps the ratio, ⌥ scales from center.","V",1],
-    [11.4,"Capture","Grab a fresh region straight onto the canvas, without leaving the editor.","",1],
-    [13.8,"Grab Text","Pull text out of a screenshot, on-device — lines copy to your clipboard.","I",1],
-    [16.2,"Crop","Trim the canvas to what matters; outside marks drop away.","C",0],
-    [18.6,"Pixelate / Blur","Hide a token, email or face — blur what shouldn't be public.","X",1],
-    [22.5,"Arrow","A tapered arrow that points right at the thing you mean.","A",1],
+  var TBAR={side:'bottom',band:{cy:6.6,h:6.0,w:2.3},items:[
+    [9.3,"Select","Move, resize & restyle any mark — ⇧ keeps the ratio, ⌥ scales from center.","V",1],
+    [11.8,"Capture","Grab a fresh region straight onto the canvas, without leaving the editor.","",1],
+    [14.4,"Grab Text","Pull text out of a screenshot, on-device — lines copy to your clipboard.","I",1],
+    [17,"Crop","Trim the canvas to what matters; outside marks drop away.","C",0],
+    [19.4,"Pixelate / Blur","Hide a token, email or face — blur what shouldn't be public.","X",1],
+    [22.4,"Arrow","A tapered arrow that points right at the thing you mean.","A",1],
     [25.1,"Ruler / Angle","Measure a distance in pixels or call out an exact angle.","M",0],
-    [27.6,"Curved Double Arrow","A two-headed connector with a drag-to-shape curve.","D",0],
-    [30.2,"Line","A straight line — hold ⇧ to lock to 45°.","L",0],
-    [32.7,"Pen","Freehand draw anything, smoothed as you go.","P",1],
-    [35.3,"Highlighter","A translucent swipe to draw the eye to a line.","H",1],
-    [37.8,"Rectangle","Box an area — ⇧ for a square, ⌥ from the center.","R",0],
-    [40.4,"Ellipse","Circle something — ⇧ for a perfect circle.","O",0],
-    [43.0,"Text","Type a note in clean outlined text — a live object, never baked in.","T",1],
-    [47.0,"Bring Forward","Re-order any mark above or below the others.","",0],
-    [49.5,"Send Back","Re-order any mark above or below the others.","",0],
-    [53.0,"Outlines","A white contrast halo so every mark pops on any background.","",1],
-    [62.0,"Colors","Presets, custom slots, the eyedropper, or a hex value.","",1],
-    [69.0,"Eyedropper","Sample any color already on the canvas.","",0],
-    [75.5,"Hex","Type an exact hex color.","",0],
-    [86.0,"Width","Set the stroke weight for the next mark or the selection.","",1],
-    [94.3,"Canvas","Toggle the canvas background on or off.","",0],
-    [98.3,"Copy","Copy the flattened result straight to the clipboard.","",1]]};
-  var MENU={side:'right',band:{cx:50,w:92,h:4.6},items:[
-    [10.0,"Crosshair Clip","Drag a box around any region of the screen.","⌥⌘4",1],
-    [15.4,"Previous Clip Area","Re-grab the exact same region you clipped last time.","⌥⌘6",1],
-    [20.4,"Fullscreen Clip","Grab the whole screen in one shot.","⌥⌘3",1],
-    [25.4,"Window Clip","Click a window to clip just that window, cleanly.","⌥⌘5",1],
-    [30.4,"Menu Clip","Capture an open menu — even ones that vanish on click.","⌃⌥M",1],
-    [36.0,"New clipandnote","Start a blank canvas to paste or draw on.","",1],
-    [48.0,"Recent Markups","Every clip autosaves here — reopen or paste it in a click.","",1]]};
+    [27.7,"Curved Double Arrow","A two-headed connector with a drag-to-shape curve.","D",0],
+    [30.3,"Line","A straight line — hold ⇧ to lock to 45°.","L",0],
+    [32.8,"Pen","Freehand draw anything, smoothed as you go.","P",1],
+    [35.5,"Highlighter","A translucent swipe to draw the eye to a line.","H",1],
+    [38.2,"Rectangle","Box an area — ⇧ for a square, ⌥ from the center.","R",0],
+    [40.8,"Ellipse","Circle something — ⇧ for a perfect circle.","O",0],
+    [43.4,"Text","Type a note in clean outlined text — a live object, never baked in.","T",1],
+    [47.4,"Bring Forward","Re-order any mark above or below the others.","",0],
+    [49.9,"Send Back","Re-order any mark above or below the others.","",0],
+    [54,"Outlines","A white contrast halo so every mark pops on any background.","",1],
+    [61.8,"Colors","Presets, custom slots, the eyedropper, or a hex value.","",1],
+    [69.1,"Eyedropper","Sample any color already on the canvas.","",0],
+    [72.6,"Hex","Type an exact hex color.","",0],
+    [81.5,"Width","Set the stroke weight for the next mark or the selection.","",1],
+    [91.5,"Canvas","Toggle the canvas background on or off.","",0],
+    [96.7,"Copy","Copy the flattened result straight to the clipboard.","",1]]};
+  var MENU={side:'right',band:{cx:50,w:92,h:4.0},items:[
+    [15.4,"Crosshair Clip","Drag a box around any region of the screen.","⌥⌘4",1],
+    [19.5,"Previous Clip Area","Re-grab the exact same region you clipped last time.","⌥⌘6",1],
+    [23.6,"Fullscreen Clip","Grab the whole screen in one shot.","⌥⌘3",1],
+    [28,"Window Clip","Click a window to clip just that window, cleanly.","⌥⌘5",1],
+    [32.9,"Menu Clip","Capture an open menu — even ones that vanish on click.","⌃⌥M",1],
+    [36.9,"New clipandnote","Start a blank canvas to paste or draw on.","",1],
+    [65.6,"Recent Markups","Every clip autosaves here — reopen or paste it in a click.","",1]]};
   function initTour(wrap,cfg){
     if(!wrap) return;
     var co=document.createElement('div'); co.className='tcallout '+cfg.side; wrap.appendChild(co);
