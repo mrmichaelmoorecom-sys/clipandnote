@@ -561,7 +561,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   var agree=document.getElementById('agree'),btn=document.getElementById('dlbtn'),note=document.getElementById('dlnote'),wrap=document.getElementById('dlwrap');
   function setEnabled(on){if(on){btn.removeAttribute('disabled');btn.setAttribute('aria-disabled','false');btn.href=btn.dataset.href;note.textContent='Thanks! Your download will begin. Drag clipandnote.app into Applications.';}else{btn.setAttribute('disabled','');btn.setAttribute('aria-disabled','true');btn.removeAttribute('href');note.textContent='Tick the box to enable the download.';}}
   agree.addEventListener('change',function(){setEnabled(agree.checked);});
-  btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}});
+  btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}else if(window.goatcounter&&window.goatcounter.count){window.goatcounter.count({path:'download-dmg',title:'Download .dmg',event:true});}});
   setEnabled(false);
   document.getElementById('yr').textContent=new Date().getFullYear();
   // Keep the version line in sync with the latest GitHub release (falls back to
