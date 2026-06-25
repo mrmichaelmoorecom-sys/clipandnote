@@ -593,7 +593,7 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     [19.4,"Pixelate / Blur","Hide a token, email or face — blur what shouldn't be public.","X",1],
     [22.4,"Arrow","A tapered arrow that points right at the thing you mean.","A",1],
     [25.1,"Ruler / Angle","Measure a distance in pixels or call out an exact angle.","M",0],
-    [27.7,"Curved Double Arrow","A two-headed connector with a drag-to-shape curve.","D",0],
+    [27.9,"Curved Double Arrow","A two-headed connector with a drag-to-shape curve.","D",0],
     [30.3,"Line","A straight line — hold ⇧ to lock to 45°.","L",0],
     [32.8,"Pen","Freehand draw anything, smoothed as you go.","P",1],
     [35.5,"Highlighter","A translucent swipe to draw the eye to a line.","H",1],
@@ -602,28 +602,26 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
     [43.4,"Text","Type a note in clean outlined text — a live object, never baked in.","T",1],
     [47.4,"Bring Forward","Re-order any mark above or below the others.","",0],
     [49.9,"Send Back","Re-order any mark above or below the others.","",0],
-    [54,"Outlines","A white contrast halo so every mark pops on any background.","",1],
-    [61.8,"Colors","Presets, custom slots, the eyedropper, or a hex value.","",1],
+    [54,"Outlines","A white contrast halo so every mark pops on any background.","",1,4.6],
+    [61.8,"Colors","Presets, custom slots, the eyedropper, or a hex value.","",1,4.6],
     [69.1,"Eyedropper","Sample any color already on the canvas.","",0],
-    [72.6,"Hex","Type an exact hex color.","",0],
-    [81.5,"Width","Set the stroke weight for the next mark or the selection.","",1],
-    [91.5,"Canvas","Toggle the canvas background on or off.","",0],
+    [72.6,"Hex","Type an exact hex color.","",0,3.45],
+    [91.6,"Canvas","Toggle the canvas background on or off.","",0],
     [96.7,"Copy","Copy the flattened result straight to the clipboard.","",1]]};
-  var MENU={side:'right',band:{cx:50,w:92,h:4.0},items:[
+  var MENU={side:'right',band:{cx:50,w:97,h:4.0},items:[
     [15.4,"Crosshair Clip","Drag a box around any region of the screen.","⌥⌘4",1],
     [19.5,"Previous Clip Area","Re-grab the exact same region you clipped last time.","⌥⌘6",1],
     [23.6,"Fullscreen Clip","Grab the whole screen in one shot.","⌥⌘3",1],
     [28,"Window Clip","Click a window to clip just that window, cleanly.","⌥⌘5",1],
-    [32.9,"Menu Clip","Capture an open menu — even ones that vanish on click.","⌃⌥M",1],
-    [36.9,"New clipandnote","Start a blank canvas to paste or draw on.","",1],
-    [65.6,"Recent Markups","Every clip autosaves here — reopen or paste it in a click.","",1]]};
+    [32.0,"Menu Clip","Capture an open menu — even ones that vanish on click.","⌃⌥M",1],
+    [36.3,"New clipandnote","Start a blank canvas to paste or draw on.","",1]]};
   function initTour(wrap,cfg){
     if(!wrap) return;
     var co=document.createElement('div'); co.className='tcallout '+cfg.side; wrap.appendChild(co);
     var hots=cfg.items.map(function(it){
-      var h=document.createElement('div'); h.className='thot';
-      if(cfg.side==='bottom'){h.style.left=it[0]+'%';h.style.top=cfg.band.cy+'%';h.style.width=cfg.band.w+'%';h.style.height=cfg.band.h+'%';}
-      else{h.style.left=cfg.band.cx+'%';h.style.top=it[0]+'%';h.style.width=cfg.band.w+'%';h.style.height=cfg.band.h+'%';}
+      var h=document.createElement('div'); h.className='thot'; var hw=(it[5]!=null?it[5]:cfg.band.w);
+      if(cfg.side==='bottom'){h.style.left=it[0]+'%';h.style.top=cfg.band.cy+'%';h.style.width=hw+'%';h.style.height=cfg.band.h+'%';}
+      else{h.style.left=cfg.band.cx+'%';h.style.top=it[0]+'%';h.style.width=hw+'%';h.style.height=cfg.band.h+'%';}
       h._it=it; wrap.appendChild(h); return h;
     });
     var tour=hots.filter(function(h){return h._it[4];}),i=-1,timer=null,hovering=false;
