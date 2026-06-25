@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// One recent-markup row's data shown in the menu-bar list.
 struct RecentRowItem {
@@ -40,6 +41,8 @@ final class StatusDropdownModel: ObservableObject {
 
     var onCapture: ((CaptureKind) -> Void)?
     var onPickRecent: ((Int) -> Void)?
+    /// Drag-reorder a recent from one row to another (indices into `recents`).
+    var onMoveRecent: ((Int, Int) -> Void)?
     var onOpenGallery: (() -> Void)?
     /// Open an existing image / .can file via the system open panel.
     var onOpenFile: (() -> Void)?
@@ -140,6 +143,8 @@ final class StatusDropdownPanel: NSObject, NSPopoverDelegate {
 struct StatusDropdownContentView: View {
     @ObservedObject var model: StatusDropdownModel
     @Environment(\.colorScheme) private var colorScheme
+    /// Row index currently being dragged for reorder (nil when not dragging).
+    @State private var draggingIndex: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -241,6 +246,19 @@ struct StatusDropdownContentView: View {
                                     else { model.checked.remove(idx) }
                                 }
                             )
+                            // Drag to reorder. The system drag preview (a snapshot
+                            // of the row following the cursor) is the live feedback;
+                            // the new order is committed on drop and persisted.
+                            .opacity(draggingIndex == idx ? 0.4 : 1)
+                            .onDrag {
+                                draggingIndex = idx
+                                return NSItemProvider(object: String(idx) as NSString)
+                            }
+                            .onDrop(of: [UTType.text],
+                                    delegate: RecentReorderDropDelegate(
+                                        targetIndex: idx,
+                                        draggingIndex: $draggingIndex,
+                                        onCommit: { from, to in model.onMoveRecent?(from, to) }))
                         }
                     }
                 }
@@ -307,6 +325,25 @@ struct StatusDropdownContentView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .help(help)
+    }
+}
+
+/// Handles a recent-row reorder drop. We don't read the dragged item's payload
+/// — the source row is tracked in `draggingIndex` — so dropEntered/performDrop
+/// just translate "dragged row → this row" into a single committed move that the
+/// library persists (which then refreshes the list into its new order).
+private struct RecentReorderDropDelegate: DropDelegate {
+    let targetIndex: Int
+    @Binding var draggingIndex: Int?
+    let onCommit: (Int, Int) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool { draggingIndex != nil }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { draggingIndex = nil }
+        guard let from = draggingIndex, from != targetIndex else { return false }
+        onCommit(from, targetIndex)
+        return true
     }
 }
 

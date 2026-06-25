@@ -7,6 +7,8 @@ final class StatusItemController: NSObject {
     var onCapture: ((CaptureKind) -> Void)?
     /// Fired when the user clicks a recent markup (index into the recents list).
     var onPickRecent: ((Int) -> Void)?
+    /// Fired when the user drag-reorders a recent (from index, to index).
+    var onReorderRecent: ((Int, Int) -> Void)?
     var onOpenGallery: (() -> Void)?
     /// Open an existing image / .can file via the system open panel.
     var onOpenFile: (() -> Void)?
@@ -42,6 +44,7 @@ final class StatusItemController: NSObject {
 
         panel.content.onCapture       = { [weak self] kind in self?.onCapture?(kind) }
         panel.content.onPickRecent    = { [weak self] idx  in self?.onPickRecent?(idx) }
+        panel.content.onMoveRecent    = { [weak self] f, t in self?.onReorderRecent?(f, t) }
         panel.content.onOpenGallery   = { [weak self]      in self?.onOpenGallery?() }
         panel.content.onOpenFile      = { [weak self]      in self?.onOpenFile?() }
         panel.content.onDelete        = { [weak self] is_  in self?.onDeleteSelected?(is_) }

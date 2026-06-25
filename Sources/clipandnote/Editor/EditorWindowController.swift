@@ -1108,7 +1108,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private func write(to url: URL) {
         do {
-            try CanFile.write(canvas.document, to: url)
+            if isMultiPage {
+                syncCurrentPage()
+                try CanFile.write(pages: pages, to: url)
+            } else {
+                try CanFile.write(canvas.document, to: url)
+            }
             setFileURL(url)
             // A successful save is the new "as-opened" baseline — Revert
             // should drop to the most recent on-disk state, not all the way
@@ -1155,7 +1160,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         snapshotTitle = title
         window?.title = title
         updateFileNameLabel()
-        if let id = libraryID { MarkupLibrary.shared.update(canvas.document, id: id, name: title) }
+        // Rename only — don't rewrite the document (which for a multi-page window
+        // would collapse it to the current page).
+        if let id = libraryID { MarkupLibrary.shared.rename(id, title) }
     }
 
     // MARK: - Library autosave
@@ -1175,7 +1182,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     func autosaveNow() {
         autosaveWork?.cancel(); autosaveWork = nil
         guard let id = libraryID else { return }
-        MarkupLibrary.shared.update(canvas.document, id: id, name: snapshotTitle)
+        if isMultiPage {
+            syncCurrentPage()
+            MarkupLibrary.shared.update(pages: pages, id: id, name: snapshotTitle)
+        } else {
+            MarkupLibrary.shared.update(canvas.document, id: id, name: snapshotTitle)
+        }
         window?.isDocumentEdited = false
     }
 

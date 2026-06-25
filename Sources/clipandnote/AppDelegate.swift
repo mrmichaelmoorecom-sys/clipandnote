@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let sc = StatusItemController()
         sc.onCapture = { [weak self] kind in self?.runCapture(kind) }
         sc.onPickRecent = { [weak self] idx in self?.pickRecent(idx) }
+        sc.onReorderRecent = { from, to in MarkupLibrary.shared.moveRecent(from: from, to: to) }
         sc.onOpenGallery = { [weak self] in self?.openGallery(nil) }
         sc.onOpenFile = { [weak self] in self?.openDocument(nil) }
         sc.onNewWindow = { [weak self] in self?.showHome() }
@@ -315,8 +316,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if url.pathExtension.lowercased() == CanFile.ext {
             do {
-                let document = try CanFile.read(url)
-                let editor = EditorWindowController(document: document)
+                let pages = try CanFile.readPages(url)   // ≥1 page for any valid file
+                let editor = pages.count > 1
+                    ? EditorWindowController(pages: pages)
+                    : EditorWindowController(document: pages[0])
                 editor.setFileURL(url)
                 registerEditor(editor)
                 editor.show()
@@ -372,7 +375,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard !docs.isEmpty else { return false }
         let editor = EditorWindowController(pages: docs)
-        editor.setSnapshotTitle("\(url.deletingPathExtension().lastPathComponent) (\(docs.count) page\(docs.count == 1 ? "" : "s"))")
+        let title = "\(url.deletingPathExtension().lastPathComponent) (\(docs.count) page\(docs.count == 1 ? "" : "s"))"
+        editor.setSnapshotTitle(title)
+        // Autosave to the library like any capture — opening a PDF now persists
+        // all pages, so closing without exporting no longer loses the markup.
+        let id = MarkupLibrary.shared.add(pages: docs, name: title, at: Date())
+        editor.bindToLibrary(id)
         registerEditor(editor)
         editor.show()
         return true
@@ -585,7 +593,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Pop the thumbnail picker and merge the ticked markups; the picker
     /// controls sort order (= page order) and whether to add page numbers.
     private func chooseAndMergePDF() {
-        let ordered = MarkupLibrary.shared.entries.sorted { $0.createdAt > $1.createdAt }
+        // Open in the same manual order shown in the menu (newest on top, plus
+        // any drag-reorder the user applied); the picker can reorder further.
+        let ordered = MarkupLibrary.shared.recent(.max)
         let wc = MergeSelectionWindowController(entries: ordered) { [weak self] selected, paginate in
             guard !selected.isEmpty else { return }
             self?.exportAllPDF(selected, paginate: paginate)
@@ -653,11 +663,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Open a library entry into an editor bound to it (so edits keep autosaving).
     private func openLibraryEntry(_ id: UUID) {
         if let existing = editors.first(where: { $0.libraryID == id }) { existing.show(); return }
-        guard let doc = MarkupLibrary.shared.document(id) else { return }
-        let editor = EditorWindowController(document: doc)
-        if let name = MarkupLibrary.shared.entries.first(where: { $0.id == id })?.name {
-            editor.setSnapshotTitle(name)
+        let entry = MarkupLibrary.shared.entries.first(where: { $0.id == id })
+        let editor: EditorWindowController
+        if (entry?.pageCount ?? 1) > 1, let pages = MarkupLibrary.shared.pages(id), pages.count > 1 {
+            editor = EditorWindowController(pages: pages)   // reopen the full multi-page window
+        } else {
+            guard let doc = MarkupLibrary.shared.document(id) else { return }
+            editor = EditorWindowController(document: doc)
         }
+        if let name = entry?.name { editor.setSnapshotTitle(name) }
         editor.bindToLibrary(id)
         registerEditor(editor)
         editor.show()
