@@ -152,7 +152,7 @@ nav .brand svg{width:30px;height:30px}
 .shead p{color:var(--ink-soft);font-size:18px;margin-top:14px}
 .pad{padding:100px 0}
 .pad-tint{background:rgba(208,188,213,.28)}
-.usecases{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.usecases{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;align-items:start}
 @media (max-width:620px){.usecases{grid-template-columns:1fr}}
 .ucard{background:var(--cream);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
 .ucscene{position:relative;height:192px;overflow:hidden;border-bottom:1px solid var(--line)}
@@ -438,67 +438,65 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 
       <!-- 1. Design / web feedback (how this site got built) -->
       <div class="ucard">
-        <div class="ucscene" style="background:radial-gradient(125% 130% at 28% 16%,#272431,#141319)">
-          <svg viewBox="0 0 440 200" preserveAspectRatio="xMidYMid slice">
+        <div class="ucscene" style="height:312px;background:radial-gradient(120% 105% at 30% 24%,#262431,#141319)">
+          <svg viewBox="0 0 440 300" preserveAspectRatio="xMidYMid slice">
             <defs>
-              <radialGradient id="devoSpot" cx="50%" cy="42%" r="60%">
-                <stop offset="0%" stop-color="#ffe2d0" stop-opacity=".26"/>
-                <stop offset="70%" stop-color="#ffe2d0" stop-opacity=".04"/>
+              <radialGradient id="devoSpot" cx="50%" cy="46%" r="58%">
+                <stop offset="0%" stop-color="#ffe2d0" stop-opacity=".24"/>
+                <stop offset="68%" stop-color="#ffe2d0" stop-opacity=".04"/>
                 <stop offset="100%" stop-color="#ffe2d0" stop-opacity="0"/>
               </radialGradient>
             </defs>
 
-            <!-- dark-mode product page being reviewed -->
-            <rect x="66" y="22" width="308" height="158" rx="13" fill="#1f1d26" stroke="#34313f"/>
-            <path d="M66 35a13 13 0 0 1 13-13h282a13 13 0 0 1 13 13v11H66z" fill="#2a2733"/>
-            <circle cx="84" cy="33" r="3.3" fill="#ff5f57"/><circle cx="96" cy="33" r="3.3" fill="#febc2e"/><circle cx="108" cy="33" r="3.3" fill="#28c840"/>
-            <rect x="150" y="27" width="150" height="12" rx="6" fill="#34303d"/>
-            <text x="160" y="36.4" font-size="8" fill="#7d7689">devo.co/energy-dome</text>
+            <!-- the minimal app window itself (clipandnote reviewing a screenshot) -->
+            <rect x="0" y="0" width="440" height="28" fill="#18161e"/>
+            <circle cx="20" cy="14" r="3.4" fill="#ff5f57"/><circle cx="33" cy="14" r="3.4" fill="#febc2e"/><circle cx="46" cy="14" r="3.4" fill="#28c840"/>
+            <text x="220" y="18" font-size="9.5" fill="#5f596b" text-anchor="middle">energy-dome.png</text>
 
-            <!-- the Devo "Energy Dome" — red stepped dome — under a spotlight -->
-            <ellipse cx="148" cy="116" rx="72" ry="50" fill="url(#devoSpot)"/>
+            <!-- the screenshot under review: the Energy Dome product page -->
+            <ellipse cx="155" cy="182" rx="100" ry="76" fill="url(#devoSpot)"/>
             <g>
               <!-- tier 1 (brim) -->
-              <ellipse cx="148" cy="132" rx="52" ry="12" fill="#9e1a18"/>
-              <rect x="96" y="124" width="104" height="8" fill="#c0211f"/>
-              <ellipse cx="148" cy="124" rx="52" ry="12" fill="#e2302c"/>
-              <ellipse cx="133" cy="121" rx="21" ry="4" fill="#f4796a" opacity=".4"/>
+              <ellipse cx="155" cy="202" rx="72" ry="17" fill="#9e1a18"/>
+              <rect x="83" y="188" width="144" height="14" fill="#c0211f"/>
+              <ellipse cx="155" cy="188" rx="72" ry="17" fill="#e2302c"/>
+              <ellipse cx="135" cy="184" rx="28" ry="5" fill="#f4796a" opacity=".4"/>
               <!-- tier 2 -->
-              <ellipse cx="148" cy="122" rx="38" ry="10" fill="#9e1a18"/>
-              <rect x="110" y="114" width="76" height="8" fill="#c0211f"/>
-              <ellipse cx="148" cy="114" rx="38" ry="10" fill="#e2302c"/>
-              <ellipse cx="136" cy="111" rx="15" ry="3.2" fill="#f4796a" opacity=".4"/>
+              <ellipse cx="155" cy="185" rx="54" ry="14" fill="#9e1a18"/>
+              <rect x="101" y="172" width="108" height="13" fill="#c0211f"/>
+              <ellipse cx="155" cy="172" rx="54" ry="14" fill="#e2302c"/>
+              <ellipse cx="138" cy="168" rx="20" ry="4" fill="#f4796a" opacity=".4"/>
               <!-- tier 3 -->
-              <ellipse cx="148" cy="112" rx="26" ry="8" fill="#9e1a18"/>
-              <rect x="122" y="105" width="52" height="7" fill="#c0211f"/>
-              <ellipse cx="148" cy="105" rx="26" ry="8" fill="#e2302c"/>
-              <ellipse cx="139" cy="103" rx="10" ry="2.4" fill="#f4796a" opacity=".4"/>
+              <ellipse cx="155" cy="171" rx="37" ry="11" fill="#9e1a18"/>
+              <rect x="118" y="159" width="74" height="12" fill="#c0211f"/>
+              <ellipse cx="155" cy="159" rx="37" ry="11" fill="#e2302c"/>
+              <ellipse cx="142" cy="156" rx="14" ry="3" fill="#f4796a" opacity=".4"/>
               <!-- tier 4 (top) -->
-              <ellipse cx="148" cy="104" rx="14" ry="6" fill="#9e1a18"/>
-              <rect x="134" y="98" width="28" height="6" fill="#c0211f"/>
-              <ellipse cx="148" cy="98" rx="14" ry="6" fill="#e2302c"/>
-              <ellipse cx="143" cy="96.4" rx="6" ry="2" fill="#f7978a" opacity=".5"/>
+              <ellipse cx="155" cy="159" rx="20" ry="8" fill="#9e1a18"/>
+              <rect x="135" y="148" width="40" height="11" fill="#c0211f"/>
+              <ellipse cx="155" cy="148" rx="20" ry="8" fill="#e2302c"/>
+              <ellipse cx="149" cy="145" rx="9" ry="2.6" fill="#f7978a" opacity=".5"/>
             </g>
 
             <!-- product copy -->
-            <text x="214" y="74" font-size="16" fill="#f3eff8" font-weight="800">The Devo Hat</text>
-            <text x="214" y="92" font-size="8.5" fill="#968fa4">Energy Dome™ · poly red</text>
-            <text x="214" y="118" font-size="14" fill="#e8556a" font-weight="800">$148</text>
-            <rect x="214" y="129" width="96" height="22" rx="7" fill="#e2302c"/>
-            <text x="262" y="144" font-size="9" fill="#fff" font-weight="800" text-anchor="middle">Add to bag</text>
+            <text x="250" y="120" font-size="20" fill="#f3eff8" font-weight="800">Energy Dome</text>
+            <text x="250" y="142" font-size="11" fill="#968fa4">Poly red · est. 1980</text>
+            <text x="250" y="182" font-size="18" fill="#ff6a7a" font-weight="800">$148</text>
+            <rect x="250" y="197" width="122" height="30" rx="9" fill="#e2302c"/>
+            <text x="311" y="217" font-size="11" fill="#fff" font-weight="800" text-anchor="middle">Add to bag</text>
 
-            <!-- ===== app-accurate markups (real draw-on, white contrast outlines) ===== -->
-            <!-- red ellipse on the brim: white halo under the red stroke -->
-            <ellipse class="dr" cx="148" cy="131" rx="60" ry="16" fill="none" stroke="#fff" stroke-width="5" style="stroke-dasharray:300;--len:300;animation-delay:.35s"/>
-            <ellipse class="dr" cx="148" cy="131" rx="60" ry="16" fill="none" stroke="#2c6e9e" stroke-width="2.6" style="stroke-dasharray:300;--len:300;animation-delay:.35s"/>
+            <!-- ===== app-accurate markups (real draw-on, white contrast halos) ===== -->
+            <!-- ellipse on the brim -->
+            <ellipse class="dr" cx="155" cy="190" rx="84" ry="25" fill="none" stroke="#fff" stroke-width="5.5" style="stroke-dasharray:390;--len:390;animation-delay:.4s"/>
+            <ellipse class="dr" cx="155" cy="190" rx="84" ry="25" fill="none" stroke="#2c6e9e" stroke-width="2.8" style="stroke-dasharray:390;--len:390;animation-delay:.4s"/>
             <!-- plain outlined text (the app's text tool), NOT a pill -->
-            <text class="fd" x="148" y="60" font-size="13.5" fill="#5aa9d8" font-weight="800" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;animation-delay:1.15s">center the dome</text>
+            <text class="fd" x="150" y="74" font-size="16" fill="#5aa9d8" font-weight="800" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:3.4px;stroke-linejoin:round;animation-delay:1.2s">center the dome</text>
 
-            <!-- the easter-egg note: nods to Devo's "Whip It" → clip it good -->
-            <path class="dr" d="M262 171 L262 154" fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round" style="stroke-dasharray:18;--len:18;animation-delay:1.9s"/>
-            <path class="dr" d="M262 171 L262 154" fill="none" stroke="#ed3330" stroke-width="2.6" stroke-linecap="round" style="stroke-dasharray:18;--len:18;animation-delay:1.9s"/>
-            <polygon class="fd" points="262,150 255,161 269,161" fill="#ed3330" stroke="#fff" stroke-width="1.3" stroke-linejoin="round" style="animation-delay:2.45s"/>
-            <text class="fd" x="262" y="178" font-size="11.5" fill="#ed3330" font-weight="800" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:2.8px;stroke-linejoin:round;animation-delay:2.7s">clip it good</text>
+            <!-- easter-egg note: Devo's "Whip It" -> clip it good -->
+            <path class="dr" d="M311 270 L311 231" fill="none" stroke="#fff" stroke-width="5.6" stroke-linecap="round" style="stroke-dasharray:40;--len:40;animation-delay:1.95s"/>
+            <path class="dr" d="M311 270 L311 231" fill="none" stroke="#ed3330" stroke-width="2.8" stroke-linecap="round" style="stroke-dasharray:40;--len:40;animation-delay:1.95s"/>
+            <polygon class="fd" points="311,226 303,238 319,238" fill="#ed3330" stroke="#fff" stroke-width="1.4" stroke-linejoin="round" style="animation-delay:2.5s"/>
+            <text class="fd" x="311" y="288" font-size="14" fill="#ed3330" font-weight="800" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;animation-delay:2.75s">clip it good</text>
           </svg>
         </div>
         <div class="uctext"><h3>Design feedback</h3><p>Point at the pixel, say what's wrong, send it back. (It's exactly how this site got built.)</p><span class="uctools">arrow · text · ellipse</span></div>
