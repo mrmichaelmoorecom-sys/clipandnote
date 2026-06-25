@@ -15,3 +15,8 @@ Resources/*.pt
 Resources/*.mlpackage/
 Resources/dmg-background.png
 /note_appicon_final.png
+
+# explainer scratch — keep only the two screenshots the site embeds
+explainer/*
+!explainer/editor.png
+!explainer/menu.png

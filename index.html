@@ -299,6 +299,25 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 .reveal.in{opacity:1;transform:none}
 @media (max-width:760px){.step{grid-template-columns:1fr;gap:30px;margin-bottom:80px}.step.rev .copy{order:0}.step .demo{min-height:auto}nav .brand span{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.reveal{opacity:1;transform:none}}
+/* interactive feature tour — callouts overlaid on real app screenshots */
+.toursec .tourw{position:relative;overflow:visible}
+.toursec .tourw img{display:block;width:100%;border-radius:13px;box-shadow:0 30px 80px -34px rgba(40,30,55,.55)}
+.toursec .editor-tour{max-width:1120px;margin:28px auto 0}
+.toursec .menu-block{max-width:760px;margin:56px auto 0;display:flex;justify-content:center}
+.toursec .menu-tour{width:300px;flex:none}
+.toursec .menu-tour img{box-shadow:0 26px 64px -30px rgba(40,30,55,.5)}
+.toursec .thot{position:absolute;transform:translate(-50%,-50%);border-radius:7px;cursor:pointer;z-index:3;transition:box-shadow .15s,background .15s}
+.toursec .thot:hover,.toursec .thot.cur{background:rgba(120,150,200,.22);box-shadow:0 0 0 2px rgba(120,160,210,.85),0 0 20px rgba(120,160,210,.55)}
+.toursec .tcallout{position:absolute;background:#fff;color:var(--ink);border-radius:13px;padding:13px 17px;box-shadow:0 18px 44px -12px rgba(30,22,45,.5);width:250px;opacity:0;z-index:5;pointer-events:none;transition:opacity .2s,left .35s cubic-bezier(.4,0,.2,1),top .35s}
+.toursec .tcallout.show{opacity:1}
+.toursec .tcallout b{display:block;font-size:16px;font-weight:800}
+.toursec .tcallout span{display:block;font-size:13.5px;color:var(--ink-soft);margin-top:3px;line-height:1.4}
+.toursec .tcallout .kb{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#2c6e9e;background:rgba(44,110,158,.1);border-radius:5px;padding:2px 8px}
+.toursec .tcallout::before{content:"";position:absolute;width:14px;height:14px;background:#fff;border-radius:3px}
+.toursec .tcallout.bottom{transform:translateX(-50%)}
+.toursec .tcallout.bottom::before{top:-7px;left:50%;transform:translateX(-50%) rotate(45deg)}
+.toursec .tcallout.right::before{left:-7px;top:24px;transform:rotate(45deg)}
+@media (max-width:820px){.toursec .menu-block{display:none}.toursec .editor-tour .tcallout{display:none}}
 </style>
 </head>
 <body>
@@ -439,6 +458,16 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 
 <div class="secbreak reveal" aria-hidden="true"><span class="ln l"></span><svg viewBox="0 0 512 512"><use href="#cnmark"/></svg><span class="ln r"></span></div>
 
+<section class="pad toursec">
+  <div class="wrap">
+    <div class="shead reveal"><div class="kicker">a quick tour</div><h2>Every tool, one tap away</h2><p>The callouts cycle on their own — hover any tool or menu item to read what it does.</p></div>
+    <div class="tourw editor-tour reveal" id="editorTour"><img src="explainer/editor.png" alt="The clipandnote editor toolbar"></div>
+    <div class="menu-block reveal"><div class="tourw menu-tour" id="menuTour"><img src="explainer/menu.png" alt="The clipandnote menu-bar dropdown"></div></div>
+  </div>
+</section>
+
+<div class="secbreak reveal" aria-hidden="true"><span class="ln l"></span><svg viewBox="0 0 512 512"><use href="#cnmark"/></svg><span class="ln r"></span></div>
+
 <section class="pad">
   <div class="wrap">
     <div class="shead reveal"><div class="kicker">the toolkit</div><h2>Simple tools for complex notes</h2><p>And a capture mode for whatever's on screen.</p></div>
@@ -550,6 +579,69 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
       }
       el.textContent=txt;
     }).catch(function(){});
+})();
+</script>
+<script>
+// Interactive feature tour: callouts cycle over the real app screenshots, and
+// hovering any tool/menu item pauses the cycle to show that one.
+(function(){
+  var TBAR={side:'bottom',band:{cy:4.8,h:6.6,w:2.3},items:[
+    [9.0,"Select","Move, resize & restyle any mark — ⇧ keeps the ratio, ⌥ scales from center.","V",1],
+    [11.4,"Capture","Grab a fresh region straight onto the canvas, without leaving the editor.","",1],
+    [13.8,"Grab Text","Pull text out of a screenshot, on-device — lines copy to your clipboard.","I",1],
+    [16.2,"Crop","Trim the canvas to what matters; outside marks drop away.","C",0],
+    [18.6,"Pixelate / Blur","Hide a token, email or face — blur what shouldn't be public.","X",1],
+    [22.5,"Arrow","A tapered arrow that points right at the thing you mean.","A",1],
+    [25.1,"Ruler / Angle","Measure a distance in pixels or call out an exact angle.","M",0],
+    [27.6,"Curved Double Arrow","A two-headed connector with a drag-to-shape curve.","D",0],
+    [30.2,"Line","A straight line — hold ⇧ to lock to 45°.","L",0],
+    [32.7,"Pen","Freehand draw anything, smoothed as you go.","P",1],
+    [35.3,"Highlighter","A translucent swipe to draw the eye to a line.","H",1],
+    [37.8,"Rectangle","Box an area — ⇧ for a square, ⌥ from the center.","R",0],
+    [40.4,"Ellipse","Circle something — ⇧ for a perfect circle.","O",0],
+    [43.0,"Text","Type a note in clean outlined text — a live object, never baked in.","T",1],
+    [47.0,"Bring Forward","Re-order any mark above or below the others.","",0],
+    [49.5,"Send Back","Re-order any mark above or below the others.","",0],
+    [53.0,"Outlines","A white contrast halo so every mark pops on any background.","",1],
+    [62.0,"Colors","Presets, custom slots, the eyedropper, or a hex value.","",1],
+    [69.0,"Eyedropper","Sample any color already on the canvas.","",0],
+    [75.5,"Hex","Type an exact hex color.","",0],
+    [86.0,"Width","Set the stroke weight for the next mark or the selection.","",1],
+    [94.3,"Canvas","Toggle the canvas background on or off.","",0],
+    [98.3,"Copy","Copy the flattened result straight to the clipboard.","",1]]};
+  var MENU={side:'right',band:{cx:50,w:92,h:4.6},items:[
+    [10.0,"Crosshair Clip","Drag a box around any region of the screen.","⌥⌘4",1],
+    [15.4,"Previous Clip Area","Re-grab the exact same region you clipped last time.","⌥⌘6",1],
+    [20.4,"Fullscreen Clip","Grab the whole screen in one shot.","⌥⌘3",1],
+    [25.4,"Window Clip","Click a window to clip just that window, cleanly.","⌥⌘5",1],
+    [30.4,"Menu Clip","Capture an open menu — even ones that vanish on click.","⌃⌥M",1],
+    [36.0,"New clipandnote","Start a blank canvas to paste or draw on.","",1],
+    [48.0,"Recent Markups","Every clip autosaves here — reopen or paste it in a click.","",1]]};
+  function initTour(wrap,cfg){
+    if(!wrap) return;
+    var co=document.createElement('div'); co.className='tcallout '+cfg.side; wrap.appendChild(co);
+    var hots=cfg.items.map(function(it){
+      var h=document.createElement('div'); h.className='thot';
+      if(cfg.side==='bottom'){h.style.left=it[0]+'%';h.style.top=cfg.band.cy+'%';h.style.width=cfg.band.w+'%';h.style.height=cfg.band.h+'%';}
+      else{h.style.left=cfg.band.cx+'%';h.style.top=it[0]+'%';h.style.width=cfg.band.w+'%';h.style.height=cfg.band.h+'%';}
+      h._it=it; wrap.appendChild(h); return h;
+    });
+    var tour=hots.filter(function(h){return h._it[4];}),i=-1,timer=null,hovering=false;
+    function show(h){var it=h._it;
+      co.innerHTML='<b>'+it[1]+'</b><span>'+it[2]+'</span>'+(it[3]?'<span class="kb">'+it[3]+'</span>':'');
+      if(cfg.side==='bottom'){co.style.left=it[0]+'%';co.style.top=(cfg.band.cy+cfg.band.h/2+3)+'%';}
+      else{co.style.left='calc(100% + 18px)';co.style.top='calc('+it[0]+'% - 26px)';}
+      co.classList.add('show'); hots.forEach(function(x){x.classList.remove('cur');}); h.classList.add('cur');}
+    function step(){i=(i+1)%tour.length;show(tour[i]);}
+    function play(){stop();timer=setInterval(step,1800);step();}
+    function stop(){if(timer){clearInterval(timer);timer=null;}}
+    hots.forEach(function(h){
+      h.addEventListener('mouseenter',function(){hovering=true;stop();show(h);});
+      h.addEventListener('mouseleave',function(){hovering=false;setTimeout(function(){if(!hovering)play();},800);});});
+    play();
+  }
+  initTour(document.getElementById('editorTour'),TBAR);
+  initTour(document.getElementById('menuTour'),MENU);
 })();
 </script>
 <!-- GoatCounter — privacy-friendly analytics (no cookies, no PII) -->
