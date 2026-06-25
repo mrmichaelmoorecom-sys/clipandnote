@@ -778,11 +778,20 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 document.objects[idx].points = [dragStart, end]
                 document.objects[idx].recomputeBounds()
             } else {
-                document.objects[idx].frame = rect(from: dragStart, to: p)
+                // Frame shapes (rect / ellipse / highlighter / pixelate): ⇧ locks
+                // a 1:1 square/circle, ⌥ draws outward from the first-click point
+                // as the center. Live modifier state so it engages mid-drag.
+                let mods = NSEvent.modifierFlags
+                document.objects[idx].frame = creationFrame(from: dragStart, to: p,
+                                                            lockSquare: mods.contains(.shift),
+                                                            fromCenter: mods.contains(.option))
             }
         case .resize(let h):
             guard let pre = preDrag else { break }
-            document.objects[idx].frame = resized(pre.frame, handle: h, to: p)
+            let mods = NSEvent.modifierFlags
+            document.objects[idx].frame = resized(pre.frame, handle: h, to: p,
+                                                  lockAspect: mods.contains(.shift),
+                                                  fromCenter: mods.contains(.option))
         case .endpoint(let i):
             guard let pre = preDrag, pre.points.count >= 2 else { break }
             var pts = pre.points
@@ -850,7 +859,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 document.objects[idx].points = [dragStart, end]
                 document.objects[idx].recomputeBounds()
             } else {
-                document.objects[idx].frame = rect(from: dragStart, to: p)
+                // Frame shapes (rect / ellipse / highlighter / pixelate): ⇧ locks
+                // a 1:1 square/circle, ⌥ draws outward from the first-click point
+                // as the center. Live modifier state so it engages mid-drag.
+                let mods = NSEvent.modifierFlags
+                document.objects[idx].frame = creationFrame(from: dragStart, to: p,
+                                                            lockSquare: mods.contains(.shift),
+                                                            fromCenter: mods.contains(.option))
             }
             let o = document.objects[idx]
             // Discard only genuine accidental clicks. Freehand is judged by point
@@ -918,19 +933,102 @@ final class CanvasView: NSView, NSTextViewDelegate {
         CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
     }
 
-    private func resized(_ f: CGRect, handle h: Handle, to p: CGPoint) -> CGRect {
-        var minX = f.minX, minY = f.minY, maxX = f.maxX, maxY = f.maxY
-        switch h {
-        case .topLeft:     minX = p.x; minY = p.y
-        case .top:         minY = p.y
-        case .topRight:    maxX = p.x; minY = p.y
-        case .right:       maxX = p.x
-        case .bottomRight: maxX = p.x; maxY = p.y
-        case .bottom:      maxY = p.y
-        case .bottomLeft:  minX = p.x; maxY = p.y
-        case .left:        minX = p.x
+    /// Frame for a shape being drawn from `start` to `p`.
+    /// - `lockSquare` (⇧): force a 1:1 square/circle, sized to the larger axis and
+    ///   following the cursor's quadrant.
+    /// - `fromCenter` (⌥): treat `start` as the center and grow outward (so ⇧⌥
+    ///   draws a perfect square/circle centered on the first-click point).
+    private func creationFrame(from start: CGPoint, to p: CGPoint,
+                               lockSquare: Bool, fromCenter: Bool) -> CGRect {
+        var dx = p.x - start.x, dy = p.y - start.y
+        if lockSquare {
+            let s = max(abs(dx), abs(dy))
+            dx = dx < 0 ? -s : s
+            dy = dy < 0 ? -s : s
         }
-        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        if fromCenter {
+            return CGRect(x: start.x - abs(dx), y: start.y - abs(dy),
+                          width: abs(dx) * 2, height: abs(dy) * 2)
+        }
+        return rect(from: start, to: CGPoint(x: start.x + dx, y: start.y + dy))
+    }
+
+    /// Resize `f` by dragging handle `h` to point `p`.
+    /// - `lockAspect` (⇧): keep the original width:height ratio.
+    /// - `fromCenter` (⌥): scale about the object's center (opposite side mirrors)
+    ///   instead of pinning the opposite edge/corner.
+    /// ⇧⌥ together gives a proportional scale about the center.
+    private func resized(_ f: CGRect, handle h: Handle, to p: CGPoint,
+                         lockAspect: Bool = false, fromCenter: Bool = false) -> CGRect {
+        guard f.width > 0, f.height > 0, (lockAspect || fromCenter) else {
+            var minX = f.minX, minY = f.minY, maxX = f.maxX, maxY = f.maxY
+            switch h {
+            case .topLeft:     minX = p.x; minY = p.y
+            case .top:         minY = p.y
+            case .topRight:    maxX = p.x; minY = p.y
+            case .right:       maxX = p.x
+            case .bottomRight: maxX = p.x; maxY = p.y
+            case .bottom:      maxY = p.y
+            case .bottomLeft:  minX = p.x; maxY = p.y
+            case .left:        minX = p.x
+            }
+            return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        }
+
+        let aspect = f.width / f.height
+
+        // ⌥ — grow/shrink symmetrically about the center; the cursor sets the
+        // half-extent and the opposite side mirrors it.
+        if fromCenter {
+            let c = CGPoint(x: f.midX, y: f.midY)
+            var halfW: CGFloat, halfH: CGFloat
+            switch h {
+            case .left, .right:
+                halfW = abs(p.x - c.x)
+                halfH = lockAspect ? halfW / aspect : f.height / 2
+            case .top, .bottom:
+                halfH = abs(p.y - c.y)
+                halfW = lockAspect ? halfH * aspect : f.width / 2
+            default:   // corners
+                halfW = abs(p.x - c.x); halfH = abs(p.y - c.y)
+                if lockAspect {
+                    if halfW / (f.width / 2) >= halfH / (f.height / 2) { halfH = halfW / aspect }
+                    else { halfW = halfH * aspect }
+                }
+            }
+            return CGRect(x: c.x - halfW, y: c.y - halfH, width: halfW * 2, height: halfH * 2)
+        }
+
+        // ⇧ only — keep aspect, pinning the opposite edge/corner.
+        switch h {
+        case .topLeft, .topRight, .bottomLeft, .bottomRight:
+            // Pin the opposite corner; size along whichever axis moved furthest.
+            let anchor: CGPoint
+            switch h {
+            case .topLeft:     anchor = CGPoint(x: f.maxX, y: f.maxY)
+            case .topRight:    anchor = CGPoint(x: f.minX, y: f.maxY)
+            case .bottomLeft:  anchor = CGPoint(x: f.maxX, y: f.minY)
+            default:           anchor = CGPoint(x: f.minX, y: f.minY)   // bottomRight
+            }
+            let dx = p.x - anchor.x, dy = p.y - anchor.y
+            var w = abs(dx), hh = abs(dy)
+            if w / f.width >= hh / f.height { hh = w / aspect } else { w = hh * aspect }
+            let moving = CGPoint(x: anchor.x + (dx < 0 ? -w : w),
+                                 y: anchor.y + (dy < 0 ? -hh : hh))
+            return rect(from: anchor, to: moving)
+        case .left, .right:
+            // Width driven against the fixed opposite edge; height about midY.
+            let fixedX = (h == .left) ? f.maxX : f.minX
+            let w = abs(p.x - fixedX)
+            let hh = w / aspect
+            return CGRect(x: min(fixedX, p.x), y: f.midY - hh / 2, width: w, height: hh)
+        case .top, .bottom:
+            // Height driven against the fixed opposite edge; width about midX.
+            let fixedY = (h == .top) ? f.maxY : f.minY
+            let hh = abs(p.y - fixedY)
+            let w = hh * aspect
+            return CGRect(x: f.midX - w / 2, y: min(fixedY, p.y), width: w, height: hh)
+        }
     }
 
     // MARK: Keyboard
