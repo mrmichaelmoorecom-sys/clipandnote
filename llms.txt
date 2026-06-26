@@ -1,0 +1,29 @@
+# clipandnote
+
+> A fast, native macOS screenshot-markup app — a modern, open take on Skitch. Capture from the menu bar, annotate with movable objects, and export real layered files. Free for personal use, 100% on-device, no account.
+
+clipandnote lives in your menu bar. Grab a region, window, or the full screen, then mark it up in a lightweight editor where every annotation stays a live, editable object (not flattened into the image). It is signed with a Developer ID and notarized by Apple.
+
+## Key features
+- Capture from the menu bar: crosshair region, previous area, window, fullscreen, or a menu — with global hotkeys (default ⌥⌘ combos).
+- Annotate with movable objects: arrows, lines, boxes, ellipses, freehand pen, text, highlighter — each one selectable, restylable, and re-orderable.
+- Ruler and angle tools for exact pixel distances and degrees.
+- Pixelate / blur to hide sensitive details (tokens, emails, faces).
+- Grab Text (OCR) and automatic snapshot naming run 100% on-device — no cloud, no account.
+- Multi-page PDFs: open a PDF, mark up every page in one window (with a thumbnail sidebar), and export it all as one layered PDF.
+- Export editable documents (.can), or layered PDF, PNG, and SVG; copy a flattened result straight to the clipboard.
+- Automatic local history of recent markups, one click away in the menu bar.
+
+## Details
+- Platform: macOS 13 (Ventura) or later, Apple Silicon and Intel.
+- Price: free for personal use.
+- License: CC BY-NC 4.0 (open, non-commercial).
+- Privacy: on-device only; no telemetry beyond privacy-friendly, cookieless page analytics.
+
+## Links
+- Home: https://clipandnote.com/
+- Download (.dmg): https://github.com/mrmichaelmoorecom-sys/clipandnote/releases/latest/download/clipandnote.dmg
+- Releases: https://github.com/mrmichaelmoorecom-sys/clipandnote/releases
+- Source / GitHub: https://github.com/mrmichaelmoorecom-sys/clipandnote
+- License: https://creativecommons.org/licenses/by-nc/4.0/
+- Sibling app (clipboard manager): https://clipandcue.com

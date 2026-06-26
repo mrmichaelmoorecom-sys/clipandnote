@@ -1,0 +1,25 @@
+# clipandnote — https://clipandnote.com
+# A native macOS screenshot-markup app (open, non-commercial).
+
+User-agent: *
+Allow: /
+
+# AI / LLM crawlers are welcome — the site is open and meant to be discoverable.
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://clipandnote.com/sitemap.xml
