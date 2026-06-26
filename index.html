@@ -561,7 +561,10 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   var agree=document.getElementById('agree'),btn=document.getElementById('dlbtn'),note=document.getElementById('dlnote'),wrap=document.getElementById('dlwrap');
   function setEnabled(on){if(on){btn.removeAttribute('disabled');btn.setAttribute('aria-disabled','false');btn.href=btn.dataset.href;note.textContent='Thanks! Your download will begin. Drag clipandnote.app into Applications.';}else{btn.setAttribute('disabled','');btn.setAttribute('aria-disabled','true');btn.removeAttribute('href');note.textContent='Tick the box to enable the download.';}}
   agree.addEventListener('change',function(){setEnabled(agree.checked);});
-  btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}else if(window.goatcounter&&window.goatcounter.count){window.goatcounter.count({path:'download-dmg',title:'Download .dmg',event:true});}});
+  btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}});
+  // Count the download on pointer-down — fires before the browser starts the
+  // download/navigation, so the GoatCounter beacon isn't cancelled in flight.
+  btn.addEventListener('pointerdown',function(){if(!btn.hasAttribute('disabled')&&window.goatcounter&&window.goatcounter.count){window.goatcounter.count({path:'download-dmg',title:'Download .dmg',event:true});}});
   setEnabled(false);
   document.getElementById('yr').textContent=new Date().getFullYear();
   // Keep the version line in sync with the latest GitHub release (falls back to
@@ -570,14 +573,24 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   fetch('https://api.github.com/repos/mrmichaelmoorecom-sys/clipandnote/releases/latest')
     .then(function(r){return r.ok?r.json():Promise.reject();})
     .then(function(d){
+      if(!d.tag_name)return;
+      // footer version line (local-time date)
       var el=document.getElementById('dlver');
-      if(!el||!d.tag_name)return;
-      var txt=d.tag_name;
-      if(d.published_at){
-        var dt=new Date(d.published_at);
-        if(!isNaN(dt))txt+=' · released '+dt.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      if(el){
+        var txt=d.tag_name;
+        if(d.published_at){var dt=new Date(d.published_at);if(!isNaN(dt))txt+=' · released '+dt.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});}
+        el.textContent=txt;
       }
-      el.textContent=txt;
+      // keep the SoftwareApplication JSON-LD's version + modified date in sync
+      try{
+        var ver=d.tag_name.replace(/^v/,'');
+        var mod=d.published_at?d.published_at.slice(0,10):null;
+        [].forEach.call(document.querySelectorAll('script[type="application/ld+json"]'),function(s){
+          if(s.textContent.indexOf('SoftwareApplication')<0)return;
+          var j=JSON.parse(s.textContent); j.softwareVersion=ver; if(mod)j.dateModified=mod;
+          s.textContent=JSON.stringify(j,null,2);
+        });
+      }catch(e){}
     }).catch(function(){});
 })();
 </script>
