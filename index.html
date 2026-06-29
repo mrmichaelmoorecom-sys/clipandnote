@@ -564,9 +564,6 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
   function setEnabled(on){if(on){btn.removeAttribute('disabled');btn.setAttribute('aria-disabled','false');btn.href=btn.dataset.href;note.textContent='Thanks! Your download will begin. Drag clipandnote.app into Applications.';}else{btn.setAttribute('disabled','');btn.setAttribute('aria-disabled','true');btn.removeAttribute('href');note.textContent='Tick the box to enable the download.';}}
   agree.addEventListener('change',function(){setEnabled(agree.checked);});
   btn.addEventListener('click',function(e){if(btn.hasAttribute('disabled')){e.preventDefault();wrap.classList.remove('shake');void wrap.offsetWidth;wrap.classList.add('shake');note.textContent='Please agree to the terms first ☝︎';agree.focus();}});
-  // Count the download on pointer-down — fires before the browser starts the
-  // download/navigation, so the GoatCounter beacon isn't cancelled in flight.
-  btn.addEventListener('pointerdown',function(){if(!btn.hasAttribute('disabled')&&window.goatcounter&&window.goatcounter.count){window.goatcounter.count({path:'download-dmg',title:'Download .dmg',event:true});}});
   setEnabled(false);
   document.getElementById('yr').textContent=new Date().getFullYear();
   // Keep the version line in sync with the latest GitHub release (falls back to
@@ -660,5 +657,18 @@ footer .fine{margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,
 <!-- GoatCounter — privacy-friendly analytics (no cookies, no PII) -->
 <script data-goatcounter="https://clipandnote.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
+<script>
+  // Count .dmg downloads as a GoatCounter event (isolated like clipandcue, so an
+  // error elsewhere can't stop it binding). Only on an enabled, real download.
+  (function () {
+    var d = document.getElementById('dlbtn');
+    if (d) d.addEventListener('click', function () {
+      if (d.hasAttribute('disabled')) return;
+      if (window.goatcounter && window.goatcounter.count) {
+        window.goatcounter.count({ path: 'download-dmg', title: 'Download DMG', event: true });
+      }
+    });
+  })();
+</script>
 </body>
 </html>
